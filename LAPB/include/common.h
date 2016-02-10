@@ -10,6 +10,8 @@
 #include <pthread.h>
 #include <syslog.h>
 
+#include <stdarg.h>
+
 #include "net_lapb.h"
 
 #define TRUE	1
@@ -29,6 +31,37 @@ struct main_callbacks {
 	//void (*print_commands_2)(struct lapb_cb * lapb);
 	//void (*print_commands_3)(struct lapb_cb * lapb);
 };
+
+
+
+/* Called by LAPB to inform X25 that SABM(SABME) is confirmed */
+void connect_confirmation(struct lapb_cb * lapb, int reason);
+/* Called by LAPB to inform X25 that SABM(SABME) is received and UA sended */
+void connect_indication(struct lapb_cb * lapb, int reason);
+/* Called by LAPB to inform X25 that DISC is confirmed */
+void disconnect_confirmation(struct lapb_cb * lapb, int reason);
+/* Called by LAPB to inform X25 that DISC is received and UA sended */
+void disconnect_indication(struct lapb_cb * lapb, int reason);
+/* Called by LAPB to inform X25 about new data */
+int data_indication(struct lapb_cb * lapb, unsigned char * data, int data_size);
+///* Called by LAPB to transmit data via physical connection */
+//void data_transmit(struct lapb_cb * lapb, char *data, int data_size);
+/* Called by LAPB to start timer T1 */
+void start_t1timer(struct lapb_cb * lapb);
+/* Called by LAPB to stop timer T1 */
+void stop_t1timer();
+/* Called by LAPB to start timer T2 */
+void start_t2timer(struct lapb_cb * lapb);
+/* Called by LAPB to stop timer T1 */
+void stop_t2timer();
+/* Called by LAPB to write debug info */
+void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...);
+
+
+void t1timer_expiry(unsigned long int lapb_addr);
+void t2timer_expiry(unsigned long int lapb_addr);
+
+
 
 void setup_signals_handler();
 int sleep_ms(int milliseconds);

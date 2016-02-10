@@ -308,8 +308,7 @@ out:
 	return rc;
 }
 
-int lapb_data_request(struct lapb_cb *lapb, struct lapb_buff *skb) {
-	(void)skb;
+int lapb_data_request(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
 	if (!lapb)
@@ -320,14 +319,14 @@ int lapb_data_request(struct lapb_cb *lapb, struct lapb_buff *skb) {
 		goto out;
 
 	//skb_queue_tail(&lapb->write_queue, skb);
-	lapb_kick(lapb);
+	lapb_kick(lapb, data, data_size);
 	rc = LAPB_OK;
 
 out:
 	return rc;
 }
 
-int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size) {
+int lapb_data_received(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
 	if (lapb) {
@@ -358,7 +357,7 @@ void lapb_disconnect_indication(struct lapb_cb *lapb, int reason) {
 		lapb->callbacks->disconnect_indication(lapb, reason);
 }
 
-int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size) {
+int lapb_data_indication(struct lapb_cb *lapb, unsigned char * data, int data_size) {
 	if (lapb->callbacks->data_indication)
 		return lapb->callbacks->data_indication(lapb, data, data_size);
 
@@ -367,11 +366,11 @@ int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size) {
 	return 0;
 }
 
-int lapb_data_transmit(struct lapb_cb *lapb, struct lapb_buff *skb) {
+int lapb_data_transmit(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 	int used = 0;
 
 	if (lapb->callbacks->data_transmit) {
-		lapb->callbacks->data_transmit(lapb, skb);
+		lapb->callbacks->data_transmit(lapb, data, data_size);
 		used = 1;
 	};
 

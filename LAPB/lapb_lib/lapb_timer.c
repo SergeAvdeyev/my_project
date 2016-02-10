@@ -122,7 +122,7 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 			} else {
 				lapb->n2count++;
 				lapb_requeue_frames(lapb);
-				lapb_kick(lapb);
+				lapb_kick(lapb, NULL, 0);
 			};
 			break;
 

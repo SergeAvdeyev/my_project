@@ -1,4 +1,5 @@
 
+#include "my_timer.h"
 #include "common.h"
 
 /* Signals handler */
@@ -37,6 +38,125 @@ void setup_signals_handler() {
 	if (sigaction(SIGINT, &sa, NULL) == -1)
 		perror("Error: cannot handle SIGINT"); // Should not happen
 }
+
+
+
+
+
+
+
+/*
+ * LAPB callback functions for X.25
+ *
+*/
+/* Called by LAPB to inform X25 that SABM(SABME) is confirmed */
+void connect_confirmation(struct lapb_cb * lapb, int reason) {
+	(void)lapb;
+	syslog(LOG_NOTICE, "[X25_CB] connect_confirmation is called(%s)", lapb_error_str(reason));
+}
+
+/* Called by LAPB to inform X25 that SABM(SABME) is received and UA sended */
+void connect_indication(struct lapb_cb * lapb, int reason) {
+	(void)lapb;
+	syslog(LOG_NOTICE, "[X25_CB] connect_indication is called(%s)", lapb_error_str(reason));
+}
+
+/* Called by LAPB to inform X25 that DISC is confirmed */
+void disconnect_confirmation(struct lapb_cb * lapb, int reason) {
+	(void)lapb;
+	syslog(LOG_NOTICE, "[X25_CB] disconnect_confirmation is called(%s)", lapb_error_str(reason));
+}
+
+/* Called by LAPB to inform X25 that DISC is received and UA sended */
+void disconnect_indication(struct lapb_cb * lapb, int reason) {
+	(void)lapb;
+	syslog(LOG_NOTICE, "[X25_CB] disconnect_indication is called(%s)", lapb_error_str(reason));
+}
+
+/* Called by LAPB to inform X25 about new data */
+int data_indication(struct lapb_cb * lapb, unsigned char * data, int data_size) {
+	(void)lapb;
+	(void)data;
+	(void)data_size;
+	syslog(LOG_NOTICE, "[X25_CB] data_indication is called");
+	return 0;
+}
+
+///* Called by LAPB to transmit data via physical connection */
+//void data_transmit(struct lapb_cb * lapb, struct lapb_buff *skb) {
+//	(void)lapb;
+//	syslog(LOG_NOTICE, "[PHYS_CB] data_transmit is called");
+
+//	int n = write(tcp_client_socket(), skb->data, skb->data_size);
+//	if (n < 0)
+//		syslog(LOG_ERR, "[PHYS_CB] ERROR writing to socket, %s", strerror(errno));
+//}
+
+/* Called by LAPB to start timer T1 */
+void start_t1timer(struct lapb_cb * lapb) {
+	set_t1_value(lapb->t1 * 1000);
+	set_t1_state(TRUE);
+	syslog(LOG_NOTICE, "[LAPB] start_t1timer is called");
+}
+
+/* Called by LAPB to stop timer T1 */
+void stop_t1timer() {
+	set_t1_state(FALSE);
+	set_t1_value(0);
+	syslog(LOG_NOTICE, "[LAPB] stop_t1timer is called");
+}
+
+/* Called by LAPB to start timer T2 */
+void start_t2timer(struct lapb_cb * lapb) {
+	set_t2_value(lapb->t2 * 1000);
+	set_t2_state(TRUE);
+	syslog(LOG_NOTICE, "[LAPB] start_t2timer is called");
+}
+
+/* Called by LAPB to stop timer T1 */
+void stop_t2timer() {
+	set_t2_state(FALSE);
+	set_t2_value(0);
+	syslog(LOG_NOTICE, "[LAPB] stop_t2timer is called");
+}
+
+
+/* Called by LAPB to write debug info */
+void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
+	(void)lapb;
+	if (level < LAPB_DEBUG) {
+		char buf[256];
+		va_list argList;
+
+		va_start(argList, format);
+		vsnprintf(buf, 256, format, argList);
+		//sprintf(buf, format, argList);
+		va_end(argList);
+		syslog(LOG_NOTICE, "[LAPB] %s", buf);
+	};
+}
+
+
+
+
+/*
+ * Timer callback functions
+ *
+*/
+void t1timer_expiry(unsigned long int lapb_addr) {
+	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
+	syslog(LOG_NOTICE, "[X25_CB] Timer_1 expired");
+	lapb_t1timer_expiry(lapb);
+}
+
+void t2timer_expiry(unsigned long int lapb_addr) {
+	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
+	syslog(LOG_NOTICE, "[X25_CB] Timer_2 expired");
+	lapb_t2timer_expiry(lapb);
+}
+
+
+
 
 
 
@@ -154,8 +274,8 @@ void print_commands_3(struct lapb_cb * lapb) {
 		printf("Connected state(modulo 128):\n");
 	else
 		printf("Connected state(modulo 8):\n");
-	printf("1 Send DISC\n");
-	//printf("2 Send SABM\n");
+	printf("1 Send Info\n");
+	printf("2 Send DISC\n");
 	//printf("-----------\n");
 	//printf("4 Send RR\n");
 	//printf("5 Send RNR\n");
@@ -216,14 +336,6 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 							break;
 					};
 				};
-
-//				if (!callbacks->is_connected())
-//					sleep_ms(100);
-//				else {
-//					lapb->state = LAPB_STATE_0;
-//					lapb->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
-//					printf("Physical connection established\n\n");
-//				};
 
 				break;
 			case LAPB_STATE_0:
@@ -349,7 +461,17 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
-						case 1:
+						case 1:  // Send Info
+							main_lock();
+							lapb_res = lapb_data_request(lapb, (unsigned char *)"test", 4);
+							main_unlock();
+							if (lapb_res != LAPB_OK) {
+								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
+								lapb_reset(lapb, LAPB_STATE_0);
+							} else
+								while_flag = FALSE;
+							break;
+						case 2: // DISC
 							main_lock();
 							lapb_res = lapb_disconnect_request(lapb);
 							main_unlock();

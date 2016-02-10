@@ -162,7 +162,7 @@ void * client_function(void *ptr) {
 	struct hostent	*	server;
 	int				rc;
 
-	char			buffer[2048];
+	unsigned char	buffer[2048];
 	int				max_sd = 0;
 	struct timeval	timeout;
 	fd_set			master_set, working_set;

@@ -2,24 +2,19 @@
 #include <string.h>
 #include <signal.h>
 #include <syslog.h>		/* for syslog writing */
-#include <stdarg.h>
 
-//#include "types_n_consts.h"
 #include "tcp_server.h"
 #include "my_timer.h"
 #include "net_lapb.h"
 #include "common.h"
 
 
-
-//volatile sig_atomic_t exit_flag;
 struct lapb_cb * lapb_server = NULL;
-//pthread_mutex_t main_mutex;
 
 int AutomaticMode = TRUE;
 
 int manual_process();
-int man_decode(struct lapb_cb *lapb, char *data, int data_size, struct lapb_frame *frame);
+int man_decode(struct lapb_cb *lapb, unsigned char *data, int data_size, struct lapb_frame *frame);
 void print_man_commands();
 
 
@@ -28,103 +23,22 @@ void print_man_commands();
 
 
 
-/*
- * LAPB callback functions for X.25
- *
-*/
-void connect_confirmation(struct lapb_cb * lapb, int reason) {
+///*
+// * LAPB callback functions for X.25
+// *
+
+/* Called by LAPB to transmit data via physical connection */
+void data_transmit(struct lapb_cb * lapb, unsigned char *data, int data_size) {
 	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] connect_confirmation is called(%s)", lapb_error_str(reason));
-}
+	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
 
-void connect_indication(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] connect_indication is called(%s)", lapb_error_str(reason));
-}
-
-void disconnect_confirmation(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] disconnect_confirmation is called(%s)", lapb_error_str(reason));
-}
-
-void disconnect_indication(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] disconnect_indication is called(%s)", lapb_error_str(reason));
-}
-
-int  data_indication(struct lapb_cb * lapb, char * data, int data_size) {
-	(void)lapb;
-	(void)data;
-	(void)data_size;
-	syslog(LOG_NOTICE, "[X25_CB] data_indication is called");
-	return 0;
-}
-
-
-void data_transmit(struct lapb_cb * lapb, struct lapb_buff *skb) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "[PHYS_CB] data_transmit is called");
-
-	int n = write(tcp_client_socket(), skb->data, skb->data_size);
+	int n = write(tcp_client_socket(), data, data_size);
 	if (n < 0)
-		syslog(LOG_ERR, "[PHYS_CB] ERROR writing to socket, %s", strerror(errno));
-}
-
-void start_t1timer(struct lapb_cb * lapb) {
-	set_t1_value(lapb->t1 * 1000);
-	set_t1_state(TRUE);
-	syslog(LOG_NOTICE, "[LAPB] start_t1timer is called");
-}
-
-void stop_t1timer() {
-	set_t1_state(FALSE);
-	set_t1_value(0);
-	syslog(LOG_NOTICE, "[LAPB] stop_t1timer is called");
-}
-
-void start_t2timer(struct lapb_cb * lapb) {
-	set_t2_value(lapb->t2 * 1000);
-	set_t2_state(TRUE);
-	syslog(LOG_NOTICE, "[LAPB] start_t2timer is called");
-}
-
-void stop_t2timer() {
-	set_t2_state(FALSE);
-	set_t2_value(0);
-	syslog(LOG_NOTICE, "[LAPB] stop_t2timer is called");
-}
-
-void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
-	(void)lapb;
-	if (level < LAPB_DEBUG) {
-		char buf[256];
-		va_list argList;
-
-		va_start(argList, format);
-		vsnprintf(buf, 256, format, argList);
-		//sprintf(buf, format, argList);
-		va_end(argList);
-		syslog(LOG_NOTICE, "[LAPB] %s", buf);
-	};
+		syslog(LOG_ERR, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
 
-/*
- * Timer callback functions
- *
-*/
-void t1timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	syslog(LOG_NOTICE, "[X25_CB] Timer_1 expired");
-	lapb_t1timer_expiry(lapb);
-}
-
-void t2timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	syslog(LOG_NOTICE, "[X25_CB] Timer_2 expired");
-	lapb_t2timer_expiry(lapb);
-}
 
 
 
@@ -132,7 +46,7 @@ void t2timer_expiry(unsigned long int lapb_addr) {
  * TCP server callback functions
  *
 */
-void new_data_received(char * data, int data_size) {
+void new_data_received(unsigned char * data, int data_size) {
 	if (AutomaticMode) {
 		main_lock();
 		syslog(LOG_NOTICE, "[PHYS_CB] data_received is called");
@@ -444,7 +358,7 @@ int manual_process() {
 }
 
 
-int man_decode(struct lapb_cb *lapb, char *data, int data_size, struct lapb_frame *frame) {
+int man_decode(struct lapb_cb *lapb, unsigned char *data, int data_size, struct lapb_frame *frame) {
 	frame->type = LAPB_ILLEGAL;
 
 

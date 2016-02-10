@@ -16,7 +16,7 @@
 
 struct tcp_server_struct {
 	int port;
-	void (*new_data_received)(char * data, int data_size);
+	void (*new_data_received)(unsigned char * data, int data_size);
 	void (*no_active_connection)();
 };
 

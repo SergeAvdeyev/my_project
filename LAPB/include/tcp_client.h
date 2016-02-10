@@ -21,7 +21,7 @@
 struct tcp_client_struct {
 	char * server_address;
 	int server_port;
-	void (*new_data_received)(char * data, int data_size);
+	void (*new_data_received)(unsigned char * data, int data_size);
 	void (*connection_lost)();
 };
 
