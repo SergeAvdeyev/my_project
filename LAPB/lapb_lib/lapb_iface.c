@@ -110,12 +110,18 @@ static struct lapb_cb *lapb_create_cb(void) {
 //	init_timer(&lapb->t1timer);
 //	init_timer(&lapb->t2timer);
 
-	lapb->t1      = LAPB_DEFAULT_T1;
-	lapb->t2      = LAPB_DEFAULT_T2;
-	lapb->n2      = LAPB_DEFAULT_N2;
-	lapb->mode    = LAPB_DEFAULT_MODE;
-	lapb->window  = LAPB_DEFAULT_WINDOW;
-	lapb->state   = LAPB_NOT_READY;
+	//lapb->write_queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
+	lapb->write_queue = NULL;
+	//lapb->ack_queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
+	lapb->ack_queue = NULL;
+
+	lapb->T1	= LAPB_DEFAULT_T1;
+	lapb->T2	= LAPB_DEFAULT_T2;
+	lapb->N1	= LAPB_DEFAULT_N1;
+	lapb->N2	= LAPB_DEFAULT_N2;
+	lapb->mode	= LAPB_DEFAULT_MODE;
+	lapb->window = LAPB_DEFAULT_WINDOW;
+	lapb->state	= LAPB_NOT_READY;
 out:
 	return lapb;
 }
@@ -169,9 +175,9 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	lapb_stop_t1timer(lapb);
 	lapb_stop_t2timer(lapb);
 	lapb_clear_queues(lapb);
-	lapb->t1      = LAPB_DEFAULT_T1;
-	lapb->t2      = LAPB_DEFAULT_T2;
-	lapb->n2      = LAPB_DEFAULT_N2;
+	lapb->T1      = LAPB_DEFAULT_T1;
+	lapb->T2      = LAPB_DEFAULT_T2;
+	lapb->N2      = LAPB_DEFAULT_N2;
 	lapb->mode    = LAPB_DEFAULT_MODE;
 	lapb->window  = LAPB_DEFAULT_WINDOW;
 	unsigned char old_state = lapb->state;
@@ -189,10 +195,11 @@ int lapb_getparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
 	if (!lapb)
 		goto out;
 
-	parms->t1      = lapb->t1;
-	parms->t2      = lapb->t2;
-	parms->n2      = lapb->n2;
-	parms->n2count = lapb->n2count;
+	parms->T1      = lapb->T1;
+	parms->T2      = lapb->T2;
+	parms->N1      = lapb->N1;
+	parms->N2      = lapb->N2;
+	parms->N2count = lapb->N2count;
 	parms->state   = lapb->state;
 	parms->window  = lapb->window;
 	parms->mode    = lapb->mode;
@@ -219,7 +226,7 @@ int lapb_setparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
 		goto out;
 
 	rc = LAPB_INVALUE;
-	if (parms->t1 < 1 || parms->t2 < 1 || parms->n2 < 1)
+	if (parms->T1 < 1 || parms->T2 < 1 || parms->N2 < 1)
 		goto out;
 
 	if (lapb->state == LAPB_STATE_0) {
@@ -234,9 +241,10 @@ int lapb_setparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
 		lapb->window  = parms->window;
 	};
 
-	lapb->t1    = parms->t1;
-	lapb->t2    = parms->t2;
-	lapb->n2    = parms->n2;
+	lapb->T1    = parms->T1;
+	lapb->T2    = parms->T2;
+	lapb->N2    = parms->N2;
+	lapb->N1    = parms->N1;
 
 	rc = LAPB_OK;
 out:
@@ -294,7 +302,7 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 
 	lapb->callbacks->debug(lapb, 1, "S3 DISC(1)\n");
 	lapb_clear_queues(lapb);
-	lapb->n2count = 0;
+	lapb->N2count = 0;
 	lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 	lapb->state = LAPB_STATE_2;
 	if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
@@ -308,8 +316,7 @@ out:
 	return rc;
 }
 
-int lapb_data_request(struct lapb_cb *lapb, struct lapb_buff *skb) {
-	(void)skb;
+int lapb_data_request(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
 	if (!lapb)
@@ -320,14 +327,14 @@ int lapb_data_request(struct lapb_cb *lapb, struct lapb_buff *skb) {
 		goto out;
 
 	//skb_queue_tail(&lapb->write_queue, skb);
-	lapb_kick(lapb);
+	lapb_kick(lapb, data, data_size);
 	rc = LAPB_OK;
 
 out:
 	return rc;
 }
 
-int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size) {
+int lapb_data_received(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
 	if (lapb) {
@@ -358,7 +365,7 @@ void lapb_disconnect_indication(struct lapb_cb *lapb, int reason) {
 		lapb->callbacks->disconnect_indication(lapb, reason);
 }
 
-int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size) {
+int lapb_data_indication(struct lapb_cb *lapb, unsigned char * data, int data_size) {
 	if (lapb->callbacks->data_indication)
 		return lapb->callbacks->data_indication(lapb, data, data_size);
 
@@ -367,11 +374,11 @@ int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size) {
 	return 0;
 }
 
-int lapb_data_transmit(struct lapb_cb *lapb, struct lapb_buff *skb) {
+int lapb_data_transmit(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 	int used = 0;
 
 	if (lapb->callbacks->data_transmit) {
-		lapb->callbacks->data_transmit(lapb, skb);
+		lapb->callbacks->data_transmit(lapb, data, data_size);
 		used = 1;
 	};
 

@@ -21,12 +21,18 @@
 
 
 /*
- *	This routine purges all the queues of frames.
+ *	This routine delete all the queues of frames.
  */
 void lapb_clear_queues(struct lapb_cb *lapb) {
-	(void)lapb;
-	//skb_queue_purge(&lapb->write_queue);
-	//skb_queue_purge(&lapb->ack_queue);
+
+	if (lapb->write_queue != NULL) {
+		free(lapb->write_queue);
+		lapb->write_queue = NULL;
+	};
+	if (lapb->ack_queue != NULL) {
+		free(lapb->ack_queue);
+		lapb->ack_queue = NULL;
+	};
 }
 
 /*
@@ -96,7 +102,7 @@ int lapb_validate_nr(struct lapb_cb *lapb, unsigned short nr) {
  *	information for the different frame formats.
  */
 int lapb_decode(struct lapb_cb * lapb,
-				char * data,
+				unsigned char * data,
 				int data_size,
 				struct lapb_frame * frame) {
 
@@ -204,38 +210,39 @@ int lapb_decode(struct lapb_cb * lapb,
  *	by lapb_transmit_frmr below.
  */
 void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int type) {
-	struct lapb_buff skb;
+	unsigned char *data;
+	int data_size;
 
 	unsigned char  *dptr;
 
 //	if ((skb = alloc_skb(LAPB_HEADER_LEN + 3, GFP_ATOMIC)) == NULL)
 //		return;
-	skb.data_size = 3;
-	if ((skb.data = calloc(skb.data_size, 1)) == NULL)
+	data_size = 3;
+	if ((data = calloc(data_size, 1)) == NULL)
 		return;
 
 //	skb_reserve(skb, LAPB_HEADER_LEN + 1);
 
 	if (lapb->mode & LAPB_EXTENDED) {
 		if ((frametype & LAPB_U) == LAPB_U) {
-			dptr   = skb.data + 1;
+			dptr   = data + 1;
 			*dptr  = frametype;
 			*dptr |= poll_bit ? LAPB_SPF : 0;
 		} else {
-			dptr   = skb.data + 2;
+			dptr   = data + 2;
 			dptr[0]  = frametype;
 			dptr[1]  = (lapb->vr << 1);
 			dptr[1] |= poll_bit ? LAPB_EPF : 0;
 		};
 	} else {
-		dptr   = skb.data + 1;
+		dptr   = data + 1;
 		*dptr  = frametype;
 		*dptr |= poll_bit ? LAPB_SPF : 0;
 		if ((frametype & LAPB_U) == LAPB_S)	/* S frames carry NR */
 			*dptr |= (lapb->vr << 5);
 	};
 
-	lapb_transmit_buffer(lapb, &skb, type);
+	lapb_transmit_buffer(lapb, data, data_size, type);
 }
 
 /*
@@ -243,17 +250,18 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
  *	the LAPB control block.
  */
 void lapb_transmit_frmr(struct lapb_cb *lapb) {
-	struct lapb_buff skb;
+	unsigned char  *data;
+	int data_size = 7;
 	unsigned char  *dptr;
 
-	if ((skb.data = malloc(7)) == NULL)
+	if ((data = malloc(data_size)) == NULL)
 		return;
 
 //	skb_reserve(skb, LAPB_HEADER_LEN + 1);
 
 	if (lapb->mode & LAPB_EXTENDED) {
 //		dptr    = skb_put(skb, 6);
-		dptr = skb.data + 6;
+		dptr = data + 6;
 		*dptr++ = LAPB_FRMR;
 		*dptr++ = lapb->frmr_data.control[0];
 		*dptr++ = lapb->frmr_data.control[1];
@@ -264,10 +272,10 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		dptr++;
 		*dptr++ = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X %02X %02X\n", lapb->state, skb.data[1], skb.data[2], skb.data[3], skb.data[4], skb.data[5]);
+		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X %02X %02X\n", lapb->state, data[1], data[2], data[3], data[4], data[5]);
 	} else {
 //		dptr    = skb_put(skb, 4);
-		dptr = skb.data + 4;
+		dptr = data + 4;
 		*dptr++ = LAPB_FRMR;
 		*dptr++ = lapb->frmr_data.control[0];
 		*dptr   = (lapb->vs << 1) & 0x0E;
@@ -277,8 +285,8 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		dptr++;
 		*dptr++ = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X\n", lapb->state, skb.data[1], skb.data[2], skb.data[3]);
+		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X\n", lapb->state, data[1], data[2], data[3]);
 	};
 
-	lapb_transmit_buffer(lapb, &skb, LAPB_RESPONSE);
+	lapb_transmit_buffer(lapb, data, data_size, LAPB_RESPONSE);
 }

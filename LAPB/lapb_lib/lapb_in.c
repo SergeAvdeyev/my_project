@@ -39,7 +39,7 @@ static void lapb_state0_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 				lapb_stop_t1timer(lapb);
 				//lapb_stop_t2timer(lapb);
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->N2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
@@ -58,7 +58,7 @@ static void lapb_state0_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 				lapb_stop_t1timer(lapb);
 				//lapb_stop_t2timer(lapb);
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->N2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
@@ -96,7 +96,7 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 					lapb_stop_t1timer(lapb);
 				lapb->state     = LAPB_STATE_0;
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->N2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
@@ -121,7 +121,7 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 					lapb_stop_t1timer(lapb);
 				lapb->state     = LAPB_STATE_0;
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->N2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
@@ -142,10 +142,17 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 					lapb_stop_t1timer(lapb);
 				lapb->state     = LAPB_STATE_3;
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->N2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
+				/* Allocate memory for queues */
+				int modulo = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
+				if (lapb->write_queue == NULL)
+					lapb->write_queue = malloc(lapb->N1*modulo);
+				if (lapb->ack_queue == NULL)
+					lapb->ack_queue = malloc(lapb->N1*modulo);
+
 				lapb->callbacks->debug(lapb, 0, "S1 -> S3\n");
 				lapb_connect_confirmation(lapb, LAPB_OK);
 			};
@@ -225,7 +232,7 @@ static void lapb_state2_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
  *	State machine for state 3, Connected State.
  *	The handling of the timer(s) is in file lapb_timer.c
  */
-static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size, struct lapb_frame *frame) {
+static void lapb_state3_machine(struct lapb_cb *lapb, unsigned char * data, int data_size, struct lapb_frame *frame) {
 	int queued = 0;
 	int modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
@@ -241,7 +248,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 				lapb_stop_t1timer(lapb);
 				//lapb_stop_t2timer(lapb);
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->N2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
@@ -257,7 +264,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 				lapb_stop_t1timer(lapb);
 				//lapb_stop_t2timer(lapb);
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->n2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
@@ -303,7 +310,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 				lapb_start_t1timer(lapb);
 				//lapb_stop_t2timer(lapb);
 				lapb->state   = LAPB_STATE_4;
-				lapb->n2count = 0;
+				//lapb->n2count = 0;
 				lapb->callbacks->debug(lapb, 0, "S3 -> S4\n");
 			};
 			break;
@@ -321,7 +328,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 				lapb_start_t1timer(lapb);
 				//lapb_stop_t2timer(lapb);
 				lapb->state   = LAPB_STATE_4;
-				lapb->n2count = 0;
+				//lapb->n2count = 0;
 				lapb->callbacks->debug(lapb, 0, "S3 -> S4\n");
 			};
 			break;
@@ -333,7 +340,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 			if (lapb_validate_nr(lapb, frame->nr)) {
 				lapb_frames_acked(lapb, frame->nr);
 				lapb_stop_t1timer(lapb);
-				lapb->n2count = 0;
+				//lapb->n2count = 0;
 				lapb_requeue_frames(lapb);
 			} else {
 				lapb->frmr_data = *frame;
@@ -342,7 +349,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 				lapb_start_t1timer(lapb);
 				//lapb_stop_t2timer(lapb);
 				lapb->state   = LAPB_STATE_4;
-				lapb->n2count = 0;
+				//lapb->n2count = 0;
 				lapb->callbacks->debug(lapb, 0, "S3 -> S4\n");
 			};
 			break;
@@ -356,7 +363,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 				lapb_start_t1timer(lapb);
 				//lapb_stop_t2timer(lapb);
 				lapb->state   = LAPB_STATE_4;
-				lapb->n2count = 0;
+				//lapb->n2count = 0;
 				lapb->callbacks->debug(lapb, 0, "S3 -> S4\n");
 				break;
 			};
@@ -367,7 +374,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 
 			if (frame->ns == lapb->vr) {
 				int cn;
-				cn = lapb_data_indication(lapb, data, data_size);
+				cn = lapb_data_indication(lapb, data + 2, data_size);
 				(void)cn;
 				queued = 1;
 				(void)queued;
@@ -422,7 +429,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 			lapb_start_t1timer(lapb);
 			//lapb_stop_t2timer(lapb);
 			lapb->state   = LAPB_STATE_4;
-			lapb->n2count = 0;
+			//lapb->n2count = 0;
 			break;
 	};
 
@@ -449,7 +456,7 @@ static void lapb_state4_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 				//lapb_stop_t2timer(lapb);
 				lapb->state     = LAPB_STATE_3;
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->n2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
@@ -467,7 +474,7 @@ static void lapb_state4_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 				//lapb_stop_t2timer(lapb);
 				lapb->state     = LAPB_STATE_3;
 				lapb->condition = 0x00;
-				lapb->n2count   = 0;
+				//lapb->n2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
@@ -483,7 +490,7 @@ static void lapb_state4_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 /*
  *	Process an incoming LAPB frame
  */
-void lapb_data_input(struct lapb_cb *lapb, char *data, int data_size) {
+void lapb_data_input(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 	struct lapb_frame frame;
 
 	if (lapb_decode(lapb, data, data_size, &frame) < 0) {
@@ -508,5 +515,5 @@ void lapb_data_input(struct lapb_cb *lapb, char *data, int data_size) {
 			break;
 	};
 
-	lapb_kick(lapb);
+	//lapb_kick(lapb, data, data_size);
 }

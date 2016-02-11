@@ -20,6 +20,7 @@
 
 
 void lapb_start_t1timer(struct lapb_cb *lapb) {
+	lapb->N2count = 0;
 	if (lapb->callbacks->start_t1timer)
 		lapb->callbacks->start_t1timer(lapb);
 }
@@ -32,6 +33,7 @@ void lapb_start_t2timer(struct lapb_cb *lapb) {
 void lapb_stop_t1timer(struct lapb_cb *lapb) {
 	if (lapb->callbacks->stop_t1timer)
 		lapb->callbacks->stop_t1timer(lapb);
+	lapb->N2count = 0;
 }
 
 void lapb_stop_t2timer(struct lapb_cb *lapb) {
@@ -73,14 +75,14 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	Awaiting connection state, send SABM(E), up to N2 times.
 		 */
 		case LAPB_STATE_1:
-			if (lapb->n2count == lapb->n2) {
+			if (lapb->N2count == lapb->N2) {
 				lapb_clear_queues(lapb);
 				lapb->state = LAPB_STATE_0;
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb->callbacks->debug(lapb, 0, "S1 -> S0\n");
 				return;
 			} else {
-				lapb->n2count++;
+				lapb->N2count++;
 				if (lapb->mode & LAPB_EXTENDED) {
 					lapb->callbacks->debug(lapb, 1, "S1 TX SABME(1)\n");
 					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
@@ -95,14 +97,14 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	Awaiting disconnection state, send DISC, up to N2 times.
 		 */
 		case LAPB_STATE_2:
-			if (lapb->n2count == lapb->n2) {
+			if (lapb->N2count == lapb->N2) {
 				lapb_clear_queues(lapb);
 				lapb->state = LAPB_STATE_0;
 				lapb_disconnect_confirmation(lapb, LAPB_TIMEDOUT);
 				lapb->callbacks->debug(lapb, 0, "S2 -> S0\n");
 				return;
 			} else {
-				lapb->n2count++;
+				lapb->N2count++;
 				lapb->callbacks->debug(lapb, 1, "S2 TX DISC(1)\n");
 				lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			};
@@ -112,7 +114,7 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	Data transfer state, restransmit I frames, up to N2 times.
 		 */
 		case LAPB_STATE_3:
-			if (lapb->n2count == lapb->n2) {
+			if (lapb->N2count == lapb->N2) {
 				lapb_clear_queues(lapb);
 				lapb->state = LAPB_STATE_0;
 				lapb_stop_t2timer(lapb);
@@ -120,9 +122,9 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 				lapb->callbacks->debug(lapb, 0, "S3 -> S0\n");
 				return;
 			} else {
-				lapb->n2count++;
+				lapb->N2count++;
 				lapb_requeue_frames(lapb);
-				lapb_kick(lapb);
+				lapb_kick(lapb, NULL, 0);
 			};
 			break;
 
@@ -130,14 +132,14 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	Frame reject state, restransmit FRMR frames, up to N2 times.
 		 */
 		case LAPB_STATE_4:
-			if (lapb->n2count == lapb->n2) {
+			if (lapb->N2count == lapb->N2) {
 				lapb_clear_queues(lapb);
 				lapb->state = LAPB_STATE_0;
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb->callbacks->debug(lapb, 0, "S4 -> S0\n");
 				return;
 			} else {
-				lapb->n2count++;
+				lapb->N2count++;
 				lapb_transmit_frmr(lapb);
 			};
 			break;

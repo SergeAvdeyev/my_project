@@ -16,116 +16,28 @@ struct lapb_cb * lapb_client = NULL;
 
 
 
-
-
-
 /*
  * LAPB callback functions for X.25
  *
 */
-void connect_confirmation(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "connect_confirmation is called(%s)", lapb_error_str(reason));
-}
 
-void connect_indication(struct lapb_cb * lapb, int reason) {
+void data_transmit(struct lapb_cb * lapb, unsigned char *data, int data_size) {
 	(void)lapb;
-	syslog(LOG_NOTICE, "connect_indication is called(%s)", lapb_error_str(reason));
-}
+	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
 
-void disconnect_confirmation(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "disconnect_confirmation is called(%s)", lapb_error_str(reason));
-}
-
-void disconnect_indication(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "disconnect_indication is called(%s)", lapb_error_str(reason));
-	//printf("DTE disconnected(%s)\n\n", lapb_error_str(reason));
-}
-
-int  data_indication(struct lapb_cb * lapb, char * data, int data_size) {
-	(void)lapb;
-	(void)data;
-	(void)data_size;
-	syslog(LOG_NOTICE, "data_indication is called");
-	return 0;
-}
-
-void data_transmit(struct lapb_cb * lapb, struct lapb_buff *skb) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "data_transmit is called");
-
-	int n = write(tcp_client_socket(), skb->data, skb->data_size);
+	int n = write(tcp_client_socket(), data, data_size);
 	if (n < 0)
-		syslog(LOG_ERR, "ERROR writing to socket, %s", strerror(errno));
-}
-
-
-void start_t1timer(struct lapb_cb * lapb) {
-	set_t1_value(lapb->t1 * 1000);
-	set_t1_state(TRUE);
-	syslog(LOG_NOTICE, "start_t1timer is called");
-}
-
-void stop_t1timer() {
-	set_t1_state(FALSE);
-	set_t1_value(0);
-	syslog(LOG_NOTICE, "stop_t1timer is called");
-}
-
-void start_t2timer(struct lapb_cb * lapb) {
-	set_t2_value(lapb->t2 * 1000);
-	set_t2_state(TRUE);
-	syslog(LOG_NOTICE, "start_t2timer is called");
-}
-
-void stop_t2timer() {
-	set_t2_state(FALSE);
-	set_t2_value(0);
-	syslog(LOG_NOTICE, "stop_t2timer is called");
-}
-
-void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
-	(void)lapb;
-	if (level < LAPB_DEBUG) {
-		char buf[256];
-		va_list argList;
-
-		va_start(argList, format);
-		vsnprintf(buf, 256, format, argList);
-		//sprintf(buf, format, argList);
-		va_end(argList);
-		syslog(LOG_NOTICE, buf);
-	};
+		syslog(LOG_ERR, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
 
-
-
-
-/*
- * Timer callback functions
- *
-*/
-void t1timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	syslog(LOG_NOTICE, "Timer_1 expired");
-	lapb_t1timer_expiry(lapb);
-}
-
-void t2timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	syslog(LOG_NOTICE, "Timer_2 expired");
-	lapb_t2timer_expiry(lapb);
-}
 
 /*
  * TCP client callback functions
  *
 */
-void new_data_received(char * data, int data_size) {
+void new_data_received(unsigned char * data, int data_size) {
 	main_lock();
 	syslog(LOG_NOTICE, "data_received is called");
 	lapb_data_received(lapb_client, data, data_size);
@@ -134,9 +46,6 @@ void new_data_received(char * data, int data_size) {
 
 void connection_lost() {
 	lapb_reset(lapb_client, LAPB_NOT_READY);
-	//lapb_client->state = LAPB_NOT_READY;
-//	printf("\nPhysical connection lost\n");
-//	printf("Reconnecting\n\n");
 }
 
 

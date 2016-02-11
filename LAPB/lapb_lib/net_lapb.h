@@ -2,6 +2,7 @@
 #define LIB_LAPB_H
 
 #include <stdio.h>
+#include <string.h>
 
 //#define	LAPB_HEADER_LEN	20		/* LAPB over Ethernet + a bit more */
 
@@ -72,6 +73,7 @@ enum {
 #define	LAPB_DEFAULT_T1			5		/* T1=5s    */
 #define	LAPB_DEFAULT_T2			1		/* T2=1s    */
 #define	LAPB_DEFAULT_N2			20		/* N2=20    */
+#define	LAPB_DEFAULT_N1			135		/* Default I frame maximal size */
 
 #define	LAPB_SMODULUS	8
 #define	LAPB_EMODULUS	128
@@ -131,11 +133,15 @@ struct lapb_cb {
 	unsigned char		state;
 	unsigned short		vs, vr, va;
 	unsigned char		condition;
-	unsigned short		n2, n2count;
-	unsigned short		t1, t2;
+	unsigned short		N2;
+	unsigned short		N2count;
+	unsigned short		T1, T2;
 	//unsigned long int	t1timer, t2timer;  // pthread_t of timer threads
 
 	/* Internal control information */
+	unsigned short		N1; /* Maximal I frame size */
+	unsigned char *		write_queue;
+	unsigned char *		ack_queue;
 	//struct sk_buff_head	write_queue;
 	//struct sk_buff_head	ack_queue;
 	unsigned char		window;
@@ -155,8 +161,8 @@ struct lapb_register_struct {
 	void (*connect_indication)(struct lapb_cb * lapb, int reason);
 	void (*disconnect_confirmation)(struct lapb_cb * lapb, int reason);
 	void (*disconnect_indication)(struct lapb_cb * lapb, int reason);
-	int  (*data_indication)(struct lapb_cb * lapb, char * data, int data_size);
-	void (*data_transmit)(struct lapb_cb * lapb, struct lapb_buff *skb);
+	int  (*data_indication)(struct lapb_cb * lapb, unsigned char * data, int data_size);
+	void (*data_transmit)(struct lapb_cb * lapb, unsigned char *data, int data_size);
 
 	void (*start_t1timer)(struct lapb_cb * lapb);
 	void (*stop_t1timer)();
@@ -167,12 +173,13 @@ struct lapb_register_struct {
 };
 
 struct lapb_parms_struct {
-	unsigned int t1;
+	unsigned int T1;
 	unsigned int t1timer;
-	unsigned int t2;
+	unsigned int T2;
 	unsigned int t2timer;
-	unsigned int n2;
-	unsigned int n2count;
+	unsigned int N1;
+	unsigned int N2;
+	unsigned int N2count;
 	unsigned int window;
 	unsigned int state;
 	unsigned int mode;
@@ -186,10 +193,10 @@ extern int lapb_getparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms)
 extern int lapb_setparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms);
 extern int lapb_connect_request(struct lapb_cb *lapb);
 extern int lapb_disconnect_request(struct lapb_cb *lapb);
-extern int lapb_data_request(struct lapb_cb *lapb, struct lapb_buff *skb);
+extern int lapb_data_request(struct lapb_cb *lapb, unsigned char * data, int data_size);
 
 // Executing by physical leyer (when new incoming data received)
-extern int lapb_data_received(struct lapb_cb *lapb, char * data, int data_size);
+extern int lapb_data_received(struct lapb_cb *lapb, unsigned char * data, int data_size);
 
 
 
@@ -202,15 +209,15 @@ void lapb_connect_confirmation(struct lapb_cb *lapb, int);
 void lapb_connect_indication(struct lapb_cb *lapb, int);
 void lapb_disconnect_confirmation(struct lapb_cb *lapb, int);
 void lapb_disconnect_indication(struct lapb_cb *lapb, int);
-int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size);
-int lapb_data_transmit(struct lapb_cb *lapb, struct lapb_buff *);
+int lapb_data_indication(struct lapb_cb *lapb, unsigned char * data, int data_size);
+int lapb_data_transmit(struct lapb_cb *lapb, unsigned char *data, int data_size);
 
 /* lapb_in.c */
-void lapb_data_input(struct lapb_cb *lapb, char * data, int data_size);
+void lapb_data_input(struct lapb_cb *lapb, unsigned char * data, int data_size);
 
 /* lapb_out.c */
-void lapb_kick(struct lapb_cb *lapb);
-void lapb_transmit_buffer(struct lapb_cb *lapb, struct lapb_buff *, int);
+void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size);
+void lapb_transmit_buffer(struct lapb_cb *lapb, unsigned char *data, int data_size, int type);
 void lapb_establish_data_link(struct lapb_cb *lapb);
 void lapb_enquiry_response(struct lapb_cb *lapb);
 void lapb_timeout_response(struct lapb_cb *lapb);
@@ -223,7 +230,7 @@ void lapb_frames_acked(struct lapb_cb *lapb, unsigned short);
 void lapb_requeue_frames(struct lapb_cb *lapb);
 int lapb_validate_nr(struct lapb_cb *lapb, unsigned short);
 int lapb_decode(struct lapb_cb *lapb,
-				char * data,
+				unsigned char * data,
 				int data_size,
 				struct lapb_frame * frame);
 void lapb_send_control(struct lapb_cb *lapb, int, int, int);
