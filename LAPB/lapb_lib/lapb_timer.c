@@ -20,7 +20,6 @@
 
 
 void lapb_start_t1timer(struct lapb_cb *lapb) {
-	lapb->N2count = 0;
 	if (lapb->callbacks->start_t1timer)
 		lapb->callbacks->start_t1timer(lapb);
 }
@@ -42,8 +41,8 @@ void lapb_stop_t2timer(struct lapb_cb *lapb) {
 }
 
 int lapb_t1timer_running(struct lapb_cb *lapb) {
-	(void)lapb;
-//	return timer_pending(&lapb->t1timer);
+	if (lapb->callbacks->t1timer_running)
+		return lapb->callbacks->t1timer_running();
 	return 0;
 }
 

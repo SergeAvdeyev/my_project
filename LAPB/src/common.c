@@ -95,7 +95,7 @@ int data_indication(struct lapb_cb * lapb, unsigned char * data, int data_size) 
 
 /* Called by LAPB to start timer T1 */
 void start_t1timer(struct lapb_cb * lapb) {
-	set_t1_value(lapb->T1 * 1000);
+	set_t1_value(lapb->T1);
 	set_t1_state(TRUE);
 	syslog(LOG_NOTICE, "[LAPB] start_t1timer is called");
 }
@@ -107,9 +107,14 @@ void stop_t1timer() {
 	syslog(LOG_NOTICE, "[LAPB] stop_t1timer is called");
 }
 
+/* Called by LAPB to check timer T1 state */
+int t1timer_running() {
+	return get_t1_state();
+}
+
 /* Called by LAPB to start timer T2 */
 void start_t2timer(struct lapb_cb * lapb) {
-	set_t2_value(lapb->T2 * 1000);
+	set_t2_value(lapb->T2);
 	set_t2_state(TRUE);
 	syslog(LOG_NOTICE, "[LAPB] start_t2timer is called");
 }
@@ -194,8 +199,6 @@ int sleep_ms(int milliseconds) {
 	ts2.tv_sec = 0;
 	ts2.tv_nsec = 0;
 	result = nanosleep(&ts, &ts2);
-	//if (result == 0)
-	//	return 0;
 	if ((ts.tv_sec != ts2.tv_sec) || (ts.tv_nsec > ts2.tv_nsec))
 		if (ts2.tv_nsec != -1)
 			result = -1;
@@ -238,11 +241,6 @@ void print_commands_0(struct lapb_cb * lapb) {
 		printf("Disconnected state(modulo 8):\n");
 		printf("1 Send SABM\n");
 	};
-	//printf("2 Send DISC\n");
-	//printf("------------\n");
-	//printf("3 Send RR\n");
-	//printf("4 Send RNR\n");
-	//printf("5 Send REJ\n");
 	printf("--\n");
 	printf("0 Exit application\n");
 	write(0, ">", 1);
@@ -278,10 +276,6 @@ void print_commands_3(struct lapb_cb * lapb) {
 	printf("Enter text or select command\n");
 	printf("1 Send test buffer(128 byte)\n");
 	printf("2 Send DISC\n");
-	//printf("-----------\n");
-	//printf("4 Send RR\n");
-	//printf("5 Send RNR\n");
-	//printf("6 Send REJ\n");
 	printf("--\n");
 	printf("0 Exit application\n");
 	write(0, ">", 1);
@@ -289,7 +283,6 @@ void print_commands_3(struct lapb_cb * lapb) {
 
 void print_commands_5() {
 	printf("Awaiting physical connection:\n");
-	//printf("1 Cancel\n");
 	printf("--\n");
 	printf("0 Exit application\n");
 	write(0, ">", 1);
@@ -468,7 +461,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 					if (buffer == pEnd)
 						action = 99;
 					switch (action) {
-						case 1: default:  // Send test buffer (128 byte)
+						case 1: default:  // Send test buffer (128 byte) or text from console
 							if (action == 1) {
 								n = 0;
 								while (n < 127) {
@@ -500,9 +493,6 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 							exit_flag = TRUE;
 							while_flag = FALSE;
 							break;
-//						default:
-//							printf("Command is not supported\n\n");
-//							break;
 					};
 				};
 				break;

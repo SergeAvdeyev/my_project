@@ -204,6 +204,10 @@ int main (int argc, char *argv[]) {
 	};
 	lapb_server->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 
+	/* Redefine some default values */
+	lapb_server->T1 = 2000; /* 2s */
+	lapb_server->T2 = 500;  /* 0.5s */
+	lapb_server->N2 = 3; /* Try 3 times */
 
 	/* Create timer */
 	timer_struct = malloc(sizeof(struct timer_struct));

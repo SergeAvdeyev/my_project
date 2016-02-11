@@ -154,6 +154,7 @@ int main(int argc, char *argv[]) {
 	callbacks.stop_t1timer = stop_t1timer;
 	callbacks.start_t2timer = start_t2timer;
 	callbacks.stop_t2timer = stop_t2timer;
+	callbacks.t1timer_running = t1timer_running;
 	callbacks.debug = lapb_debug;
 	lapb_res = lapb_register(&callbacks, &lapb_client);
 	if (lapb_res != LAPB_OK) {
@@ -161,6 +162,10 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	};
 	lapb_client->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
+	/* Redefine some default values */
+	lapb_client->T1 = 2000; /* 2s */
+	lapb_client->T2 = 500;  /* 0.5s */
+	lapb_client->N2 = 3; /* Try 3 times */
 
 	/* Create timer */
 	timer_struct = malloc(sizeof(struct timer_struct));

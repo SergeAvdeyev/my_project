@@ -70,8 +70,8 @@ enum {
 
 #define	LAPB_DEFAULT_MODE		(LAPB_STANDARD | LAPB_SLP | LAPB_DTE)
 #define	LAPB_DEFAULT_WINDOW		7		/* Window=7 */
-#define	LAPB_DEFAULT_T1			5		/* T1=5s    */
-#define	LAPB_DEFAULT_T2			1		/* T2=1s    */
+#define	LAPB_DEFAULT_T1			5000	/* T1=5s    */
+#define	LAPB_DEFAULT_T2			1000	/* T2=1s    */
 #define	LAPB_DEFAULT_N2			20		/* N2=20    */
 #define	LAPB_DEFAULT_N1			135		/* Default I frame maximal size */
 
@@ -168,6 +168,7 @@ struct lapb_register_struct {
 	void (*stop_t1timer)();
 	void (*start_t2timer)(struct lapb_cb * lapb);
 	void (*stop_t2timer)();
+	int  (*t1timer_running)();
 
 	void (*debug)(struct lapb_cb *lapb, int level, const char * format, ...);
 };

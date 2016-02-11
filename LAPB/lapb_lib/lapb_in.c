@@ -142,7 +142,6 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 					lapb_stop_t1timer(lapb);
 				lapb->state     = LAPB_STATE_3;
 				lapb->condition = 0x00;
-				//lapb->N2count   = 0;
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;

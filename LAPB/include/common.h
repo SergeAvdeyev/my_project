@@ -50,6 +50,8 @@ int data_indication(struct lapb_cb * lapb, unsigned char * data, int data_size);
 void start_t1timer(struct lapb_cb * lapb);
 /* Called by LAPB to stop timer T1 */
 void stop_t1timer();
+/* Called by LAPB to check timer T1 state */
+int t1timer_running();
 /* Called by LAPB to start timer T2 */
 void start_t2timer(struct lapb_cb * lapb);
 /* Called by LAPB to stop timer T1 */

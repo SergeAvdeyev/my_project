@@ -56,6 +56,14 @@ void set_t1_value(int value) {
 	_timer_mutex_unlock();
 }
 
+int get_t1_state() {
+	int result;
+	_timer_mutex_lock();
+	result = t1_active;
+	_timer_mutex_unlock();
+	return result;
+}
+
 void set_t2_state(int state) {
 	_timer_mutex_lock();
 	t2_active = state;
@@ -114,14 +122,6 @@ int get_timer_exit_flag() {
 }
 
 
-
-int get_t1_state() {
-	int result;
-	_timer_mutex_lock();
-	result = t1_active;
-	_timer_mutex_unlock();
-	return result;
-}
 
 int dec_t1_value(int value) {
 	int result;

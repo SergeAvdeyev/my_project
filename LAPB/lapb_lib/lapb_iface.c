@@ -115,6 +115,11 @@ static struct lapb_cb *lapb_create_cb(void) {
 	//lapb->ack_queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
 	lapb->ack_queue = NULL;
 
+	/* Zero variables */
+	lapb->N2count = 0;
+	lapb->va = 0;
+	lapb->vr = 0;
+	lapb->vs = 0;
 	lapb->T1	= LAPB_DEFAULT_T1;
 	lapb->T2	= LAPB_DEFAULT_T2;
 	lapb->N1	= LAPB_DEFAULT_N1;

@@ -59,7 +59,6 @@ void lapb_send_iframe(struct lapb_cb *lapb, unsigned char *data, int data_size, 
 }
 
 void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
-	//(void)lapb;
 	//struct lapb_buff *skb;
 	//struct lapb_buff *skbn;
 	unsigned short modulus, start, end;
@@ -105,8 +104,8 @@ void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
-//		if (!lapb_t1timer_running(lapb))
-//			lapb_start_t1timer(lapb);
+		if (!lapb_t1timer_running(lapb))
+			lapb_start_t1timer(lapb);
 	}
 }
 
