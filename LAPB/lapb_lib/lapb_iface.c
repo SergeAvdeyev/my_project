@@ -151,7 +151,7 @@ int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** lapb
 		callbacks->debug = default_debug;
 	(*lapb)->callbacks = callbacks;
 
-	lapb_start_t1timer(*lapb); /* If we are DCE send continious DM */
+	//lapb_start_t1timer(*lapb); /* If we are DCE send continious DM */
 	rc = LAPB_OK;
 out:
 	return rc;
@@ -333,6 +333,7 @@ int lapb_data_request(struct lapb_cb *lapb, unsigned char *data, int data_size) 
 	rc = LAPB_NOTCONNECTED;
 	if (lapb->state != LAPB_STATE_3 && lapb->state != LAPB_STATE_4)
 		goto out;
+
 
 //	rc = LAPB_NOMEM;
 //	if (lapb->bufs_in_write_queue == lapb->window)

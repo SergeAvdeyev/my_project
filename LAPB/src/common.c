@@ -458,6 +458,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 					//int action = atoi(buffer);
 					char * pEnd;
 					int action = strtol(buffer, &pEnd, 10);
+					int data_size;
 					if (buffer == pEnd)
 						action = 99;
 					switch (action) {
@@ -469,9 +470,11 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 									n++;
 								};
 								buffer[127] = '\n';
-							};
+								data_size = 128;
+							} else
+								data_size = strlen(buffer);
 							main_lock();
-							lapb_res = lapb_data_request(lapb, (unsigned char *)buffer, 128);
+							lapb_res = lapb_data_request(lapb, (unsigned char *)buffer, data_size);
 							main_unlock();
 							if (lapb_res != LAPB_OK) {
 								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));

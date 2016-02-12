@@ -106,12 +106,6 @@ enum {
 
 
 
-struct lapb_buff {
-	unsigned char * data;
-	int data_size;
-};
-
-
 /*
  *	Information about the current frame.
  */

@@ -24,85 +24,114 @@
  *  This procedure is passed a buffer descriptor for an iframe. It builds
  *  the rest of the control part of the frame and then writes it out.
  */
+//static void lapb_send_iframe(struct lapb_cb *lapb, struct sk_buff *skb, int poll_bit)
 void lapb_send_iframe(struct lapb_cb *lapb, unsigned char *data, int data_size, int poll_bit) {
-
 	if (!data)
 		return;
 
-	unsigned char *	frame;
-	int				frame_size = data_size + 2;
-	unsigned char *	ptr;
+	unsigned char * frame;
+	int				frame_size = data_size;
 
-	frame = malloc(frame_size);
-	memcpy(frame + 2, data, data_size);
-	ptr = frame + 1;
 
 	if (lapb->mode & LAPB_EXTENDED) {
-//		frame = skb_push(skb, 2);
+		frame = cb_push(data, 2);
+		frame_size += 2;
 
-		ptr[0] = LAPB_I;
-		ptr[0] |= lapb->vs << 1;
-		ptr[1] = poll_bit ? LAPB_EPF : 0;
-		ptr[1] |= lapb->vr << 1;
+		frame[0] = LAPB_I;
+		frame[0] |= lapb->vs << 1;
+		frame[1] = poll_bit ? LAPB_EPF : 0;
+		frame[1] |= lapb->vr << 1;
 	} else {
-//		frame = skb_push(skb, 1);
+		frame = cb_push(data, 1);
+		frame_size++;
 
-		ptr[0] = LAPB_I;
-		ptr[0] |= poll_bit ? LAPB_SPF : 0;
-		ptr[0] |= lapb->vr << 5;
-		ptr[0] |= lapb->vs << 1;
-	};
+		*frame = LAPB_I;
+		*frame |= poll_bit ? LAPB_SPF : 0;
+		*frame |= lapb->vr << 5;
+		*frame |= lapb->vs << 1;
+	}
 
 	lapb->callbacks->debug(lapb, 1, "S%d TX I(%d) S%d R%d\n", lapb->state, poll_bit, lapb->vs, lapb->vr);
 
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
+
+
+//	if (!data)
+//		return;
+
+//	unsigned char *	frame;
+//	int				frame_size = data_size + 2;
+//	unsigned char *	ptr;
+
+//	frame = malloc(frame_size);
+//	memcpy(frame + 2, data, data_size);
+//	ptr = frame + 1;
+
+//	if (lapb->mode & LAPB_EXTENDED) {
+////		frame = skb_push(skb, 2);
+
+//		ptr[0] = LAPB_I;
+//		ptr[0] |= lapb->vs << 1;
+//		ptr[1] = poll_bit ? LAPB_EPF : 0;
+//		ptr[1] |= lapb->vr << 1;
+//	} else {
+////		frame = skb_push(skb, 1);
+
+//		ptr[0] = LAPB_I;
+//		ptr[0] |= poll_bit ? LAPB_SPF : 0;
+//		ptr[0] |= lapb->vr << 5;
+//		ptr[0] |= lapb->vs << 1;
+//	};
+
+//	lapb->callbacks->debug(lapb, 1, "S%d TX I(%d) S%d R%d\n", lapb->state, poll_bit, lapb->vs, lapb->vr);
+
+//	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
 }
 
 //void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 void lapb_kick(struct lapb_cb *lapb) {
 
-	//struct lapb_buff *skb;
-	//struct lapb_buff *skbn;
+	//struct sk_buff *skb, *skbn;
 	unsigned short modulus, start, end;
+	unsigned char * buffer;
+	struct lapb_buff * lpb;
 
 	modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
-//	start = !skb_peek(&lapb->ack_queue) ? lapb->va : lapb->vs;
-	start = lapb->va;
+	start = !cb_peek(&lapb->ack_queue) ? lapb->va : lapb->vs;
 	end   = (lapb->va + lapb->window) % modulus;
 
-//	if (!(lapb->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
-//		start != end && skb_peek(&lapb->write__queue)) {
 	if (!(lapb->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
-		start != end ) {
-		//lapb->vs = start;
+		start != end && cb_peek(&lapb->write_queue)) {
+		lapb->vs = start;
 
-//		/*
-//		 * Dequeue the frame and copy it.
-//		 */
-//		skb = skb_dequeue(&lapb->write__queue);
+		/*
+		 * Dequeue the frame and copy it.
+		 */
+		buffer = cb_dequeue(&lapb->write_queue);
 
-//		do {
-//			if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
-//				skb_queue_head(&lapb->write__queue, skb);
-//				break;
-//			}
+		do {
+			lpb = (struct lapb_buff *)buffer;
+			//if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
+			//	skb_queue_head(&lapb->write_queue, skb);
+			//	break;
+			//}
 
-//			if (skb->sk)
-//				skb_set_owner_w(skbn, skb->sk);
+			//if (skb->sk)
+			//	skb_set_owner_w(skbn, skb->sk);
 
 			/*
 			 * Transmit the frame copy.
 			 */
-			//lapb_send_iframe(lapb, data, data_size, LAPB_POLLOFF);
+			lapb_send_iframe(lapb, lpb->data, lpb->data_size, LAPB_POLLOFF);
 
 			lapb->vs = (lapb->vs + 1) % modulus;
 
-//			/*
-//			 * Requeue the original data frame.
-//			 */
-//			skb_queue_tail(&lapb->ack_queue, skb);
+			/*
+			 * Requeue the original data frame.
+			 */
+			cb_queue_tail(&lapb->ack_queue, lpb->data, lpb->data_size);
 
-//		} while (lapb->vs != end && (skb = skb_dequeue(&lapb->write__queue)) != NULL);
+		} while (lapb->vs != end && (buffer = cb_dequeue(&lapb->write_queue)) != NULL);
 
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
@@ -144,9 +173,12 @@ void lapb_transmit_buffer(struct lapb_cb *lapb, unsigned char * data, int data_s
 
 	lapb_data_transmit(lapb, data, data_size);
 
-	lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %02X\n", lapb->state, data[0], data[1], data[2]);
+	if (lapb->mode & LAPB_EXTENDED)
+		lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %02X %02X %02X\n", lapb->state, data[0], data[1], data[2], data[3], data[4]);
+	else
+		lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %02X %02X\n", lapb->state, data[0], data[1], data[2], data[3]);
 
-	free(data);
+	//free(data);
 }
 
 void lapb_establish_data_link(struct lapb_cb *lapb) {

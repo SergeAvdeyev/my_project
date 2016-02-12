@@ -61,6 +61,7 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 	if (!lapb) return;
 
 	switch (lapb->state) {
+		//case LAPB_NOT_READY: return;
 
 		/*
 		 *	If we are a DCE, keep going DM .. DM .. DM
@@ -145,5 +146,5 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 			break;
 	};
 
-	lapb_start_t1timer(lapb);
+	//lapb_start_t1timer(lapb);
 }

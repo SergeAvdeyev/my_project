@@ -216,39 +216,41 @@ int lapb_decode(struct lapb_cb * lapb,
  *	by lapb_transmit_frmr below.
  */
 void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int type) {
-	unsigned char *data;
-	int data_size;
+	unsigned char frame[5]; /* Address[1]+Control[1/2]+FCS[2] */
+	int frame_size = 4;
 
-	unsigned char  *dptr;
+	bzero(frame, 5);
+	//unsigned char  *dptr;
 
 //	if ((skb = alloc_skb(LAPB_HEADER_LEN + 3, GFP_ATOMIC)) == NULL)
 //		return;
-	data_size = 3;
-	if ((data = calloc(data_size, 1)) == NULL)
-		return;
+	//data_size = 3;
+	//if ((data = calloc(data_size, 1)) == NULL)
+	//	return;
 
 //	skb_reserve(skb, LAPB_HEADER_LEN + 1);
 
 	if (lapb->mode & LAPB_EXTENDED) {
 		if ((frametype & LAPB_U) == LAPB_U) {
-			dptr   = data + 1;
-			*dptr  = frametype;
-			*dptr |= poll_bit ? LAPB_SPF : 0;
+			//dptr   = data + 1;
+			frame[1]  = frametype;
+			frame[1] |= poll_bit ? LAPB_SPF : 0;
 		} else {
-			dptr   = data + 2;
-			dptr[0]  = frametype;
-			dptr[1]  = (lapb->vr << 1);
-			dptr[1] |= poll_bit ? LAPB_EPF : 0;
+			//dptr   = data + 2;
+			frame_size = 5;
+			frame[1]  = frametype;
+			frame[2]  = (lapb->vr << 1);
+			frame[2] |= poll_bit ? LAPB_EPF : 0;
 		};
 	} else {
-		dptr   = data + 1;
-		*dptr  = frametype;
-		*dptr |= poll_bit ? LAPB_SPF : 0;
+		//dptr   = data + 1;
+		frame[1]  = frametype;
+		frame[1] |= poll_bit ? LAPB_SPF : 0;
 		if ((frametype & LAPB_U) == LAPB_S)	/* S frames carry NR */
-			*dptr |= (lapb->vr << 5);
+			frame[1] |= (lapb->vr << 5);
 	};
 
-	lapb_transmit_buffer(lapb, data, data_size, type);
+	lapb_transmit_buffer(lapb, frame, frame_size, type);
 }
 
 /*

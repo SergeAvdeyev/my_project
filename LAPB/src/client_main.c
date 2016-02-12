@@ -76,6 +76,14 @@ int main(int argc, char *argv[]) {
 	printf("******                               ******\n");
 	printf("*******************************************\n");
 
+//	printf("sizeof(unsigned char)=%d\n", (int)sizeof(unsigned char));
+//	printf("sizeof(unsigned short)=%d\n", (int)sizeof(unsigned short));
+//	printf("sizeof(unsigned int)=%d\n", (int)sizeof(unsigned int));
+//	printf("sizeof(unsigned long)=%d\n", (int)sizeof(unsigned long));
+//	printf("sizeof(unsigned long long)=%d\n", (int)sizeof(unsigned long long));
+//	printf("sizeof(lapb_buff)=%d\n", (int)sizeof(struct lapb_buff));
+//	exit(0);
+
 	/* Initialize syslog */
 	setlogmask (LOG_UPTO (LOG_DEBUG));
 	openlog ("client_app", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
