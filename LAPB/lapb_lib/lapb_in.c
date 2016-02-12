@@ -145,12 +145,14 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
-				/* Allocate memory for queues */
-				int modulo = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
-				if (lapb->write_queue == NULL)
-					lapb->write_queue = malloc(lapb->N1*modulo);
-				if (lapb->ack_queue == NULL)
-					lapb->ack_queue = malloc(lapb->N1*modulo);
+//				/* Allocate memory for queues */
+//				int modulo = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
+//				if (lapb->write_queue == NULL) {
+//					lapb->write_queue = malloc(lapb->N1*modulo);
+//					lapb->write_ptr = lapb->write_queue;
+//				};
+//				if (lapb->ack_queue == NULL)
+//					lapb->ack_queue = malloc(lapb->N1*modulo);
 
 				lapb->callbacks->debug(lapb, 0, "S1 -> S3\n");
 				lapb_connect_confirmation(lapb, LAPB_OK);

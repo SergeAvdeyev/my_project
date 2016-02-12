@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "lapb_queue.h"
+
 //#define	LAPB_HEADER_LEN	20		/* LAPB over Ethernet + a bit more */
 
 #define	LAPB_ACK_PENDING_CONDITION	0x01
@@ -125,9 +127,6 @@ struct lapb_frame {
  *	The per LAPB connection control structure.
  */
 struct lapb_cb {
-	//struct list_head	node;
-	//struct net_device	*dev;
-
 	/* Link status fields */
 	unsigned char		mode;	/* Bit mask for STANDARD-EXTENDED|SLP-MLP|DTE-DCE */
 	unsigned char		state;
@@ -136,14 +135,20 @@ struct lapb_cb {
 	unsigned short		N2;
 	unsigned short		N2count;
 	unsigned short		T1, T2;
-	//unsigned long int	t1timer, t2timer;  // pthread_t of timer threads
 
 	/* Internal control information */
 	unsigned short		N1; /* Maximal I frame size */
-	unsigned char *		write_queue;
-	unsigned char *		ack_queue;
-	//struct sk_buff_head	write_queue;
-	//struct sk_buff_head	ack_queue;
+
+	struct circular_buffer	write_queue;
+	struct circular_buffer	ack_queue;
+
+//	unsigned char *		write_queue;	/* Outgoing ring buffer */
+//	unsigned char *		write_ptr;		/* Position in write_queue for writing outgoing data */
+//	unsigned char *		ack_ptr;		/* Pointer to first unacked buffer in write_queue */
+//	unsigned short		bufs_in_write_queue; /* Number of unacked frames */
+
+//	unsigned char *		ack_queue;
+
 	unsigned char		window;
 	const struct lapb_register_struct *callbacks;
 
@@ -187,7 +192,7 @@ struct lapb_parms_struct {
 };
 
 
-extern int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** out_lapb);
+extern int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** lapb);
 extern int lapb_unregister(struct lapb_cb * lapb);
 extern int lapb_reset(struct lapb_cb * lapb, unsigned char init_state);
 extern int lapb_getparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms);
@@ -217,7 +222,8 @@ int lapb_data_transmit(struct lapb_cb *lapb, unsigned char *data, int data_size)
 void lapb_data_input(struct lapb_cb *lapb, unsigned char * data, int data_size);
 
 /* lapb_out.c */
-void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size);
+//void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size);
+void lapb_kick(struct lapb_cb *lapb);
 void lapb_transmit_buffer(struct lapb_cb *lapb, unsigned char *data, int data_size, int type);
 void lapb_establish_data_link(struct lapb_cb *lapb);
 void lapb_enquiry_response(struct lapb_cb *lapb);
@@ -245,7 +251,7 @@ void lapb_start_t1timer(struct lapb_cb *lapb);
 void lapb_start_t2timer(struct lapb_cb *lapb);
 void lapb_stop_t1timer(struct lapb_cb *lapb);
 void lapb_stop_t2timer(struct lapb_cb *lapb);
-//int lapb_t1timer_running(struct lapb_cb *lapb);
+int lapb_t1timer_running(struct lapb_cb *lapb);
 
 /*
  * Debug levels.

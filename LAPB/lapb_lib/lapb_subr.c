@@ -24,15 +24,19 @@
  *	This routine delete all the queues of frames.
  */
 void lapb_clear_queues(struct lapb_cb *lapb) {
+	cb_free(&lapb->write_queue);
+	cb_free(&lapb->ack_queue);
+	//skb_queue_purge(&lapb->write_queue);
+	//skb_queue_purge(&lapb->ack_queue);
 
-	if (lapb->write_queue != NULL) {
-		free(lapb->write_queue);
-		lapb->write_queue = NULL;
-	};
-	if (lapb->ack_queue != NULL) {
-		free(lapb->ack_queue);
-		lapb->ack_queue = NULL;
-	};
+//	if (lapb->write_queue != NULL) {
+//		free(lapb->write_queue);
+//		lapb->write_queue = NULL;
+//	};
+//	if (lapb->ack_queue != NULL) {
+//		free(lapb->ack_queue);
+//		lapb->ack_queue = NULL;
+//	};
 }
 
 /*
@@ -44,19 +48,21 @@ void lapb_frames_acked(struct lapb_cb *lapb, unsigned short nr) {
 	(void)lapb;
 	(void)nr;
 //	struct sk_buff *skb;
-//	int modulus;
+	int modulus;
 
-//	modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
+	modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
 	/*
 	 * Remove all the ack-ed frames from the ack queue.
 	 */
-//	if (lapb->va != nr)
+	if (lapb->va != nr)
+		while (lapb->va != nr) {
 //		while (skb_peek(&lapb->ack_queue) && lapb->va != nr) {
 //			skb = skb_dequeue(&lapb->ack_queue);
 //			kfree_skb(skb);
-//			lapb->va = (lapb->va + 1) % modulus;
-//		}
+			lapb->va = (lapb->va + 1) % modulus;
+		};
+	//lapb->ack_ptr = lapb->write_queue + lapb->N1*lapb->va;
 }
 
 void lapb_requeue_frames(struct lapb_cb *lapb) {
@@ -71,9 +77,9 @@ void lapb_requeue_frames(struct lapb_cb *lapb) {
 	 */
 //	while ((skb = skb_dequeue(&lapb->ack_queue)) != NULL) {
 //		if (!skb_prev)
-//			skb_queue_head(&lapb->write_queue, skb);
+//			skb_queue_head(&lapb->write__queue, skb);
 //		else
-//			skb_append(skb_prev, skb, &lapb->write_queue);
+//			skb_append(skb_prev, skb, &lapb->write__queue);
 //		skb_prev = skb;
 //	}
 }

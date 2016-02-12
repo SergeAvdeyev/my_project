@@ -104,16 +104,18 @@ static struct lapb_cb *lapb_create_cb(void) {
 	if (!lapb)
 		goto out;
 
-//	skb_queue_head_init(&lapb->write_queue);
-//	skb_queue_head_init(&lapb->ack_queue);
+	cb_init(&lapb->write_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1 + 2);
+	cb_init(&lapb->ack_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1 + 2);
+//	skb_queue_head_init(&lapb->write__queue);
+//	skb_queue_head_init(&lapb->ack__queue);
 
 //	init_timer(&lapb->t1timer);
 //	init_timer(&lapb->t2timer);
 
-	//lapb->write_queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
-	lapb->write_queue = NULL;
-	//lapb->ack_queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
-	lapb->ack_queue = NULL;
+	//lapb->write__queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
+	//lapb->write_queue = NULL;
+	//lapb->ack__queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
+	//lapb->ack_queue = NULL;
 
 	/* Zero variables */
 	lapb->N2count = 0;
@@ -137,18 +139,19 @@ void default_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 	(void)format;
 }
 
-int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** out_lapb) {
+int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** lapb) {
 	int rc = LAPB_BADTOKEN;
 
-	*out_lapb = lapb_create_cb();
+	*lapb = lapb_create_cb();
 	rc = LAPB_NOMEM;
-	if (!*out_lapb)
+	if (!*lapb)
 		goto out;
 
 	if (!callbacks->debug)
 		callbacks->debug = default_debug;
-	(*out_lapb)->callbacks = callbacks;
+	(*lapb)->callbacks = callbacks;
 
+	lapb_start_t1timer(*lapb); /* If we are DCE send continious DM */
 	rc = LAPB_OK;
 out:
 	return rc;
@@ -331,8 +334,20 @@ int lapb_data_request(struct lapb_cb *lapb, unsigned char *data, int data_size) 
 	if (lapb->state != LAPB_STATE_3 && lapb->state != LAPB_STATE_4)
 		goto out;
 
-	//skb_queue_tail(&lapb->write_queue, skb);
-	lapb_kick(lapb, data, data_size);
+//	rc = LAPB_NOMEM;
+//	if (lapb->bufs_in_write_queue == lapb->window)
+//		goto out;
+//	if (lapb->mode & LAPB_EXTENDED)
+//		memcpy(lapb->write_ptr + 5, data, data_size); /* 2 bytes - data_size, 1 byte - address, 2 bytes - control */
+//	else
+//		memcpy(lapb->write_ptr + 4, data, data_size); /* 2 bytes - data_size, 1 byte - address, 1 byte - control */
+//	*(unsigned short *)lapb->write_ptr = data_size;
+//	lapb->bufs_in_write_queue++;
+	if (!cb_queue_tail(&lapb->write_queue, data, data_size))
+		goto out;
+	//skb_queue_tail(&lapb->write__queue, skb);
+	//lapb_kick(lapb, data, data_size);
+	lapb_kick(lapb);
 	rc = LAPB_OK;
 
 out:

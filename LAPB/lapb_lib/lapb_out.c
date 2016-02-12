@@ -58,7 +58,9 @@ void lapb_send_iframe(struct lapb_cb *lapb, unsigned char *data, int data_size, 
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
 }
 
-void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
+//void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
+void lapb_kick(struct lapb_cb *lapb) {
+
 	//struct lapb_buff *skb;
 	//struct lapb_buff *skbn;
 	unsigned short modulus, start, end;
@@ -69,7 +71,7 @@ void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 	end   = (lapb->va + lapb->window) % modulus;
 
 //	if (!(lapb->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
-//		start != end && skb_peek(&lapb->write_queue)) {
+//		start != end && skb_peek(&lapb->write__queue)) {
 	if (!(lapb->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
 		start != end ) {
 		//lapb->vs = start;
@@ -77,11 +79,11 @@ void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 //		/*
 //		 * Dequeue the frame and copy it.
 //		 */
-//		skb = skb_dequeue(&lapb->write_queue);
+//		skb = skb_dequeue(&lapb->write__queue);
 
 //		do {
 //			if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
-//				skb_queue_head(&lapb->write_queue, skb);
+//				skb_queue_head(&lapb->write__queue, skb);
 //				break;
 //			}
 
@@ -91,7 +93,7 @@ void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 			/*
 			 * Transmit the frame copy.
 			 */
-			lapb_send_iframe(lapb, data, data_size, LAPB_POLLOFF);
+			//lapb_send_iframe(lapb, data, data_size, LAPB_POLLOFF);
 
 			lapb->vs = (lapb->vs + 1) % modulus;
 
@@ -100,7 +102,7 @@ void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 //			 */
 //			skb_queue_tail(&lapb->ack_queue, skb);
 
-//		} while (lapb->vs != end && (skb = skb_dequeue(&lapb->write_queue)) != NULL);
+//		} while (lapb->vs != end && (skb = skb_dequeue(&lapb->write__queue)) != NULL);
 
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
