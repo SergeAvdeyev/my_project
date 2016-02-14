@@ -22,7 +22,6 @@
 char str_buf[1024];
 
 char * buf_to_str(char * data, int data_size) {
-//	/char buffer[1024];
 
 	bzero(str_buf, 1024);
 	if (data_size < 1023) /* 1 byte for null-terminating */
@@ -110,12 +109,11 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 
 	frame->type = LAPB_ILLEGAL;
 
-	//lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %02X\n", (int)lapb->state, (uchar)data[0], (uchar)data[1], (uchar)data[2]);
 
-	/* We always need to look at 2 bytes + FCS byte, sometimes we need
+	/* We always need to look at 2 bytes, sometimes we need
 	 * to look at 3 and those cases are handled below.
 	 */
-	if (data_size < 3)
+	if (data_size < 2)
 		return -1;
 
 	if (lapb->mode & LAPB_MLP) {
@@ -178,7 +176,7 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * I frame - carries NR/NS/PF
 			 */
-			lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %s", (int)lapb->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 4));
+			lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %s", (int)lapb->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
 			frame->type = LAPB_I;
 			frame->ns   = (data[1] >> 1) & 0x07;
 			frame->nr   = (data[1] >> 5) & 0x07;
@@ -213,18 +211,17 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
  *	by lapb_transmit_frmr below.
  */
 void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int type) {
-	char frame[5]; /* Address[1]+Control[1/2]+FCS[2] */
-	int frame_size = 4;
+	char frame[3]; /* Address[1]+Control[1/2]] */
+	int frame_size = 2;
 
-	bzero(frame, 5);
+	bzero(frame, 3);
 
 	if (lapb->mode & LAPB_EXTENDED) {
 		if ((frametype & LAPB_U) == LAPB_U) {
 			frame[1]  = frametype;
 			frame[1] |= poll_bit ? LAPB_SPF : 0;
 		} else {
-			//dptr   = data + 2;
-			frame_size = 5;
+			frame_size = 3;
 			frame[1]  = frametype;
 			frame[2]  = (lapb->vr << 1);
 			frame[2] |= poll_bit ? LAPB_EPF : 0;
@@ -234,8 +231,6 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
 		frame[1] |= poll_bit ? LAPB_SPF : 0;
 		if ((frametype & LAPB_U) == LAPB_S)	/* S frames carry NR */
 			frame[1] |= (lapb->vr << 5);
-		/* FCS */
-		*(_ushort *)&frame[2] = LAPB_TEST_FCS;
 	};
 
 	lapb_transmit_buffer(lapb, frame, frame_size, type);
@@ -246,18 +241,17 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
  *	the LAPB control block.
  */
 void lapb_transmit_frmr(struct lapb_cb *lapb) {
-	char  *data;
-	int data_size = 7;
 	char  *dptr;
 
-	if ((data = malloc(data_size)) == NULL)
-		return;
+	char data[6];
+	int data_size;
 
-//	skb_reserve(skb, LAPB_HEADER_LEN + 1);
+	bzero(data, 6);
+
+	dptr = data;
 
 	if (lapb->mode & LAPB_EXTENDED) {
-//		dptr    = skb_put(skb, 6);
-		dptr = data + 6;
+		data_size = 6;
 		*dptr++ = LAPB_FRMR;
 		*dptr++ = lapb->frmr_data.control[0];
 		*dptr++ = lapb->frmr_data.control[1];
@@ -268,10 +262,9 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		dptr++;
 		*dptr++ = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X %02X %02X\n", lapb->state, data[1], data[2], data[3], data[4], data[5]);
+		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X %02X %02X", lapb->state, data[1], data[2], data[3], data[4], data[5]);
 	} else {
-//		dptr    = skb_put(skb, 4);
-		dptr = data + 4;
+		data_size = 4;
 		*dptr++ = LAPB_FRMR;
 		*dptr++ = lapb->frmr_data.control[0];
 		*dptr   = (lapb->vs << 1) & 0x0E;
@@ -281,7 +274,7 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		dptr++;
 		*dptr++ = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X\n", lapb->state, data[1], data[2], data[3]);
+		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X", lapb->state, data[1], data[2], data[3]);
 	};
 
 	lapb_transmit_buffer(lapb, data, data_size, LAPB_RESPONSE);

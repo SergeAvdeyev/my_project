@@ -69,17 +69,23 @@ void disconnect_confirmation(struct lapb_cb * lapb, int reason) {
 
 /* Called by LAPB to inform X25 that DISC is received and UA sended */
 void disconnect_indication(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
+	char * buffer;
+	int buffer_size;
+
 	syslog(LOG_NOTICE, "[X25_CB] disconnect_indication is called(%s)", lapb_error_str(reason));
+	if (lapb->write_queue.count) {
+		printf("\n\nUnacked data:\n");
+		while ((buffer = cb_dequeue(&lapb->write_queue, &buffer_size)) != NULL) {
+			printf("%s\n", buf_to_str(buffer, buffer_size));
+		};
+	};
 }
 
 /* Called by LAPB to inform X25 about new data */
 int data_indication(struct lapb_cb * lapb, char * data, int data_size) {
 	(void)lapb;
-	(void)data;
-	(void)data_size;
 	syslog(LOG_NOTICE, "[X25_CB] data_indication is called");
-	printf((char *)data);
+	printf("%s\n", buf_to_str(data, data_size));
 	return 0;
 }
 
@@ -126,6 +132,11 @@ void stop_t2timer() {
 	syslog(LOG_NOTICE, "[LAPB] stop_t2timer is called");
 }
 
+/* Called by LAPB to check timer T2 state */
+int t2timer_running() {
+	return get_t2_state();
+}
+
 
 /* Called by LAPB to write debug info */
 void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
@@ -151,7 +162,7 @@ void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 */
 void t1timer_expiry(unsigned long int lapb_addr) {
 	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	syslog(LOG_NOTICE, "[X25_CB] Timer_1 expired");
+	//syslog(LOG_NOTICE, "[X25_CB] Timer_1 expired(%d of %d)", lapb->N2count, lapb->N2);
 	lapb_t1timer_expiry(lapb);
 }
 
@@ -312,8 +323,8 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 						//printf("\n\n");
 						//break;
 					} else {
-						lapb->state = LAPB_STATE_0;
-						//lapb_reset(lapb, LAPB_STATE_0);
+						//lapb->state = LAPB_STATE_0;
+						lapb_reset(lapb, LAPB_STATE_0);
 						lapb->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 						if (lapb_equipment_type == LAPB_DCE)
 							lapb_start_t1timer(lapb);
@@ -469,16 +480,16 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 					switch (action) {
 						case 1: default:  // Send test buffer (128 byte) or text from console
 							if (action == 1) {
+								data_size = 10;
 								n = 0;
-								while (n < 126) {
+								while (n < data_size - 1) {
 									buffer[n] = '1';
 									n++;
 								};
-								buffer[126] = '2';
-								buffer[127] = '\n';
-								data_size = 128;
+								buffer[n] = '2';
+								//buffer[n + 1] = '\n';
 							} else
-								data_size = strlen(buffer);
+								data_size = strlen(buffer) - 1;
 							buffer[data_size] = 0;
 							main_lock();
 							lapb_res = lapb_data_request(lapb, buffer, data_size);

@@ -30,5 +30,6 @@ void set_t1_value(int value);
 int get_t1_state();
 void set_t2_state(int state);
 void set_t2_value(int value);
+int get_t2_state();
 
 #endif // CLIENT_TIMER_H

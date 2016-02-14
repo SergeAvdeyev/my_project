@@ -166,7 +166,8 @@ int lapb_unregister(struct lapb_cb * lapb) {
 	lapb_stop_t1timer(lapb);
 	lapb_stop_t2timer(lapb);
 
-	lapb_clear_queues(lapb);
+	cb_free(&lapb->write_queue);
+	cb_free(&lapb->ack_queue);
 
 	free(lapb);
 	rc = LAPB_OK;
@@ -180,19 +181,17 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	if (!lapb)
 		goto out;
 
-	lapb_stop_t1timer(lapb);
-	lapb_stop_t2timer(lapb);
+	if (lapb_t1timer_running(lapb))
+		lapb_stop_t1timer(lapb);
+	if (lapb_t2timer_running(lapb))
+		lapb_stop_t2timer(lapb);
 	lapb_clear_queues(lapb);
-	//lapb->T1      = LAPB_DEFAULT_T1;
-	//lapb->T2      = LAPB_DEFAULT_T2;
-	//lapb->N2      = LAPB_DEFAULT_N2;
-	//lapb->mode    = LAPB_DEFAULT_MODE;
-	//lapb->window  = LAPB_DEFAULT_WINDOW;
 	/* Zero variables */
 	lapb->N2count = 0;
 	lapb->va = 0;
 	lapb->vr = 0;
 	lapb->vs = 0;
+	lapb->condition = 0x00;
 	unsigned char old_state = lapb->state;
 	lapb->state   = init_state;
 	lapb->callbacks->debug(lapb, 0, "S%d -> S%d\n", old_state, init_state);

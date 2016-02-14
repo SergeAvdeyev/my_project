@@ -24,13 +24,12 @@
  *  This procedure is passed a buffer descriptor for an iframe. It builds
  *  the rest of the control part of the frame and then writes it out.
  */
-//static void lapb_send_iframe(struct lapb_cb *lapb, struct sk_buff *skb, int poll_bit)
 void lapb_send_iframe(struct lapb_cb *lapb, char *data, int data_size, int poll_bit) {
 	if (!data)
 		return;
 
-	char * frame;
-	int				frame_size = data_size;
+	char *	frame;
+	int		frame_size = data_size;
 
 
 	if (lapb->mode & LAPB_EXTENDED) {
@@ -53,49 +52,15 @@ void lapb_send_iframe(struct lapb_cb *lapb, char *data, int data_size, int poll_
 
 	lapb->callbacks->debug(lapb, 1, "S%d TX I(%d) S%d R%d\n", lapb->state, poll_bit, lapb->vs, lapb->vr);
 
+
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
-
-
-//	if (!data)
-//		return;
-
-//	unsigned char *	frame;
-//	int				frame_size = data_size + 2;
-//	unsigned char *	ptr;
-
-//	frame = malloc(frame_size);
-//	memcpy(frame + 2, data, data_size);
-//	ptr = frame + 1;
-
-//	if (lapb->mode & LAPB_EXTENDED) {
-////		frame = skb_push(skb, 2);
-
-//		ptr[0] = LAPB_I;
-//		ptr[0] |= lapb->vs << 1;
-//		ptr[1] = poll_bit ? LAPB_EPF : 0;
-//		ptr[1] |= lapb->vr << 1;
-//	} else {
-////		frame = skb_push(skb, 1);
-
-//		ptr[0] = LAPB_I;
-//		ptr[0] |= poll_bit ? LAPB_SPF : 0;
-//		ptr[0] |= lapb->vr << 5;
-//		ptr[0] |= lapb->vs << 1;
-//	};
-
-//	lapb->callbacks->debug(lapb, 1, "S%d TX I(%d) S%d R%d\n", lapb->state, poll_bit, lapb->vs, lapb->vr);
-
-//	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
 }
 
-//void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size) {
 void lapb_kick(struct lapb_cb *lapb) {
 
-	//struct sk_buff *skb, *skbn;
 	unsigned short modulus, start, end;
 	char * buffer;
 	int buffer_size;
-	//struct lapb_buff * lpb;
 
 	modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
 	start = !cb_peek(&lapb->ack_queue) ? lapb->va : lapb->vs;
@@ -114,7 +79,7 @@ void lapb_kick(struct lapb_cb *lapb) {
 			/*
 			 * Transmit the frame copy.
 			 */
-			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLOFF);
+			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLON);
 
 			lapb->vs = (lapb->vs + 1) % modulus;
 
@@ -166,20 +131,18 @@ void lapb_transmit_buffer(struct lapb_cb *lapb, char * data, int data_size, int 
 	lapb_data_transmit(lapb, data, data_size);
 
 	if (lapb->mode & LAPB_EXTENDED)
-		lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %02X %02X %02X\n", lapb->state, data[0], data[1], data[2], data[3], data[4]);
+		lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
 	else {
-		if (data_size == 4)
-			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %02X %02X\n", lapb->state, data[0], data[1], (_uchar)data[2], (_uchar)data[3]);
+		if (data_size == 2)
+			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1]);
 		else
-			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %s\n", lapb->state, (_uchar)data[0], (_uchar)data[1], (char *)&data[2]);
+			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %s", lapb->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
 	};
 
-	//free(data);
 }
 
 void lapb_establish_data_link(struct lapb_cb *lapb) {
 	lapb->condition = 0x00;
-	//lapb->n2count   = 0;
 
 	if (lapb->mode & LAPB_EXTENDED) {
 		lapb->callbacks->debug(lapb, 1, "S%d TX SABME(1)\n", lapb->state);
@@ -191,7 +154,6 @@ void lapb_establish_data_link(struct lapb_cb *lapb) {
 
 	if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
 		lapb_start_t1timer(lapb);
-	//lapb_stop_t2timer(lapb);
 }
 
 void lapb_enquiry_response(struct lapb_cb *lapb) {
@@ -203,6 +165,7 @@ void lapb_enquiry_response(struct lapb_cb *lapb) {
 }
 
 void lapb_timeout_response(struct lapb_cb *lapb) {
+
 	lapb->callbacks->debug(lapb, 1, "S%d TX RR(0) R%d\n", lapb->state, lapb->vr);
 
 	lapb_send_control(lapb, LAPB_RR, LAPB_POLLOFF, LAPB_RESPONSE);
@@ -214,7 +177,6 @@ void lapb_check_iframes_acked(struct lapb_cb *lapb, unsigned short nr) {
 	if (lapb->vs == nr) {
 		lapb_frames_acked(lapb, nr);
 		lapb_stop_t1timer(lapb);
-		//lapb->n2count = 0;
 	} else if (lapb->va != nr) {
 		lapb_frames_acked(lapb, nr);
 		lapb_start_t1timer(lapb);

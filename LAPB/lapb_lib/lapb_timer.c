@@ -46,6 +46,11 @@ int lapb_t1timer_running(struct lapb_cb *lapb) {
 	return 0;
 }
 
+int lapb_t2timer_running(struct lapb_cb *lapb) {
+	if (lapb->callbacks->t1timer_running)
+		return lapb->callbacks->t1timer_running();
+	return 0;
+}
 
 
 void lapb_t2timer_expiry(struct lapb_cb *lapb) {
@@ -60,6 +65,8 @@ void lapb_t2timer_expiry(struct lapb_cb *lapb) {
 void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 	if (!lapb) return;
 
+	lapb->N2count++;
+	lapb->callbacks->debug(lapb, 1, "Timer_1 expired(%d of %d)", lapb->N2count, lapb->N2);
 	switch (lapb->state) {
 		//case LAPB_NOT_READY: return;
 
@@ -68,6 +75,7 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 */
 		case LAPB_STATE_0:
 			if (lapb->mode & LAPB_DCE) {
+				lapb->N2count = 0;
 				lapb->callbacks->debug(lapb, 1, "S0 TX DM(0)\n");
 				lapb_send_control(lapb, LAPB_DM, LAPB_POLLOFF, LAPB_RESPONSE);
 			};
@@ -77,14 +85,15 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	Awaiting connection state, send SABM(E), up to N2 times.
 		 */
 		case LAPB_STATE_1:
-			if (lapb->N2count == lapb->N2) {
-				lapb_clear_queues(lapb);
-				lapb->state = LAPB_STATE_0;
+			if (lapb->N2count >= lapb->N2) {
+				lapb_requeue_frames(lapb);
+				//lapb->state = LAPB_STATE_0;
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
-				lapb->callbacks->debug(lapb, 0, "S1 -> S0\n");
+				lapb_reset(lapb, LAPB_STATE_0);
+				//lapb->callbacks->debug(lapb, 0, "S1 -> S0\n");
 				return;
 			} else {
-				lapb->N2count++;
+				//lapb->N2count++;
 				if (lapb->mode & LAPB_EXTENDED) {
 					lapb->callbacks->debug(lapb, 1, "S1 TX SABME(1)\n");
 					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
@@ -99,14 +108,15 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	Awaiting disconnection state, send DISC, up to N2 times.
 		 */
 		case LAPB_STATE_2:
-			if (lapb->N2count == lapb->N2) {
-				lapb_clear_queues(lapb);
-				lapb->state = LAPB_STATE_0;
+			if (lapb->N2count >= lapb->N2) {
+				lapb_requeue_frames(lapb);
+				//lapb->state = LAPB_STATE_0;
 				lapb_disconnect_confirmation(lapb, LAPB_TIMEDOUT);
-				lapb->callbacks->debug(lapb, 0, "S2 -> S0\n");
+				lapb_reset(lapb, LAPB_STATE_0);
+				//lapb->callbacks->debug(lapb, 0, "S2 -> S0\n");
 				return;
 			} else {
-				lapb->N2count++;
+				//lapb->N2count++;
 				lapb->callbacks->debug(lapb, 1, "S2 TX DISC(1)\n");
 				lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			};
@@ -116,15 +126,17 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	Data transfer state, restransmit I frames, up to N2 times.
 		 */
 		case LAPB_STATE_3:
-			if (lapb->N2count == lapb->N2) {
-				lapb_clear_queues(lapb);
-				lapb->state = LAPB_STATE_0;
-				lapb_stop_t2timer(lapb);
+			if (lapb->N2count >= lapb->N2) {
+				//lapb_stop_t2timer(lapb);
+				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
-				lapb->callbacks->debug(lapb, 0, "S3 -> S0\n");
+				lapb_reset(lapb, LAPB_STATE_0);
+				//lapb_clear_queues(lapb);
+				//lapb->state = LAPB_STATE_0;
+				//lapb->callbacks->debug(lapb, 0, "S3 -> S0\n");
 				return;
 			} else {
-				lapb->N2count++;
+				//lapb->N2count++;
 				lapb_requeue_frames(lapb);
 				//lapb_kick(lapb, NULL, 0);
 				lapb_kick(lapb);
@@ -135,19 +147,19 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	Frame reject state, restransmit FRMR frames, up to N2 times.
 		 */
 		case LAPB_STATE_4:
-			if (lapb->N2count == lapb->N2) {
-				lapb_clear_queues(lapb);
-				lapb_reset(lapb, LAPB_STATE_0);
+			if (lapb->N2count >= lapb->N2) {
+				lapb_requeue_frames(lapb);
 				//lapb->state = LAPB_STATE_0;
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
-				lapb->callbacks->debug(lapb, 0, "S4 -> S0\n");
+				lapb_reset(lapb, LAPB_STATE_0);
+				//lapb->callbacks->debug(lapb, 0, "S4 -> S0\n");
 				return;
 			} else {
-				lapb->N2count++;
+				//lapb->N2count++;
 				lapb_transmit_frmr(lapb);
 			};
 			break;
 	};
-
-	lapb_start_t1timer(lapb);
+	if (!lapb_t1timer_running(lapb))
+		lapb_start_t1timer(lapb);
 }

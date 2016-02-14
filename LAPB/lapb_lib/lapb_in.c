@@ -92,15 +92,7 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 				lapb->callbacks->debug(lapb, 1, "S1 TX DM(%d)\n", frame->pf);
 				/* We send SABME, receive SABM. Turn to State0 and send DM response */
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
-				if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
-					lapb_stop_t1timer(lapb);
-				lapb->state     = LAPB_STATE_0;
-				lapb->condition = 0x00;
-				//lapb->N2count   = 0;
-				lapb->vs        = 0;
-				lapb->vr        = 0;
-				lapb->va        = 0;
-				lapb->callbacks->debug(lapb, 0, "S1 -> S0\n");
+				lapb_reset(lapb, LAPB_STATE_0);
 			} else {
 				lapb->callbacks->debug(lapb, 1, "S1 TX UA(%d)\n", frame->pf);
 				/* Sended and received commands are the same. Send UA */
@@ -117,15 +109,7 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 				lapb->callbacks->debug(lapb, 1, "S1 TX DM(%d)\n", frame->pf);
 				/* We send SABM, receive SABME. Turn to State0 and send DM response */
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
-				if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
-					lapb_stop_t1timer(lapb);
-				lapb->state     = LAPB_STATE_0;
-				lapb->condition = 0x00;
-				//lapb->N2count   = 0;
-				lapb->vs        = 0;
-				lapb->vr        = 0;
-				lapb->va        = 0;
-				lapb->callbacks->debug(lapb, 0, "S1 -> S0\n");
+				lapb_reset(lapb, LAPB_STATE_0);
 			};
 			break;
 
@@ -145,14 +129,6 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 				lapb->vs        = 0;
 				lapb->vr        = 0;
 				lapb->va        = 0;
-//				/* Allocate memory for queues */
-//				int modulo = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
-//				if (lapb->write_queue == NULL) {
-//					lapb->write_queue = malloc(lapb->N1*modulo);
-//					lapb->write_ptr = lapb->write_queue;
-//				};
-//				if (lapb->ack_queue == NULL)
-//					lapb->ack_queue = malloc(lapb->N1*modulo);
 
 				lapb->callbacks->debug(lapb, 0, "S1 -> S3\n");
 				lapb_connect_confirmation(lapb, LAPB_OK);
@@ -163,7 +139,7 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 			lapb->callbacks->debug(lapb, 1, "S1 RX DM(%d)\n", frame->pf);
 			if (frame->pf) {
 				lapb->callbacks->debug(lapb, 0, "S1 -> S0\n");
-				lapb_clear_queues(lapb);
+				//lapb_clear_queues(lapb);
 				lapb->state = LAPB_STATE_0;
 				if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
 					lapb_stop_t1timer(lapb);
@@ -279,23 +255,22 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 		case LAPB_DISC:
 			lapb->callbacks->debug(lapb, 1, "S3 RX DISC(%d)\n", frame->pf);
 			lapb->callbacks->debug(lapb, 1, "S3 TX UA(%d)\n", frame->pf);
-			lapb_clear_queues(lapb);
 			lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
-			lapb_stop_t1timer(lapb);
-			//lapb_stop_t2timer(lapb);
-			lapb->state = LAPB_STATE_0;
-			lapb->callbacks->debug(lapb, 0, "S3 -> S0\n");
+			lapb_requeue_frames(lapb);
 			lapb_disconnect_indication(lapb, LAPB_OK);
+			lapb_reset(lapb, LAPB_STATE_0);
+			if (lapb->mode & LAPB_DCE)
+				lapb_start_t1timer(lapb);
 			break;
 
 		case LAPB_DM:
 			lapb->callbacks->debug(lapb, 1, "S3 RX DM(%d)\n", frame->pf);
 			lapb->callbacks->debug(lapb, 0, "S3 -> S0\n");
-			lapb_clear_queues(lapb);
-			lapb->state = LAPB_STATE_0;
-			lapb_stop_t1timer(lapb);
-			//lapb_stop_t2timer(lapb);
+			lapb_requeue_frames(lapb);
 			lapb_disconnect_indication(lapb, LAPB_NOTCONNECTED);
+			lapb_reset(lapb, LAPB_STATE_0);
+			if (lapb->mode & LAPB_DCE)
+				lapb_start_t1timer(lapb);
 			break;
 
 		case LAPB_RNR:
@@ -309,9 +284,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 				lapb->frmr_type = LAPB_FRMR_Z;
 				lapb_transmit_frmr(lapb);
 				lapb_start_t1timer(lapb);
-				//lapb_stop_t2timer(lapb);
 				lapb->state   = LAPB_STATE_4;
-				//lapb->n2count = 0;
 				lapb->callbacks->debug(lapb, 0, "S3 -> S4\n");
 			};
 			break;
@@ -375,7 +348,7 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 
 			if (frame->ns == lapb->vr) {
 				int cn;
-				cn = lapb_data_indication(lapb, data + 2, data_size);
+				cn = lapb_data_indication(lapb, data + 2, data_size - 2);
 				(void)cn;
 				queued = 1;
 				(void)queued;

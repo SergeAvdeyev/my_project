@@ -56,6 +56,8 @@ int t1timer_running();
 void start_t2timer(struct lapb_cb * lapb);
 /* Called by LAPB to stop timer T1 */
 void stop_t2timer();
+/* Called by LAPB to check timer T2 state */
+int t2timer_running();
 /* Called by LAPB to write debug info */
 void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...);
 

@@ -6,7 +6,6 @@
 
 #include "lapb_queue.h"
 
-//#define	LAPB_HEADER_LEN	20		/* LAPB over Ethernet + a bit more */
 
 #define	LAPB_ACK_PENDING_CONDITION	0x01
 #define	LAPB_REJECT_CONDITION		0x02
@@ -50,7 +49,7 @@
 #define	LAPB_ADDR_C	0x0F
 #define	LAPB_ADDR_D	0x07
 
-#define LAPB_TEST_FCS 0xFEFE
+//#define LAPB_TEST_FCS 0xFEFE
 
 /* Define Link State constants. */
 enum {
@@ -141,21 +140,12 @@ struct lapb_cb {
 	struct circular_buffer	write_queue;
 	struct circular_buffer	ack_queue;
 
-//	unsigned char *		write_queue;	/* Outgoing ring buffer */
-//	unsigned char *		write_ptr;		/* Position in write_queue for writing outgoing data */
-//	unsigned char *		ack_ptr;		/* Pointer to first unacked buffer in write_queue */
-//	unsigned short		bufs_in_write_queue; /* Number of unacked frames */
-
-//	unsigned char *		ack_queue;
-
 	unsigned char		window;
 	const struct lapb_register_struct *callbacks;
 
 	/* FRMR control information */
 	struct lapb_frame	frmr_data;
 	unsigned char		frmr_type;
-
-	//atomic_t		refcnt;
 };
 
 
@@ -173,6 +163,7 @@ struct lapb_register_struct {
 	void (*start_t2timer)(struct lapb_cb * lapb);
 	void (*stop_t2timer)();
 	int  (*t1timer_running)();
+	int  (*t2timer_running)();
 
 	void (*debug)(struct lapb_cb *lapb, int level, const char * format, ...);
 };
@@ -231,6 +222,7 @@ void lapb_check_iframes_acked(struct lapb_cb *lapb, unsigned short);
 void lapb_check_need_response(struct lapb_cb *lapb, int, int);
 
 /* lapb_subr.c */
+char * buf_to_str(char * data, int data_size);
 void lapb_clear_queues(struct lapb_cb *lapb);
 void lapb_frames_acked(struct lapb_cb *lapb, unsigned short);
 void lapb_requeue_frames(struct lapb_cb *lapb);
@@ -248,6 +240,7 @@ void lapb_start_t2timer(struct lapb_cb *lapb);
 void lapb_stop_t1timer(struct lapb_cb *lapb);
 void lapb_stop_t2timer(struct lapb_cb *lapb);
 int lapb_t1timer_running(struct lapb_cb *lapb);
+int lapb_t2timer_running(struct lapb_cb *lapb);
 
 /*
  * Debug levels.

@@ -32,7 +32,11 @@ void data_transmit(struct lapb_cb * lapb, char *data, int data_size) {
 	(void)lapb;
 	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
 
-	int n = write(tcp_client_socket(), data, data_size);
+	char buffer[1024];
+	buffer[0] = 0x7E; /* Open flag */
+	memcpy(&buffer[1], data, data_size);
+	buffer[data_size + 1] = 0x7E; /* Close flag */
+	int n = send(tcp_client_socket(), buffer, data_size + 2, MSG_NOSIGNAL);
 	if (n < 0)
 		syslog(LOG_ERR, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
@@ -46,22 +50,15 @@ void data_transmit(struct lapb_cb * lapb, char *data, int data_size) {
  * TCP server callback functions
  *
 */
-void new_data_received(char * data, int data_size) {
-	if (AutomaticMode) {
-		char buffer[1024];
-		bzero(buffer, 1024);
-		memcpy(buffer, data, data_size);
-		main_lock();
-		syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", data_size);
-		lapb_data_received(lapb_server, data, data_size);
-		main_unlock();
-	} else {
-		printf("\nData received:");
-		int i;
-		for (i = 0; i < data_size; i++)
-			printf(" %02X", data[i]);
-		struct lapb_frame frame;
-		if (man_decode(lapb_server, data, data_size, &frame) == 0) {
+void manual_received(char * data, int data_size) {
+	int i;
+	struct lapb_frame frame;
+	if (man_decode(lapb_server, data, data_size, &frame) == 0) {
+		if (frame.type == LAPB_I) {
+			printf("I(%d) S%d R%d '%s'", frame.pf, frame.ns, frame.nr, buf_to_str(&data[2], data_size -2));
+		} else {
+			for (i = 0; i < data_size; i++)
+				printf(" %02X", (_uchar)data[i]);
 			switch (frame.type) {
 				case LAPB_SABM:
 					printf(" - SABM(%d)", frame.pf);
@@ -82,6 +79,69 @@ void new_data_received(char * data, int data_size) {
 					break;
 			};
 		};
+	};
+
+}
+
+void new_data_received(char * data, int data_size) {
+	char buffer[1024];
+	int i = 0;
+	int data_block = FALSE;
+	int block_size = 0;
+
+	if (AutomaticMode) {
+		//bzero(buffer, 1024);
+		while (i < data_size) {
+			if (data[i] == 0x7E) { /* Flag */
+				if (data_block) { /* Close flag */
+					main_lock();
+					syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+					lapb_data_received(lapb_server, buffer, block_size);
+					main_unlock();
+					data_block = FALSE;
+					i++;
+					continue;
+				};
+				/* Open flag */
+				data_block = TRUE;
+				bzero(buffer, 1024);
+				block_size = 0;
+				i++;
+				continue;
+			};
+			if (data_block) {
+				buffer[block_size] = data[i];
+				block_size++;
+			};
+			i++;
+		};
+	} else {
+		printf("\nData received:");
+
+		//bzero(buffer, 1024);
+		while (i < data_size) {
+			if (data[i] == 0x7E) { /* Flag */
+				if (data_block) { /* Close flag */
+					manual_received(buffer, block_size);
+					data_block = FALSE;
+					i++;
+					continue;
+				};
+				/* Open flag */
+				data_block = TRUE;
+				bzero(buffer, 1024);
+				block_size = 0;
+				i++;
+				continue;
+			};
+			if (data_block) {
+				buffer[block_size] = data[i];
+				block_size++;
+			};
+			i++;
+		};
+
+
 		printf("\n\n");
 		print_man_commands();
 	};

@@ -25,7 +25,11 @@ void data_transmit(struct lapb_cb * lapb, char *data, int data_size) {
 	(void)lapb;
 	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
 
-	int n = write(tcp_client_socket(), data, data_size);
+	char buffer[1024];
+	buffer[0] = 0x7E; /* Open flag */
+	memcpy(&buffer[1], data, data_size);
+	buffer[data_size + 1] = 0x7E; /* Close flag */
+	int n = send(tcp_client_socket(), buffer, data_size + 2, MSG_NOSIGNAL);
 	if (n < 0)
 		syslog(LOG_ERR, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
@@ -38,10 +42,41 @@ void data_transmit(struct lapb_cb * lapb, char *data, int data_size) {
  *
 */
 void new_data_received(char * data, int data_size) {
-	main_lock();
-	syslog(LOG_NOTICE, "data_received is called");
-	lapb_data_received(lapb_client, data, data_size);
-	main_unlock();
+	char buffer[1024];
+	//bzero(buffer, 1024);
+	int i = 0;
+	int data_block = FALSE;
+	int block_size = 0;
+	while (i < data_size) {
+		if (data[i] == 0x7E) { /* Flag */
+			if (data_block) { /* Close flag */
+				main_lock();
+				syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+				lapb_data_received(lapb_client, buffer, block_size);
+				main_unlock();
+				data_block = FALSE;
+				i++;
+				continue;
+			};
+			/* Open flag */
+			data_block = TRUE;
+			bzero(buffer, 1024);
+			block_size = 0;
+			i++;
+			continue;
+		};
+		if (data_block) {
+			buffer[block_size] = data[i];
+			block_size++;
+		};
+		i++;
+	};
+
+
+//	main_lock();
+//	syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", data_size);
+//	lapb_data_received(lapb_client, data, data_size);
+//	main_unlock();
 }
 
 void connection_lost() {
@@ -163,6 +198,7 @@ int main(int argc, char *argv[]) {
 	callbacks.start_t2timer = start_t2timer;
 	callbacks.stop_t2timer = stop_t2timer;
 	callbacks.t1timer_running = t1timer_running;
+	callbacks.t2timer_running = t2timer_running;
 	callbacks.debug = lapb_debug;
 	lapb_res = lapb_register(&callbacks, &lapb_client);
 	if (lapb_res != LAPB_OK) {
