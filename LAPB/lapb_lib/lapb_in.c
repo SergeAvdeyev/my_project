@@ -233,7 +233,7 @@ static void lapb_state2_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
  *	State machine for state 3, Connected State.
  *	The handling of the timer(s) is in file lapb_timer.c
  */
-static void lapb_state3_machine(struct lapb_cb *lapb, unsigned char * data, int data_size, struct lapb_frame *frame) {
+static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size, struct lapb_frame *frame) {
 	int queued = 0;
 	int modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
@@ -491,7 +491,7 @@ static void lapb_state4_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 /*
  *	Process an incoming LAPB frame
  */
-void lapb_data_input(struct lapb_cb *lapb, unsigned char *data, int data_size) {
+void lapb_data_input(struct lapb_cb *lapb, char *data, int data_size) {
 	struct lapb_frame frame;
 
 	if (lapb_decode(lapb, data, data_size, &frame) < 0) {

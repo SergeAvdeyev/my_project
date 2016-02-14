@@ -104,8 +104,8 @@ static struct lapb_cb *lapb_create_cb(void) {
 	if (!lapb)
 		goto out;
 
-	cb_init(&lapb->write_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1 + 2);
-	cb_init(&lapb->ack_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1 + 2);
+	cb_init(&lapb->write_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
+	cb_init(&lapb->ack_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
 //	skb_queue_head_init(&lapb->write__queue);
 //	skb_queue_head_init(&lapb->ack__queue);
 
@@ -183,11 +183,16 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	lapb_stop_t1timer(lapb);
 	lapb_stop_t2timer(lapb);
 	lapb_clear_queues(lapb);
-	lapb->T1      = LAPB_DEFAULT_T1;
-	lapb->T2      = LAPB_DEFAULT_T2;
-	lapb->N2      = LAPB_DEFAULT_N2;
-	lapb->mode    = LAPB_DEFAULT_MODE;
-	lapb->window  = LAPB_DEFAULT_WINDOW;
+	//lapb->T1      = LAPB_DEFAULT_T1;
+	//lapb->T2      = LAPB_DEFAULT_T2;
+	//lapb->N2      = LAPB_DEFAULT_N2;
+	//lapb->mode    = LAPB_DEFAULT_MODE;
+	//lapb->window  = LAPB_DEFAULT_WINDOW;
+	/* Zero variables */
+	lapb->N2count = 0;
+	lapb->va = 0;
+	lapb->vr = 0;
+	lapb->vs = 0;
 	unsigned char old_state = lapb->state;
 	lapb->state   = init_state;
 	lapb->callbacks->debug(lapb, 0, "S%d -> S%d\n", old_state, init_state);
@@ -324,7 +329,7 @@ out:
 	return rc;
 }
 
-int lapb_data_request(struct lapb_cb *lapb, unsigned char *data, int data_size) {
+int lapb_data_request(struct lapb_cb *lapb, char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
 	if (!lapb)
@@ -335,19 +340,9 @@ int lapb_data_request(struct lapb_cb *lapb, unsigned char *data, int data_size) 
 		goto out;
 
 
-//	rc = LAPB_NOMEM;
-//	if (lapb->bufs_in_write_queue == lapb->window)
-//		goto out;
-//	if (lapb->mode & LAPB_EXTENDED)
-//		memcpy(lapb->write_ptr + 5, data, data_size); /* 2 bytes - data_size, 1 byte - address, 2 bytes - control */
-//	else
-//		memcpy(lapb->write_ptr + 4, data, data_size); /* 2 bytes - data_size, 1 byte - address, 1 byte - control */
-//	*(unsigned short *)lapb->write_ptr = data_size;
-//	lapb->bufs_in_write_queue++;
+	rc = LAPB_NOMEM;
 	if (!cb_queue_tail(&lapb->write_queue, data, data_size))
 		goto out;
-	//skb_queue_tail(&lapb->write__queue, skb);
-	//lapb_kick(lapb, data, data_size);
 	lapb_kick(lapb);
 	rc = LAPB_OK;
 
@@ -355,7 +350,7 @@ out:
 	return rc;
 }
 
-int lapb_data_received(struct lapb_cb *lapb, unsigned char *data, int data_size) {
+int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
 	if (lapb) {
@@ -386,7 +381,7 @@ void lapb_disconnect_indication(struct lapb_cb *lapb, int reason) {
 		lapb->callbacks->disconnect_indication(lapb, reason);
 }
 
-int lapb_data_indication(struct lapb_cb *lapb, unsigned char * data, int data_size) {
+int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size) {
 	if (lapb->callbacks->data_indication)
 		return lapb->callbacks->data_indication(lapb, data, data_size);
 
@@ -395,7 +390,7 @@ int lapb_data_indication(struct lapb_cb *lapb, unsigned char * data, int data_si
 	return 0;
 }
 
-int lapb_data_transmit(struct lapb_cb *lapb, unsigned char *data, int data_size) {
+int lapb_data_transmit(struct lapb_cb *lapb, char *data, int data_size) {
 	int used = 0;
 
 	if (lapb->callbacks->data_transmit) {

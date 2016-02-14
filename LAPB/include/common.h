@@ -43,7 +43,7 @@ void disconnect_confirmation(struct lapb_cb * lapb, int reason);
 /* Called by LAPB to inform X25 that DISC is received and UA sended */
 void disconnect_indication(struct lapb_cb * lapb, int reason);
 /* Called by LAPB to inform X25 about new data */
-int data_indication(struct lapb_cb * lapb, unsigned char * data, int data_size);
+int data_indication(struct lapb_cb * lapb, char * data, int data_size);
 ///* Called by LAPB to transmit data via physical connection */
 //void data_transmit(struct lapb_cb * lapb, char *data, int data_size);
 /* Called by LAPB to start timer T1 */

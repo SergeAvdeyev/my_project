@@ -21,7 +21,7 @@ struct lapb_cb * lapb_client = NULL;
  *
 */
 
-void data_transmit(struct lapb_cb * lapb, unsigned char *data, int data_size) {
+void data_transmit(struct lapb_cb * lapb, char *data, int data_size) {
 	(void)lapb;
 	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
 
@@ -37,7 +37,7 @@ void data_transmit(struct lapb_cb * lapb, unsigned char *data, int data_size) {
  * TCP client callback functions
  *
 */
-void new_data_received(unsigned char * data, int data_size) {
+void new_data_received(char * data, int data_size) {
 	main_lock();
 	syslog(LOG_NOTICE, "data_received is called");
 	lapb_data_received(lapb_client, data, data_size);

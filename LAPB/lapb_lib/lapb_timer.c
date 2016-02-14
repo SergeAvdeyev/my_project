@@ -67,8 +67,10 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 *	If we are a DCE, keep going DM .. DM .. DM
 		 */
 		case LAPB_STATE_0:
-			if (lapb->mode & LAPB_DCE)
+			if (lapb->mode & LAPB_DCE) {
+				lapb->callbacks->debug(lapb, 1, "S0 TX DM(0)\n");
 				lapb_send_control(lapb, LAPB_DM, LAPB_POLLOFF, LAPB_RESPONSE);
+			};
 			break;
 
 		/*
@@ -135,7 +137,8 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		case LAPB_STATE_4:
 			if (lapb->N2count == lapb->N2) {
 				lapb_clear_queues(lapb);
-				lapb->state = LAPB_STATE_0;
+				lapb_reset(lapb, LAPB_STATE_0);
+				//lapb->state = LAPB_STATE_0;
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb->callbacks->debug(lapb, 0, "S4 -> S0\n");
 				return;
@@ -146,5 +149,5 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 			break;
 	};
 
-	//lapb_start_t1timer(lapb);
+	lapb_start_t1timer(lapb);
 }

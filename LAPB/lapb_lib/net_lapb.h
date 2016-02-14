@@ -50,6 +50,8 @@
 #define	LAPB_ADDR_C	0x0F
 #define	LAPB_ADDR_D	0x07
 
+#define LAPB_TEST_FCS 0xFEFE
+
 /* Define Link State constants. */
 enum {
 	LAPB_STATE_0,	/* Disconnected State		*/
@@ -104,7 +106,10 @@ enum {
 #define	LAPB_NOTREADY_STR		"Phys layer not ready"
 
 
-
+typedef unsigned char	_uchar;
+typedef unsigned short	_ushort;
+typedef unsigned int	_uint;
+typedef unsigned long	_ulong;
 
 /*
  *	Information about the current frame.
@@ -160,8 +165,8 @@ struct lapb_register_struct {
 	void (*connect_indication)(struct lapb_cb * lapb, int reason);
 	void (*disconnect_confirmation)(struct lapb_cb * lapb, int reason);
 	void (*disconnect_indication)(struct lapb_cb * lapb, int reason);
-	int  (*data_indication)(struct lapb_cb * lapb, unsigned char * data, int data_size);
-	void (*data_transmit)(struct lapb_cb * lapb, unsigned char *data, int data_size);
+	int  (*data_indication)(struct lapb_cb * lapb, char * data, int data_size);
+	void (*data_transmit)(struct lapb_cb * lapb, char *data, int data_size);
 
 	void (*start_t1timer)(struct lapb_cb * lapb);
 	void (*stop_t1timer)();
@@ -193,10 +198,10 @@ extern int lapb_getparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms)
 extern int lapb_setparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms);
 extern int lapb_connect_request(struct lapb_cb *lapb);
 extern int lapb_disconnect_request(struct lapb_cb *lapb);
-extern int lapb_data_request(struct lapb_cb *lapb, unsigned char * data, int data_size);
+extern int lapb_data_request(struct lapb_cb *lapb, char * data, int data_size);
 
 // Executing by physical leyer (when new incoming data received)
-extern int lapb_data_received(struct lapb_cb *lapb, unsigned char * data, int data_size);
+extern int lapb_data_received(struct lapb_cb *lapb, char * data, int data_size);
 
 
 
@@ -209,16 +214,16 @@ void lapb_connect_confirmation(struct lapb_cb *lapb, int);
 void lapb_connect_indication(struct lapb_cb *lapb, int);
 void lapb_disconnect_confirmation(struct lapb_cb *lapb, int);
 void lapb_disconnect_indication(struct lapb_cb *lapb, int);
-int lapb_data_indication(struct lapb_cb *lapb, unsigned char * data, int data_size);
-int lapb_data_transmit(struct lapb_cb *lapb, unsigned char *data, int data_size);
+int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size);
+int lapb_data_transmit(struct lapb_cb *lapb, char *data, int data_size);
 
 /* lapb_in.c */
-void lapb_data_input(struct lapb_cb *lapb, unsigned char * data, int data_size);
+void lapb_data_input(struct lapb_cb *lapb, char * data, int data_size);
 
 /* lapb_out.c */
 //void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size);
 void lapb_kick(struct lapb_cb *lapb);
-void lapb_transmit_buffer(struct lapb_cb *lapb, unsigned char *data, int data_size, int type);
+void lapb_transmit_buffer(struct lapb_cb *lapb, char *data, int data_size, int type);
 void lapb_establish_data_link(struct lapb_cb *lapb);
 void lapb_enquiry_response(struct lapb_cb *lapb);
 void lapb_timeout_response(struct lapb_cb *lapb);
@@ -230,10 +235,7 @@ void lapb_clear_queues(struct lapb_cb *lapb);
 void lapb_frames_acked(struct lapb_cb *lapb, unsigned short);
 void lapb_requeue_frames(struct lapb_cb *lapb);
 int lapb_validate_nr(struct lapb_cb *lapb, unsigned short);
-int lapb_decode(struct lapb_cb *lapb,
-				unsigned char * data,
-				int data_size,
-				struct lapb_frame * frame);
+int lapb_decode(struct lapb_cb *lapb, char * data, int data_size, struct lapb_frame * frame);
 void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 void lapb_transmit_frmr(struct lapb_cb *lapb);
 

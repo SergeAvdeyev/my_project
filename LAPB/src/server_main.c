@@ -14,7 +14,7 @@ struct lapb_cb * lapb_server = NULL;
 int AutomaticMode = TRUE;
 
 int manual_process();
-int man_decode(struct lapb_cb *lapb, unsigned char *data, int data_size, struct lapb_frame *frame);
+int man_decode(struct lapb_cb *lapb, char *data, int data_size, struct lapb_frame *frame);
 void print_man_commands();
 
 
@@ -28,7 +28,7 @@ void print_man_commands();
 // *
 
 /* Called by LAPB to transmit data via physical connection */
-void data_transmit(struct lapb_cb * lapb, unsigned char *data, int data_size) {
+void data_transmit(struct lapb_cb * lapb, char *data, int data_size) {
 	(void)lapb;
 	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
 
@@ -46,10 +46,13 @@ void data_transmit(struct lapb_cb * lapb, unsigned char *data, int data_size) {
  * TCP server callback functions
  *
 */
-void new_data_received(unsigned char * data, int data_size) {
+void new_data_received(char * data, int data_size) {
 	if (AutomaticMode) {
+		char buffer[1024];
+		bzero(buffer, 1024);
+		memcpy(buffer, data, data_size);
 		main_lock();
-		syslog(LOG_NOTICE, "[PHYS_CB] data_received is called");
+		syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", data_size);
 		lapb_data_received(lapb_server, data, data_size);
 		main_unlock();
 	} else {
@@ -362,7 +365,7 @@ int manual_process() {
 }
 
 
-int man_decode(struct lapb_cb *lapb, unsigned char *data, int data_size, struct lapb_frame *frame) {
+int man_decode(struct lapb_cb *lapb, char *data, int data_size, struct lapb_frame *frame) {
 	frame->type = LAPB_ILLEGAL;
 
 

@@ -19,24 +19,26 @@
 
 #include <stdarg.h>
 
+char str_buf[1024];
+
+char * buf_to_str(char * data, int data_size) {
+//	/char buffer[1024];
+
+	bzero(str_buf, 1024);
+	if (data_size < 1023) /* 1 byte for null-terminating */
+		memcpy(str_buf, data, data_size);
+	return str_buf;
+}
 
 /*
  *	This routine delete all the queues of frames.
  */
 void lapb_clear_queues(struct lapb_cb *lapb) {
-	cb_free(&lapb->write_queue);
-	cb_free(&lapb->ack_queue);
+	cb_clear(&lapb->write_queue);
+	cb_clear(&lapb->ack_queue);
 	//skb_queue_purge(&lapb->write_queue);
 	//skb_queue_purge(&lapb->ack_queue);
 
-//	if (lapb->write_queue != NULL) {
-//		free(lapb->write_queue);
-//		lapb->write_queue = NULL;
-//	};
-//	if (lapb->ack_queue != NULL) {
-//		free(lapb->ack_queue);
-//		lapb->ack_queue = NULL;
-//	};
 }
 
 /*
@@ -45,9 +47,7 @@ void lapb_clear_queues(struct lapb_cb *lapb) {
  * SDL diagram.
  */
 void lapb_frames_acked(struct lapb_cb *lapb, unsigned short nr) {
-	(void)lapb;
-	(void)nr;
-//	struct sk_buff *skb;
+	//struct sk_buff *skb;
 	int modulus;
 
 	modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
@@ -56,30 +56,29 @@ void lapb_frames_acked(struct lapb_cb *lapb, unsigned short nr) {
 	 * Remove all the ack-ed frames from the ack queue.
 	 */
 	if (lapb->va != nr)
-		while (lapb->va != nr) {
-//		while (skb_peek(&lapb->ack_queue) && lapb->va != nr) {
-//			skb = skb_dequeue(&lapb->ack_queue);
-//			kfree_skb(skb);
+		while (cb_peek(&lapb->ack_queue) && lapb->va != nr) {
+			cb_dequeue(&lapb->ack_queue, NULL);
 			lapb->va = (lapb->va + 1) % modulus;
 		};
-	//lapb->ack_ptr = lapb->write_queue + lapb->N1*lapb->va;
 }
 
 void lapb_requeue_frames(struct lapb_cb *lapb) {
-	(void)lapb;
-//	struct lapb_buff *skb;
-//	struct lapb_buff *skb_prev = NULL;
-
+	char *buffer;
+	int buffer_size;
 	/*
 	 * Requeue all the un-ack-ed frames on the output queue to be picked
 	 * up by lapb_kick called from the timer. This arrangement handles the
 	 * possibility of an empty output queue.
 	 */
+	while ((buffer = cb_dequeue_tail(&lapb->ack_queue, &buffer_size)) != NULL) {
+		cb_queue_head(&lapb->write_queue, buffer, buffer_size);
+	};
+
 //	while ((skb = skb_dequeue(&lapb->ack_queue)) != NULL) {
 //		if (!skb_prev)
-//			skb_queue_head(&lapb->write__queue, skb);
+//			skb_queue_head(&lapb->write_queue, skb);
 //		else
-//			skb_append(skb_prev, skb, &lapb->write__queue);
+//			skb_append(skb_prev, skb, &lapb->write_queue);
 //		skb_prev = skb;
 //	}
 }
@@ -107,14 +106,11 @@ int lapb_validate_nr(struct lapb_cb *lapb, unsigned short nr) {
  *	This routine is the centralised routine for parsing the control
  *	information for the different frame formats.
  */
-int lapb_decode(struct lapb_cb * lapb,
-				unsigned char * data,
-				int data_size,
-				struct lapb_frame * frame) {
+int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_frame * frame) {
 
 	frame->type = LAPB_ILLEGAL;
 
-	lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %02X\n", (int)lapb->state, data[0], data[1], data[2]);
+	//lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %02X\n", (int)lapb->state, (uchar)data[0], (uchar)data[1], (uchar)data[2]);
 
 	/* We always need to look at 2 bytes + FCS byte, sometimes we need
 	 * to look at 3 and those cases are handled below.
@@ -182,6 +178,7 @@ int lapb_decode(struct lapb_cb * lapb,
 			/*
 			 * I frame - carries NR/NS/PF
 			 */
+			lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %s", (int)lapb->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 4));
 			frame->type = LAPB_I;
 			frame->ns   = (data[1] >> 1) & 0x07;
 			frame->nr   = (data[1] >> 5) & 0x07;
@@ -216,23 +213,13 @@ int lapb_decode(struct lapb_cb * lapb,
  *	by lapb_transmit_frmr below.
  */
 void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int type) {
-	unsigned char frame[5]; /* Address[1]+Control[1/2]+FCS[2] */
+	char frame[5]; /* Address[1]+Control[1/2]+FCS[2] */
 	int frame_size = 4;
 
 	bzero(frame, 5);
-	//unsigned char  *dptr;
-
-//	if ((skb = alloc_skb(LAPB_HEADER_LEN + 3, GFP_ATOMIC)) == NULL)
-//		return;
-	//data_size = 3;
-	//if ((data = calloc(data_size, 1)) == NULL)
-	//	return;
-
-//	skb_reserve(skb, LAPB_HEADER_LEN + 1);
 
 	if (lapb->mode & LAPB_EXTENDED) {
 		if ((frametype & LAPB_U) == LAPB_U) {
-			//dptr   = data + 1;
 			frame[1]  = frametype;
 			frame[1] |= poll_bit ? LAPB_SPF : 0;
 		} else {
@@ -243,11 +230,12 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
 			frame[2] |= poll_bit ? LAPB_EPF : 0;
 		};
 	} else {
-		//dptr   = data + 1;
 		frame[1]  = frametype;
 		frame[1] |= poll_bit ? LAPB_SPF : 0;
 		if ((frametype & LAPB_U) == LAPB_S)	/* S frames carry NR */
 			frame[1] |= (lapb->vr << 5);
+		/* FCS */
+		*(_ushort *)&frame[2] = LAPB_TEST_FCS;
 	};
 
 	lapb_transmit_buffer(lapb, frame, frame_size, type);
@@ -258,9 +246,9 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
  *	the LAPB control block.
  */
 void lapb_transmit_frmr(struct lapb_cb *lapb) {
-	unsigned char  *data;
+	char  *data;
 	int data_size = 7;
-	unsigned char  *dptr;
+	char  *dptr;
 
 	if ((data = malloc(data_size)) == NULL)
 		return;
