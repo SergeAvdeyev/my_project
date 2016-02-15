@@ -5,7 +5,7 @@
 
 #include "tcp_server.h"
 #include "my_timer.h"
-#include "net_lapb.h"
+#include "lapb_iface.h"
 #include "common.h"
 
 
@@ -300,7 +300,7 @@ int main (int argc, char *argv[]) {
 	//m_callbacks.print_commands_1 = print_commands_1;
 	//m_callbacks.print_commands_2 = print_commands_2;
 	//m_callbacks.print_commands_3 = print_commands_3;
-	main_loop(lapb_server, &m_callbacks, lapb_equipment_type, lapb_modulo);
+	main_loop(lapb_server, &m_callbacks);
 
 	printf("Main loop ended\n");
 

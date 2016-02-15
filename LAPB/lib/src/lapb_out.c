@@ -1,7 +1,9 @@
 /*
- *	LAPB release 002
+ *	LAPB release 001
  *
- *	This code REQUIRES 2.1.15 or higher/ NET3.038
+ *  By Serge.V.Avdeyev
+ *
+ *  Started Coding
  *
  *	This module:
  *		This module is free software; you can redistribute it and/or
@@ -9,16 +11,11 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- *	History
- *	LAPB 001	Jonathan Naylor	Started Coding
- *	LAPB 002	Jonathan Naylor	New timer architecture.
  */
 
-//#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 
-#include <stdlib.h>
-#include "net_lapb.h"
+#include "lapb_int.h"
 
 /*
  *  This procedure is passed a buffer descriptor for an iframe. It builds
@@ -136,7 +133,7 @@ void lapb_transmit_buffer(struct lapb_cb *lapb, char * data, int data_size, int 
 		if (data_size == 2)
 			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1]);
 		else
-			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %s", lapb->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
+			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %s", lapb->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
 	};
 
 }

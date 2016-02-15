@@ -1,0 +1,11 @@
+project(client_app_so)
+set(CMAKE_BUILD_TYPE Debug)
+cmake_minimum_required(VERSION 2.8)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_SOURCE_DIR}/../../../LAPB/lib/export)
+set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread")
+find_library(lapb_lib lapb ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../../bin)
+#message("LAPB lib is at: ${lapb_lib}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "../../../bin/")
+add_executable(${PROJECT_NAME} ../src/client_main.c ../src/tcp_client.c ../src/common.c ../src/my_timer.c)
+target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${lapb_lib})
+

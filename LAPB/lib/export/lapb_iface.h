@@ -1,10 +1,11 @@
-#ifndef LIB_LAPB_H
-#define LIB_LAPB_H
+#ifndef LAPB_IFACE_H
+#define LAPB_IFACE_H
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
-#include "lapb_queue.h"
+//#include "../include/lapb_queue.h"
 
 
 #define	LAPB_ACK_PENDING_CONDITION	0x01
@@ -48,8 +49,6 @@
 #define	LAPB_ADDR_B	0x01
 #define	LAPB_ADDR_C	0x0F
 #define	LAPB_ADDR_D	0x07
-
-//#define LAPB_TEST_FCS 0xFEFE
 
 /* Define Link State constants. */
 enum {
@@ -109,6 +108,17 @@ typedef unsigned char	_uchar;
 typedef unsigned short	_ushort;
 typedef unsigned int	_uint;
 typedef unsigned long	_ulong;
+
+struct circular_buffer {
+        char * buffer;		// data buffer
+        char * buffer_end;	// end of data buffer
+        size_t capacity;	// maximum number of items in the buffer
+        size_t count;		// number of items in the buffer
+        size_t sz;			// size of each item in the buffer
+        char * head;		// pointer to head
+        char * tail;		// pointer to tail
+};
+
 
 /*
  *	Information about the current frame.
@@ -184,6 +194,7 @@ struct lapb_parms_struct {
 
 extern int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** lapb);
 extern int lapb_unregister(struct lapb_cb * lapb);
+extern char * lapb_dequeue(struct lapb_cb * lapb, int * buffer_size);
 extern int lapb_reset(struct lapb_cb * lapb, unsigned char init_state);
 extern int lapb_getparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms);
 extern int lapb_setparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms);
@@ -200,47 +211,47 @@ extern int lapb_data_received(struct lapb_cb *lapb, char * data, int data_size);
 
 
 
-/* lapb_iface.c */
-void lapb_connect_confirmation(struct lapb_cb *lapb, int);
-void lapb_connect_indication(struct lapb_cb *lapb, int);
-void lapb_disconnect_confirmation(struct lapb_cb *lapb, int);
-void lapb_disconnect_indication(struct lapb_cb *lapb, int);
-int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size);
-int lapb_data_transmit(struct lapb_cb *lapb, char *data, int data_size);
+///* lapb_iface.c */
+//void lapb_connect_confirmation(struct lapb_cb *lapb, int);
+//void lapb_connect_indication(struct lapb_cb *lapb, int);
+//void lapb_disconnect_confirmation(struct lapb_cb *lapb, int);
+//void lapb_disconnect_indication(struct lapb_cb *lapb, int);
+//int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size);
+//int lapb_data_transmit(struct lapb_cb *lapb, char *data, int data_size);
 
-/* lapb_in.c */
-void lapb_data_input(struct lapb_cb *lapb, char * data, int data_size);
+///* lapb_in.c */
+//void lapb_data_input(struct lapb_cb *lapb, char * data, int data_size);
 
-/* lapb_out.c */
-//void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size);
-void lapb_kick(struct lapb_cb *lapb);
-void lapb_transmit_buffer(struct lapb_cb *lapb, char *data, int data_size, int type);
-void lapb_establish_data_link(struct lapb_cb *lapb);
-void lapb_enquiry_response(struct lapb_cb *lapb);
-void lapb_timeout_response(struct lapb_cb *lapb);
-void lapb_check_iframes_acked(struct lapb_cb *lapb, unsigned short);
-void lapb_check_need_response(struct lapb_cb *lapb, int, int);
+///* lapb_out.c */
+////void lapb_kick(struct lapb_cb *lapb, unsigned char *data, int data_size);
+//void lapb_kick(struct lapb_cb *lapb);
+//void lapb_transmit_buffer(struct lapb_cb *lapb, char *data, int data_size, int type);
+//void lapb_establish_data_link(struct lapb_cb *lapb);
+//void lapb_enquiry_response(struct lapb_cb *lapb);
+//void lapb_timeout_response(struct lapb_cb *lapb);
+//void lapb_check_iframes_acked(struct lapb_cb *lapb, unsigned short);
+//void lapb_check_need_response(struct lapb_cb *lapb, int, int);
 
-/* lapb_subr.c */
-char * buf_to_str(char * data, int data_size);
-void lapb_clear_queues(struct lapb_cb *lapb);
-void lapb_frames_acked(struct lapb_cb *lapb, unsigned short);
-void lapb_requeue_frames(struct lapb_cb *lapb);
-int lapb_validate_nr(struct lapb_cb *lapb, unsigned short);
-int lapb_decode(struct lapb_cb *lapb, char * data, int data_size, struct lapb_frame * frame);
-void lapb_send_control(struct lapb_cb *lapb, int, int, int);
-void lapb_transmit_frmr(struct lapb_cb *lapb);
+///* lapb_subr.c */
+//char * buf_to_str(char * data, int data_size);
+//void lapb_clear_queues(struct lapb_cb *lapb);
+//void lapb_frames_acked(struct lapb_cb *lapb, unsigned short);
+//void lapb_requeue_frames(struct lapb_cb *lapb);
+//int lapb_validate_nr(struct lapb_cb *lapb, unsigned short);
+//int lapb_decode(struct lapb_cb *lapb, char * data, int data_size, struct lapb_frame * frame);
+extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
+//void lapb_transmit_frmr(struct lapb_cb *lapb);
 
 /* lapb_timer.c */
 extern void lapb_t1timer_expiry(struct lapb_cb *lapb);
 extern void lapb_t2timer_expiry(struct lapb_cb *lapb);
 
-void lapb_start_t1timer(struct lapb_cb *lapb);
-void lapb_start_t2timer(struct lapb_cb *lapb);
-void lapb_stop_t1timer(struct lapb_cb *lapb);
-void lapb_stop_t2timer(struct lapb_cb *lapb);
-int lapb_t1timer_running(struct lapb_cb *lapb);
-int lapb_t2timer_running(struct lapb_cb *lapb);
+//void lapb_start_t1timer(struct lapb_cb *lapb);
+//void lapb_start_t2timer(struct lapb_cb *lapb);
+//void lapb_stop_t1timer(struct lapb_cb *lapb);
+//void lapb_stop_t2timer(struct lapb_cb *lapb);
+//int lapb_t1timer_running(struct lapb_cb *lapb);
+//int lapb_t2timer_running(struct lapb_cb *lapb);
 
 /*
  * Debug levels.

@@ -1,7 +1,9 @@
 /*
- *	LAPB release 002
+ *	LAPB release 001
  *
- *	This code REQUIRES 2.1.15 or higher/ NET3.038
+ *  By Serge.V.Avdeyev
+ *
+ *  Started Coding
  *
  *	This module:
  *		This module is free software; you can redistribute it and/or
@@ -9,13 +11,9 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- *	History
- *	LAPB 001	Jonathan Naylor	Started Coding
- *	LAPB 002	Jonathan Naylor	New timer architecture.
  */
 
-
-#include "net_lapb.h"
+#include "lapb_int.h"
 
 
 
@@ -68,8 +66,6 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 	lapb->N2count++;
 	lapb->callbacks->debug(lapb, 1, "Timer_1 expired(%d of %d)", lapb->N2count, lapb->N2);
 	switch (lapb->state) {
-		//case LAPB_NOT_READY: return;
-
 		/*
 		 *	If we are a DCE, keep going DM .. DM .. DM
 		 */
@@ -87,13 +83,10 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		case LAPB_STATE_1:
 			if (lapb->N2count >= lapb->N2) {
 				lapb_requeue_frames(lapb);
-				//lapb->state = LAPB_STATE_0;
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-				//lapb->callbacks->debug(lapb, 0, "S1 -> S0\n");
 				return;
 			} else {
-				//lapb->N2count++;
 				if (lapb->mode & LAPB_EXTENDED) {
 					lapb->callbacks->debug(lapb, 1, "S1 TX SABME(1)\n");
 					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
@@ -110,13 +103,10 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		case LAPB_STATE_2:
 			if (lapb->N2count >= lapb->N2) {
 				lapb_requeue_frames(lapb);
-				//lapb->state = LAPB_STATE_0;
 				lapb_disconnect_confirmation(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-				//lapb->callbacks->debug(lapb, 0, "S2 -> S0\n");
 				return;
 			} else {
-				//lapb->N2count++;
 				lapb->callbacks->debug(lapb, 1, "S2 TX DISC(1)\n");
 				lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			};
@@ -127,18 +117,12 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		 */
 		case LAPB_STATE_3:
 			if (lapb->N2count >= lapb->N2) {
-				//lapb_stop_t2timer(lapb);
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-				//lapb_clear_queues(lapb);
-				//lapb->state = LAPB_STATE_0;
-				//lapb->callbacks->debug(lapb, 0, "S3 -> S0\n");
 				return;
 			} else {
-				//lapb->N2count++;
 				lapb_requeue_frames(lapb);
-				//lapb_kick(lapb, NULL, 0);
 				lapb_kick(lapb);
 			};
 			break;
@@ -149,13 +133,10 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		case LAPB_STATE_4:
 			if (lapb->N2count >= lapb->N2) {
 				lapb_requeue_frames(lapb);
-				//lapb->state = LAPB_STATE_0;
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-				//lapb->callbacks->debug(lapb, 0, "S4 -> S0\n");
 				return;
 			} else {
-				//lapb->N2count++;
 				lapb_transmit_frmr(lapb);
 			};
 			break;

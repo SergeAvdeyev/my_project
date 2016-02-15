@@ -1,2 +1,5 @@
 /client_app
+/client_app_so
 /server_app
+/server_app_so
+/liblapb.so

@@ -1,7 +1,9 @@
 /*
- *	LAPB release 002
+ *	LAPB release 001
  *
- *	This code REQUIRES 2.1.15 or higher/ NET3.038
+ *  By Serge.V.Avdeyev
+ *
+ *  Started Coding
  *
  *	This module:
  *		This module is free software; you can redistribute it and/or
@@ -9,88 +11,10 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- *	History
- *	LAPB 001	Jonathan Naylor	Started Coding
- *	LAPB 002	Jonathan Naylor	New timer architecture.
- *	2000-10-29	Henner Eisen	lapb_data_indication() return status.
  */
 
 
-
-#include <stdlib.h>
-
-#include "net_lapb.h"
-
-
-
-//static LIST_HEAD(lapb_list);
-//static DEFINE_RWLOCK(lapb_list_lock);
-
-///*
-// *	Free an allocated lapb control block.
-// */
-//static void lapb_free_cb(struct lapb_cb *lapb) {
-//	kfree(lapb);
-//}
-
-//static __inline__ void lapb_hold(struct lapb_cb *lapb) {
-//	atomic_inc(&lapb->refcnt);
-//}
-
-//static __inline__ void lapb_put(struct lapb_cb *lapb) {
-//	if (atomic_dec_and_test(&lapb->refcnt))
-//		lapb_free_cb(lapb);
-//}
-
-///*
-// *	Socket removal during an interrupt is now safe.
-// */
-//static void __lapb_remove_cb(struct lapb_cb *lapb) {
-//	if (lapb->node.next) {
-//		list_del(&lapb->node);
-//		lapb_put(lapb);
-//	};
-//}
-
-///*
-// *	Add a socket to the bound sockets list.
-// */
-//static void __lapb_insert_cb(struct lapb_cb *lapb) {
-//	list_add(&lapb->node, &lapb_list);
-//	lapb_hold(lapb);
-//}
-
-//static struct lapb_cb *__lapb_devtostruct(struct net_device *dev) {
-//	struct list_head *entry;
-//	struct lapb_cb *lapb, *use = NULL;
-
-//	list_for_each(entry, &lapb_list) {
-//		lapb = list_entry(entry, struct lapb_cb, node);
-//		if (lapb->dev == dev) {
-//			use = lapb;
-//			break;
-//		};
-//	};
-
-//	if (use)
-//		lapb_hold(use);
-
-//	return use;
-//}
-
-//static struct lapb_cb *lapb_devtostruct(struct net_device *dev) {
-//	struct lapb_cb *rc;
-
-//	read_lock_bh(&lapb_list_lock);
-//	rc = __lapb_devtostruct(dev);
-//	read_unlock_bh(&lapb_list_lock);
-
-//	return rc;
-//}
-
-
-
-
+#include "lapb_int.h"
 
 
 /*
@@ -106,16 +30,6 @@ static struct lapb_cb *lapb_create_cb(void) {
 
 	cb_init(&lapb->write_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
 	cb_init(&lapb->ack_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
-//	skb_queue_head_init(&lapb->write__queue);
-//	skb_queue_head_init(&lapb->ack__queue);
-
-//	init_timer(&lapb->t1timer);
-//	init_timer(&lapb->t2timer);
-
-	//lapb->write__queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
-	//lapb->write_queue = NULL;
-	//lapb->ack__queue = malloc(LAPB_DEFAULT_N1*LAPB_SMODULUS);
-	//lapb->ack_queue = NULL;
 
 	/* Zero variables */
 	lapb->N2count = 0;
@@ -175,6 +89,10 @@ out:
 	return rc;
 }
 
+char * lapb_dequeue(struct lapb_cb * lapb, int * buffer_size) {
+	return cb_dequeue(&lapb->write_queue, buffer_size);
+}
+
 int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	int rc = LAPB_BADTOKEN;
 
@@ -194,6 +112,9 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	lapb->condition = 0x00;
 	unsigned char old_state = lapb->state;
 	lapb->state   = init_state;
+	if (lapb->mode & LAPB_DCE)
+		lapb_start_t1timer(lapb);
+
 	lapb->callbacks->debug(lapb, 0, "S%d -> S%d\n", old_state, init_state);
 
 	rc = LAPB_OK;

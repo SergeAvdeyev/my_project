@@ -14,14 +14,12 @@
  */
 
 
-#include <stdlib.h>
-#include "net_lapb.h"
+#include "lapb_int.h"
 
-#include <stdarg.h>
 
 char str_buf[1024];
 
-char * buf_to_str(char * data, int data_size) {
+char * lapb_buf_to_str(char * data, int data_size) {
 
 	bzero(str_buf, 1024);
 	if (data_size < 1023) /* 1 byte for null-terminating */
@@ -72,14 +70,6 @@ void lapb_requeue_frames(struct lapb_cb *lapb) {
 	while ((buffer = cb_dequeue_tail(&lapb->ack_queue, &buffer_size)) != NULL) {
 		cb_queue_head(&lapb->write_queue, buffer, buffer_size);
 	};
-
-//	while ((skb = skb_dequeue(&lapb->ack_queue)) != NULL) {
-//		if (!skb_prev)
-//			skb_queue_head(&lapb->write_queue, skb);
-//		else
-//			skb_append(skb_prev, skb, &lapb->write_queue);
-//		skb_prev = skb;
-//	}
 }
 
 /*
@@ -176,7 +166,7 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * I frame - carries NR/NS/PF
 			 */
-			lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %s", (int)lapb->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
+			lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %s", (int)lapb->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
 			frame->type = LAPB_I;
 			frame->ns   = (data[1] >> 1) & 0x07;
 			frame->nr   = (data[1] >> 5) & 0x07;

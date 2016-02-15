@@ -35,7 +35,6 @@ int cb_queue_head(struct circular_buffer *cb, const char *data, int data_size) {
 		cb->head = cb->head - cb->sz - 8;
 	*(int *)(cb->head) = data_size;
 	memcpy(cb->head + 8, data, data_size);
-	//cb->tail[8 + data_size] = 0;
 
 	cb->count++;
 	return 1;
@@ -47,7 +46,6 @@ int cb_queue_tail(struct circular_buffer *cb, const char *data, int data_size) {
 
 	*(int *)(cb->tail) = data_size;
 	memcpy(cb->tail + 8, data, data_size);
-	//cb->tail[8 + data_size] = 0;
 
 	cb->tail = cb->tail + cb->sz + 8;
 	if (cb->tail == cb->buffer_end)

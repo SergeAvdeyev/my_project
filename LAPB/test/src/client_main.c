@@ -4,7 +4,7 @@
 
 #define INTERVAL 1000        /* number of milliseconds to go off */
 
-#include "net_lapb.h"
+#include "lapb_iface.h"
 #include "tcp_client.h"
 #include "my_timer.h"
 
@@ -239,7 +239,8 @@ int main(int argc, char *argv[]) {
 	//m_callbacks.print_commands_1 = print_commands_1;
 	//m_callbacks.print_commands_2 = print_commands_2;
 	//m_callbacks.print_commands_3 = print_commands_3;
-	main_loop(lapb_client, &m_callbacks, lapb_equipment_type, lapb_modulo);
+	//main_loop(lapb_client, &m_callbacks, lapb_equipment_type, lapb_modulo);
+	main_loop(lapb_client, &m_callbacks);
 
 
 	printf("Main loop ended\n");

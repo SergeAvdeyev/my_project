@@ -1,7 +1,9 @@
 /*
- *	LAPB release 002
+ *	LAPB release 001
  *
- *	This code REQUIRES 2.1.15 or higher/ NET3.038
+ *  By Serge.V.Avdeyev
+ *
+ *  Started Coding
  *
  *	This module:
  *		This module is free software; you can redistribute it and/or
@@ -9,17 +11,10 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- *	History
- *	LAPB 001	Jonathan Naulor	Started Coding
- *	LAPB 002	Jonathan Naylor	New timer architecture.
- *	2000-10-29	Henner Eisen	lapb_data_indication() return status.
  */
 
-//#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-
-#include <stdlib.h>
-#include "net_lapb.h"
+#include "lapb_int.h"
 
 /*
  *	State machine for state 0, Disconnected State.

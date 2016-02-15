@@ -2,6 +2,8 @@
 #include "my_timer.h"
 #include "common.h"
 
+char str_buf[1024];
+
 /* Signals handler */
 void signal_callback_handler(int signum) {
 	printf("Caught signal %d\n", signum);
@@ -41,6 +43,13 @@ void setup_signals_handler() {
 
 
 
+char * buf_to_str(char * data, int data_size) {
+
+	bzero(str_buf, 1024);
+	if (data_size < 1023) /* 1 byte for null-terminating */
+		memcpy(str_buf, data, data_size);
+	return str_buf;
+}
 
 
 
@@ -75,7 +84,7 @@ void disconnect_indication(struct lapb_cb * lapb, int reason) {
 	syslog(LOG_NOTICE, "[X25_CB] disconnect_indication is called(%s)", lapb_error_str(reason));
 	if (lapb->write_queue.count) {
 		printf("\n\nUnacked data:\n");
-		while ((buffer = cb_dequeue(&lapb->write_queue, &buffer_size)) != NULL) {
+		while ((buffer = lapb_dequeue(lapb, &buffer_size)) != NULL) {
 			printf("%s\n", buf_to_str(buffer, buffer_size));
 		};
 	};
@@ -300,7 +309,7 @@ void print_commands_5() {
 }
 
 
-void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, unsigned char lapb_equipment_type, unsigned char lapb_modulo) {
+void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 	int wait_stdin_result;;
 	char buffer[2048];
 	int lapb_res;
@@ -325,9 +334,9 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, un
 					} else {
 						//lapb->state = LAPB_STATE_0;
 						lapb_reset(lapb, LAPB_STATE_0);
-						lapb->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
-						if (lapb_equipment_type == LAPB_DCE)
-							lapb_start_t1timer(lapb);
+						//lapb->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
+						//if (lapb_equipment_type == LAPB_DCE)
+						//	lapb_start_t1timer(lapb);
 						printf("\nPhysical connection established\n\n");
 						break;
 					};

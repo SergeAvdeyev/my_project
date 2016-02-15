@@ -12,7 +12,7 @@
 
 #include <stdarg.h>
 
-#include "net_lapb.h"
+#include "lapb_iface.h"
 
 #define TRUE	1
 #define FALSE	0
@@ -20,16 +20,9 @@
 volatile sig_atomic_t exit_flag;
 pthread_mutex_t main_mutex;
 
-//unsigned char lapb_equipment_type = LAPB_DTE;
-//unsigned char lapb_modulo = LAPB_STANDARD;
-
 struct main_callbacks {
 	int (*is_connected)();
 
-	//void (*print_commands_0)(struct lapb_cb * lapb);
-	//void (*print_commands_1)(struct lapb_cb * lapb);
-	//void (*print_commands_2)(struct lapb_cb * lapb);
-	//void (*print_commands_3)(struct lapb_cb * lapb);
 };
 
 
@@ -69,7 +62,9 @@ void t2timer_expiry(unsigned long int lapb_addr);
 
 void setup_signals_handler();
 int sleep_ms(int milliseconds);
-void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, unsigned char lapb_equipment_type, unsigned char lapb_modulo);
+char * buf_to_str(char * data, int data_size);
+//void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, unsigned char lapb_equipment_type, unsigned char lapb_modulo);
+void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks);
 int wait_stdin(struct lapb_cb * lapb, unsigned char break_condition, int run_once);
 
 char * lapb_error_str(int error);
