@@ -5,8 +5,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-//#include "../include/lapb_queue.h"
-
 
 #define	LAPB_ACK_PENDING_CONDITION	0x01
 #define	LAPB_REJECT_CONDITION		0x02
@@ -161,12 +159,10 @@ struct lapb_cb {
 
 
 struct lapb_register_struct {
-	void (*connect_confirmation)(struct lapb_cb * lapb, int reason);
-	void (*connect_indication)(struct lapb_cb * lapb, int reason);
-	void (*disconnect_confirmation)(struct lapb_cb * lapb, int reason);
-	void (*disconnect_indication)(struct lapb_cb * lapb, int reason);
-	int  (*data_indication)(struct lapb_cb * lapb, char * data, int data_size);
-	void (*data_transmit)(struct lapb_cb * lapb, char *data, int data_size);
+	void (*on_connected)(struct lapb_cb * lapb, int reason);
+	void (*on_disconnected)(struct lapb_cb * lapb, int reason);
+	int  (*on_new_data)(struct lapb_cb * lapb, char * data, int data_size);
+	void (*transmit_data)(struct lapb_cb * lapb, char *data, int data_size);
 
 	void (*start_t1timer)(struct lapb_cb * lapb);
 	void (*stop_t1timer)();

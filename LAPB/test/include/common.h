@@ -27,18 +27,12 @@ struct main_callbacks {
 
 
 
-/* Called by LAPB to inform X25 that SABM(SABME) is confirmed */
-void connect_confirmation(struct lapb_cb * lapb, int reason);
-/* Called by LAPB to inform X25 that SABM(SABME) is received and UA sended */
-void connect_indication(struct lapb_cb * lapb, int reason);
-/* Called by LAPB to inform X25 that DISC is confirmed */
-void disconnect_confirmation(struct lapb_cb * lapb, int reason);
-/* Called by LAPB to inform X25 that DISC is received and UA sended */
-void disconnect_indication(struct lapb_cb * lapb, int reason);
+/* Called by LAPB to inform X25 that SABM(SABME) is confirmed or UA sended on SABM(SABME) command */
+void on_connected(struct lapb_cb * lapb, int reason);
+/* Called by LAPB to inform X25 that DISC is received or UA sended on DISC command */
+void on_disconnected(struct lapb_cb * lapb, int reason);
 /* Called by LAPB to inform X25 about new data */
-int data_indication(struct lapb_cb * lapb, char * data, int data_size);
-///* Called by LAPB to transmit data via physical connection */
-//void data_transmit(struct lapb_cb * lapb, char *data, int data_size);
+int on_new_incoming_data(struct lapb_cb * lapb, char * data, int data_size);
 /* Called by LAPB to start timer T1 */
 void start_t1timer(struct lapb_cb * lapb);
 /* Called by LAPB to stop timer T1 */
@@ -63,7 +57,6 @@ void t2timer_expiry(unsigned long int lapb_addr);
 void setup_signals_handler();
 int sleep_ms(int milliseconds);
 char * buf_to_str(char * data, int data_size);
-//void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks, unsigned char lapb_equipment_type, unsigned char lapb_modulo);
 void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks);
 int wait_stdin(struct lapb_cb * lapb, unsigned char break_condition, int run_once);
 

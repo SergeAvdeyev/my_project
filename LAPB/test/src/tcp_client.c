@@ -21,9 +21,9 @@ void _mutex_unlock();
 //
 ///////////////////////////////
 
-void tcp_client_init() {
-	_mutex_init();
-}
+//void tcp_client_init() {
+//	_mutex_init();
+//}
 
 int tcp_client_socket() {
 	return client_socket;
@@ -168,6 +168,8 @@ void * client_function(void *ptr) {
 	fd_set			master_set, working_set;
 
 	int * result = calloc(1, sizeof(int));
+
+	_mutex_init();
 
 	client_started();
 

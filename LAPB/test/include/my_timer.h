@@ -19,7 +19,7 @@ struct timer_struct {
 };
 
 
-void timer_init();
+//void timer_init();
 void *timer_function(void * ptr);
 
 void terminate_timer();

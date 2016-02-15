@@ -47,7 +47,7 @@ void lapb_send_iframe(struct lapb_cb *lapb, char *data, int data_size, int poll_
 		frame[1] |= lapb->vs << 1;
 	};
 
-	lapb->callbacks->debug(lapb, 1, "S%d TX I(%d) S%d R%d\n", lapb->state, poll_bit, lapb->vs, lapb->vr);
+	lapb->callbacks->debug(lapb, 1, "S%d TX I(%d) S%d R%d", lapb->state, poll_bit, lapb->vs, lapb->vr);
 
 
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
@@ -142,10 +142,10 @@ void lapb_establish_data_link(struct lapb_cb *lapb) {
 	lapb->condition = 0x00;
 
 	if (lapb->mode & LAPB_EXTENDED) {
-		lapb->callbacks->debug(lapb, 1, "S%d TX SABME(1)\n", lapb->state);
+		lapb->callbacks->debug(lapb, 1, "S%d TX SABME(1)", lapb->state);
 		lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 	} else {
-		lapb->callbacks->debug(lapb, 1, "S%d TX SABM(1)\n", lapb->state);
+		lapb->callbacks->debug(lapb, 1, "S%d TX SABM(1)", lapb->state);
 		lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 	};
 
@@ -154,7 +154,7 @@ void lapb_establish_data_link(struct lapb_cb *lapb) {
 }
 
 void lapb_enquiry_response(struct lapb_cb *lapb) {
-	lapb->callbacks->debug(lapb, 1, "S%d TX RR(1) R%d\n", lapb->state, lapb->vr);
+	lapb->callbacks->debug(lapb, 1, "S%d TX RR(1) R%d", lapb->state, lapb->vr);
 
 	lapb_send_control(lapb, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
 
@@ -163,7 +163,7 @@ void lapb_enquiry_response(struct lapb_cb *lapb) {
 
 void lapb_timeout_response(struct lapb_cb *lapb) {
 
-	lapb->callbacks->debug(lapb, 1, "S%d TX RR(0) R%d\n", lapb->state, lapb->vr);
+	lapb->callbacks->debug(lapb, 1, "S%d TX RR(0) R%d", lapb->state, lapb->vr);
 
 	lapb_send_control(lapb, LAPB_RR, LAPB_POLLOFF, LAPB_RESPONSE);
 

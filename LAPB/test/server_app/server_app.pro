@@ -16,6 +16,7 @@ SOURCES += ../src/server_main.c \
     ../src/tcp_server.c \
     ../src/my_timer.c \
     ../src/common.c \
+    ../src/logger.c \
     ../../lib/src/lapb_queue.c
 
 HEADERS += \
@@ -24,6 +25,7 @@ HEADERS += \
     ../include/types_n_consts.h \
     ../include/my_timer.h \
     ../include/common.h \
+    ../include/logger.h \
     ../../lib/include/lapb_queue.h \
     ../../lib/include/lapb_iface.h
 

@@ -1,6 +1,7 @@
 
 #include "my_timer.h"
 #include "common.h"
+#include "logger.h"
 
 char str_buf[1024];
 
@@ -58,30 +59,18 @@ char * buf_to_str(char * data, int data_size) {
  * LAPB callback functions for X.25
  *
 */
-/* Called by LAPB to inform X25 that SABM(SABME) is confirmed */
-void connect_confirmation(struct lapb_cb * lapb, int reason) {
+/* Called by LAPB to inform X25 that SABM(SABME) is confirmed or UA sended on SABM(SABME) command */
+void on_connected(struct lapb_cb * lapb, int reason) {
 	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] connect_confirmation is called(%s)", lapb_error_str(reason));
+	syslog(LOG_NOTICE, "[X25_CB] connected event is called(%s)", lapb_error_str(reason));
 }
 
-/* Called by LAPB to inform X25 that SABM(SABME) is received and UA sended */
-void connect_indication(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] connect_indication is called(%s)", lapb_error_str(reason));
-}
-
-/* Called by LAPB to inform X25 that DISC is confirmed */
-void disconnect_confirmation(struct lapb_cb * lapb, int reason) {
-	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] disconnect_confirmation is called(%s)", lapb_error_str(reason));
-}
-
-/* Called by LAPB to inform X25 that DISC is received and UA sended */
-void disconnect_indication(struct lapb_cb * lapb, int reason) {
+/* Called by LAPB to inform X25 that DISC is received or UA sended on DISC command */
+void on_disconnected(struct lapb_cb * lapb, int reason) {
 	char * buffer;
 	int buffer_size;
 
-	syslog(LOG_NOTICE, "[X25_CB] disconnect_indication is called(%s)", lapb_error_str(reason));
+	syslog(LOG_NOTICE, "[X25_CB] disconnected event is called(%s)", lapb_error_str(reason));
 	if (lapb->write_queue.count) {
 		printf("\n\nUnacked data:\n");
 		while ((buffer = lapb_dequeue(lapb, &buffer_size)) != NULL) {
@@ -91,22 +80,12 @@ void disconnect_indication(struct lapb_cb * lapb, int reason) {
 }
 
 /* Called by LAPB to inform X25 about new data */
-int data_indication(struct lapb_cb * lapb, char * data, int data_size) {
+int on_new_incoming_data(struct lapb_cb * lapb, char * data, int data_size) {
 	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] data_indication is called");
+	syslog(LOG_NOTICE, "[X25_CB] received new data");
 	printf("%s\n", buf_to_str(data, data_size));
 	return 0;
 }
-
-///* Called by LAPB to transmit data via physical connection */
-//void data_transmit(struct lapb_cb * lapb, struct lapb_buff *skb) {
-//	(void)lapb;
-//	syslog(LOG_NOTICE, "[PHYS_CB] data_transmit is called");
-
-//	int n = write(tcp_client_socket(), skb->data, skb->data_size);
-//	if (n < 0)
-//		syslog(LOG_ERR, "[PHYS_CB] ERROR writing to socket, %s", strerror(errno));
-//}
 
 /* Called by LAPB to start timer T1 */
 void start_t1timer(struct lapb_cb * lapb) {
@@ -156,9 +135,9 @@ void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 
 		va_start(argList, format);
 		vsnprintf(buf, 256, format, argList);
-		//sprintf(buf, format, argList);
 		va_end(argList);
-		syslog(LOG_NOTICE, "[LAPB] %s", buf);
+		//syslog(LOG_NOTICE, "[LAPB] %s", buf);
+		logger_enqueue(buf, strlen(buf));
 	};
 }
 
@@ -171,7 +150,6 @@ void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 */
 void t1timer_expiry(unsigned long int lapb_addr) {
 	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	//syslog(LOG_NOTICE, "[X25_CB] Timer_1 expired(%d of %d)", lapb->N2count, lapb->N2);
 	lapb_t1timer_expiry(lapb);
 }
 

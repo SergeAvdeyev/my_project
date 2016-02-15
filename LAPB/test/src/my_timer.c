@@ -24,9 +24,9 @@ void _timer_mutex_unlock();
 //
 ///////////////////////////////
 
-void timer_init() {
-	_timer_mutex_init();
-}
+//void timer_init() {
+//	_timer_mutex_init();
+//}
 
 int is_timer_started() {
 	int result;
@@ -165,6 +165,8 @@ void * timer_function(void *ptr) {
 	struct timespec ts, ts2;
 
 	int * result = calloc(1, sizeof(int));
+
+	_timer_mutex_init();
 
 	timer_started();
 

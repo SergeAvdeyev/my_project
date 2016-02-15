@@ -72,7 +72,7 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		case LAPB_STATE_0:
 			if (lapb->mode & LAPB_DCE) {
 				lapb->N2count = 0;
-				lapb->callbacks->debug(lapb, 1, "S0 TX DM(0)\n");
+				lapb->callbacks->debug(lapb, 1, "S0 TX DM(0)");
 				lapb_send_control(lapb, LAPB_DM, LAPB_POLLOFF, LAPB_RESPONSE);
 			};
 			break;
@@ -88,10 +88,10 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 				return;
 			} else {
 				if (lapb->mode & LAPB_EXTENDED) {
-					lapb->callbacks->debug(lapb, 1, "S1 TX SABME(1)\n");
+					lapb->callbacks->debug(lapb, 1, "S1 TX SABME(1)");
 					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 				} else {
-					lapb->callbacks->debug(lapb, 1, "S1 TX SABM(1)\n");
+					lapb->callbacks->debug(lapb, 1, "S1 TX SABM(1)");
 					lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 				};
 			};
@@ -103,11 +103,11 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 		case LAPB_STATE_2:
 			if (lapb->N2count >= lapb->N2) {
 				lapb_requeue_frames(lapb);
-				lapb_disconnect_confirmation(lapb, LAPB_TIMEDOUT);
+				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
 				return;
 			} else {
-				lapb->callbacks->debug(lapb, 1, "S2 TX DISC(1)\n");
+				lapb->callbacks->debug(lapb, 1, "S2 TX DISC(1)");
 				lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			};
 			break;

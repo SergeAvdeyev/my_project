@@ -1,12 +1,12 @@
 #include <signal.h>     /* for signal */
 #include <syslog.h>		/* for syslog writing */
-#include <stdarg.h>
 
-#define INTERVAL 1000        /* number of milliseconds to go off */
 
 #include "lapb_iface.h"
+
 #include "tcp_client.h"
 #include "my_timer.h"
+#include "logger.h"
 
 #include "common.h"
 
@@ -21,7 +21,7 @@ struct lapb_cb * lapb_client = NULL;
  *
 */
 
-void data_transmit(struct lapb_cb * lapb, char *data, int data_size) {
+void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
 	(void)lapb;
 	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
 
@@ -72,11 +72,6 @@ void new_data_received(char * data, int data_size) {
 		i++;
 	};
 
-
-//	main_lock();
-//	syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", data_size);
-//	lapb_data_received(lapb_client, data, data_size);
-//	main_unlock();
 }
 
 void connection_lost() {
@@ -104,6 +99,8 @@ int main(int argc, char *argv[]) {
 	pthread_t timer_thread;
 	struct timer_struct * timer_struct = NULL;
 
+	pthread_t logger_thread;
+
 
 	printf("*******************************************\n");
 	printf("******                               ******\n");
@@ -119,9 +116,22 @@ int main(int argc, char *argv[]) {
 //	printf("sizeof(lapb_buff)=%d\n", (int)sizeof(struct lapb_buff));
 //	exit(0);
 
+
 	/* Initialize syslog */
 	setlogmask (LOG_UPTO (LOG_DEBUG));
 	openlog ("client_app", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+
+	ret = pthread_create(&logger_thread, NULL, logger_function, NULL);
+	if (ret) {
+		perror("Error - pthread_create()");
+		closelog();
+		exit(EXIT_FAILURE);
+	};
+	printf("Logger thread created(code %d)\n", ret);
+	while (!is_logger_started())
+		sleep_ms(200);
+	printf("Logger started\n\n");
+
 	syslog (LOG_NOTICE, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
@@ -171,7 +181,7 @@ int main(int argc, char *argv[]) {
 	client_struct->new_data_received = new_data_received;
 	client_struct->connection_lost = connection_lost;
 
-	tcp_client_init();
+	//tcp_client_init();
 	ret = pthread_create(&client_thread, NULL, client_function, (void*)client_struct);
 	if (ret) {
 		syslog(LOG_ERR, "Error - pthread_create() return code: %d\n", ret);
@@ -187,12 +197,12 @@ int main(int argc, char *argv[]) {
 
 	/* LAPB init */
 	bzero(&callbacks, sizeof(struct lapb_register_struct));
-	callbacks.connect_confirmation = connect_confirmation;
-	callbacks.connect_indication = connect_indication;
-	callbacks.disconnect_confirmation = disconnect_confirmation;
-	callbacks.disconnect_indication = disconnect_indication;
-	callbacks.data_indication = data_indication;
-	callbacks.data_transmit = data_transmit;
+	callbacks.on_connected = on_connected;
+	//callbacks.connect_indication = connect_indication;
+	//callbacks.disconnect_confirmation = disconnect_confirmation;
+	callbacks.on_disconnected = on_disconnected;
+	callbacks.on_new_data = on_new_incoming_data;
+	callbacks.transmit_data = transmit_data;
 	callbacks.start_t1timer = start_t1timer;
 	callbacks.stop_t1timer = stop_t1timer;
 	callbacks.start_t2timer = start_t2timer;
@@ -220,7 +230,7 @@ int main(int argc, char *argv[]) {
 	timer_struct->t1timer_expiry = t1timer_expiry;
 	timer_struct->t2timer_expiry = t2timer_expiry;
 
-	timer_init();
+	//timer_init();
 	ret = pthread_create(&timer_thread, NULL, timer_function, (void*)timer_struct);
 	if (ret) {
 		syslog(LOG_ERR, "Error - pthread_create() return code: %d\n", ret);
@@ -270,6 +280,13 @@ int main(int argc, char *argv[]) {
 
 	lapb_unregister(lapb_client);
 
+	terminate_logger();
+	while (is_logger_started())
+		sleep_ms(200);
+	printf("Logger stopped\n");
+	pthread_join(logger_thread, (void **)&thread_result);
+	printf("Logger thread exit(code %d)\n", *thread_result);
+	free(thread_result);
 
 	/* Close syslog */
 	closelog();

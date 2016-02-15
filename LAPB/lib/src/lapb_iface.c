@@ -115,7 +115,7 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	if (lapb->mode & LAPB_DCE)
 		lapb_start_t1timer(lapb);
 
-	lapb->callbacks->debug(lapb, 0, "S%d -> S%d\n", old_state, init_state);
+	lapb->callbacks->debug(lapb, 0, "S%d -> S%d", old_state, init_state);
 
 	rc = LAPB_OK;
 out:
@@ -201,7 +201,7 @@ int lapb_connect_request(struct lapb_cb *lapb) {
 	lapb_establish_data_link(lapb);
 	lapb->state = LAPB_STATE_1;
 
-	lapb->callbacks->debug(lapb, 0, "S0 -> S1\n");
+	lapb->callbacks->debug(lapb, 0, "S0 -> S1");
 
 	rc = LAPB_OK;
 out:
@@ -220,8 +220,8 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 			goto out;
 
 		case LAPB_STATE_1:
-			lapb->callbacks->debug(lapb, 1, "S1 TX DISC(1)\n");
-			lapb->callbacks->debug(lapb, 0, "S1 -> S0\n");
+			lapb->callbacks->debug(lapb, 1, "S1 TX DISC(1)");
+			lapb->callbacks->debug(lapb, 0, "S1 -> S0");
 			lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			lapb->state = LAPB_STATE_0;
 			lapb_start_t1timer(lapb);
@@ -233,7 +233,7 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 			goto out;
 	};
 
-	lapb->callbacks->debug(lapb, 1, "S3 DISC(1)\n");
+	lapb->callbacks->debug(lapb, 1, "S3 DISC(1)");
 	lapb_clear_queues(lapb);
 	lapb->N2count = 0;
 	lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
@@ -242,7 +242,7 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 		lapb_start_t1timer(lapb);
 	//lapb_stop_t2timer(lapb);
 
-	lapb->callbacks->debug(lapb, 0, "S3 -> S2\n");
+	lapb->callbacks->debug(lapb, 0, "S3 -> S2");
 
 	rc = LAPB_OK;
 out:
@@ -281,51 +281,32 @@ int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size) {
 	return rc;
 }
 
-void lapb_connect_confirmation(struct lapb_cb *lapb, int reason) {
-	if (lapb->callbacks->connect_confirmation)
-		lapb->callbacks->connect_confirmation(lapb, reason);
-}
-
 void lapb_connect_indication(struct lapb_cb *lapb, int reason) {
-	if (lapb->callbacks->connect_indication)
-		lapb->callbacks->connect_indication(lapb, reason);
-}
-
-void lapb_disconnect_confirmation(struct lapb_cb *lapb, int reason) {
-	if (lapb->callbacks->disconnect_confirmation)
-		lapb->callbacks->disconnect_confirmation(lapb, reason);
+	if (lapb->callbacks->on_connected)
+		lapb->callbacks->on_connected(lapb, reason);
 }
 
 void lapb_disconnect_indication(struct lapb_cb *lapb, int reason) {
-	if (lapb->callbacks->disconnect_indication)
-		lapb->callbacks->disconnect_indication(lapb, reason);
+	if (lapb->callbacks->on_disconnected)
+		lapb->callbacks->on_disconnected(lapb, reason);
 }
 
 int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size) {
-	if (lapb->callbacks->data_indication)
-		return lapb->callbacks->data_indication(lapb, data, data_size);
+	if (lapb->callbacks->on_new_data)
+		return lapb->callbacks->on_new_data(lapb, data, data_size);
 
-	//free(skb);
-	//return NET_RX_SUCCESS; /* For now; must be != NET_RX_DROP */
 	return 0;
 }
 
 int lapb_data_transmit(struct lapb_cb *lapb, char *data, int data_size) {
 	int used = 0;
 
-	if (lapb->callbacks->data_transmit) {
-		lapb->callbacks->data_transmit(lapb, data, data_size);
+	if (lapb->callbacks->transmit_data) {
+		lapb->callbacks->transmit_data(lapb, data, data_size);
 		used = 1;
 	};
 
 	return used;
 }
 
-//static int __init lapb_init(void) {
-//	return 0;
-//}
-
-//static void __exit lapb_exit(void) {
-//	WARN_ON(!list_empty(&lapb_list));
-//}
 

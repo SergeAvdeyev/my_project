@@ -16,12 +16,14 @@ SOURCES += ../src/client_main.c \
     ../src/tcp_client.c \
     ../src/my_timer.c \
     ../src/common.c \
-    ../../lib/src/lapb_queue.c
+    ../../lib/src/lapb_queue.c \
+    ../src/logger.c
 
 HEADERS += \
     ../include/tcp_client.h \
     ../include/my_timer.h \
     ../include/common.h \
+    ../include/logger.h \
     ../../lib/include/lapb_queue.h \
     ../../lib/export/lapb_iface.h \
     ../../lib/include/lapb_int.h

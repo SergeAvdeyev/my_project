@@ -26,7 +26,7 @@ struct tcp_client_struct {
 };
 
 
-void tcp_client_init();
+//void tcp_client_init();
 void *client_function(void * ptr);
 int tcp_client_socket();
 
