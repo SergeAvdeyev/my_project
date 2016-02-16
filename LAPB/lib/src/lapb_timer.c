@@ -148,6 +148,6 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 			};
 			break;
 	};
-	if (!lapb_t1timer_running(lapb))
-		lapb_start_t1timer(lapb);
+//	if (!lapb_t1timer_running(lapb))
+//		lapb_start_t1timer(lapb);
 }

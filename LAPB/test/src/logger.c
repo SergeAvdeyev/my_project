@@ -2,6 +2,7 @@
 #include "logger.h"
 
 
+pthread_mutex_t logger_mutex;
 int logger_exit_flag = FALSE;
 
 int logger_state = FALSE;
@@ -17,10 +18,10 @@ struct node {
 int count = 0;
 
 
-//// Private prototipes
-//void _logger_mutex_init();
-//void _logger_mutex_lock();
-//void _logger_mutex_unlock();
+// Private prototipes
+void _logger_mutex_init();
+void _logger_mutex_lock();
+void _logger_mutex_unlock();
 
 
 
@@ -33,17 +34,17 @@ int count = 0;
 
 int is_logger_started() {
 	int result;
-	main_lock();
+	_logger_mutex_lock();
 	result = logger_state;
-	main_unlock();
+	_logger_mutex_unlock();
 	return result;
 }
 
 
 void terminate_logger() {
-	main_lock();
+	_logger_mutex_lock();
 	logger_exit_flag = TRUE;
-	main_unlock();
+	_logger_mutex_unlock();
 }
 
 
@@ -55,40 +56,40 @@ void terminate_logger() {
 //
 ///////////////////////////////
 
-///* Mutex section */
+/* Mutex section */
 
-//void _logger_mutex_init() {
-//	if (pthread_mutex_init(&logger_mutex, NULL) != 0)
-//		perror("Logger mutex init failed, ");
-//}
+void _logger_mutex_init() {
+	if (pthread_mutex_init(&logger_mutex, NULL) != 0)
+		perror("Logger mutex init failed, ");
+}
 
-//void _logger_mutex_lock() {
-//	pthread_mutex_lock(&logger_mutex);
-//}
+void _logger_mutex_lock() {
+	pthread_mutex_lock(&logger_mutex);
+}
 
-//void _logger_mutex_unlock() {
-//	pthread_mutex_unlock(&logger_mutex);
-//}
+void _logger_mutex_unlock() {
+	pthread_mutex_unlock(&logger_mutex);
+}
 
 void logger_started() {
-	main_lock();
+	_logger_mutex_lock();
 	logger_state = TRUE;
-	main_unlock();
+	_logger_mutex_unlock();
 }
 
 void logger_stopped() {
-	main_lock();
+	_logger_mutex_lock();
 	logger_state = FALSE;
-	main_unlock();
+	_logger_mutex_unlock();
 }
 
 
 
 int get_logger_exit_flag() {
 	int result;
-	main_lock();
+	_logger_mutex_lock();
 	result = logger_exit_flag;
-	main_unlock();
+	_logger_mutex_unlock();
 	return result;
 }
 
@@ -102,16 +103,16 @@ void create_queue() {
 /* Returns queue size */
 int queue_size() {
 	int result;
-	main_lock();
+	_logger_mutex_lock();
 	result = count;
-	main_unlock();
+	_logger_mutex_unlock();
 	return result;
 }
 
 /* Enqueing the queue */
 void logger_enqueue(char *data, int data_size) {
 
-	main_lock();
+	_logger_mutex_lock();
 
 	char * buf_tmp = malloc(data_size + 1);
 	memcpy(buf_tmp, data, data_size);
@@ -133,7 +134,7 @@ void logger_enqueue(char *data, int data_size) {
 	};
 	count++;
 
-	main_unlock();
+	_logger_mutex_unlock();
 }
 
 
@@ -141,12 +142,12 @@ void logger_enqueue(char *data, int data_size) {
 char * logger_dequeue(int *ret_size) {
 	char * result = NULL;
 
-	main_lock();
+	_logger_mutex_lock();
 	front1 = front;
 
 	if (front1 == NULL) {
 		*ret_size = 0;
-		main_unlock();
+		_logger_mutex_unlock();
 		return NULL;
 	} else {
 		if (front1->ptr != NULL) {
@@ -166,7 +167,7 @@ char * logger_dequeue(int *ret_size) {
 		};
 		count--;
 	};
-	main_unlock();
+	_logger_mutex_unlock();
 	return result;
 }
 
@@ -179,7 +180,7 @@ void * logger_function(void *ptr) {
 	char * buffer;
 	int buffer_size;
 
-	//_logger_mutex_init();
+	_logger_mutex_init();
 
 	create_queue();
 	logger_started();
