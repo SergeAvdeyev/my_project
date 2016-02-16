@@ -270,14 +270,18 @@ out:
 	return rc;
 }
 
-int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size) {
-	int rc = LAPB_BADTOKEN;
+int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size, _ushort fcs) {
+	int rc = LAPB_BADFCS;
 
-	if (lapb) {
+	if (fcs != 0) /* Drop frames with bad summ */
+		goto out;
+
+	rc = LAPB_BADTOKEN;
+	if (lapb != NULL) {
 		lapb_data_input(lapb, data, data_size);
 		rc = LAPB_OK;
 	};
-
+out:
 	return rc;
 }
 

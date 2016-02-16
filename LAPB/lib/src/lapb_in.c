@@ -352,7 +352,8 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 			break;
 
 		case LAPB_FRMR:
-			lapb->callbacks->debug(lapb, 1, "S3 RX FRMR(%d) %02X %02X %02X %02X %02X", frame->pf, data[0], data[1], data[2], data[3], data[4]);
+			lapb->callbacks->debug(lapb, 1, "S3 RX FRMR(%d) %02X %02X %02X %02X %02X",
+								   frame->pf, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2], (_uchar)data[3], (_uchar)data[4]);
 			lapb_establish_data_link(lapb);
 			lapb->callbacks->debug(lapb, 0, "S3 -> S1");
 			lapb_requeue_frames(lapb);
@@ -424,9 +425,10 @@ static void lapb_state4_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 void lapb_data_input(struct lapb_cb *lapb, char *data, int data_size) {
 	struct lapb_frame frame;
 
-	if (lapb_decode(lapb, data, data_size, &frame) < 0) {
+	if (lapb->state == LAPB_NOT_READY)
 		return;
-	};
+	if (lapb_decode(lapb, data, data_size, &frame) < 0)
+		return;
 
 	switch (lapb->state) {
 		case LAPB_STATE_0:

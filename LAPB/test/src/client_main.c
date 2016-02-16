@@ -52,7 +52,7 @@ void new_data_received(char * data, int data_size) {
 			if (data_block) { /* Close flag */
 				main_lock();
 				syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-				lapb_data_received(lapb_client, buffer, block_size);
+				lapb_data_received(lapb_client, buffer, block_size, 0);
 				main_unlock();
 				data_block = FALSE;
 				i++;
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
 	};
 	lapb_client->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 	/* Redefine some default values */
-	lapb_client->T1 = 2000; /* 2s */
+	lapb_client->T1 = 5000; /* 5s */
 	lapb_client->T2 = 500;  /* 0.5s */
 	lapb_client->N2 = 3; /* Try 3 times */
 

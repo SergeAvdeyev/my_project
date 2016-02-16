@@ -130,10 +130,14 @@ void lapb_transmit_buffer(struct lapb_cb *lapb, char * data, int data_size, int 
 	if (lapb->mode & LAPB_EXTENDED)
 		lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
 	else {
-		if (data_size == 2)
-			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1]);
-		else
+		if (((_uchar)data[1] & 0x01) == 0)
 			lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %s", lapb->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
+		else {
+			if (data_size == 2)
+				lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1]);
+			else if (data_size == 3)
+				lapb->callbacks->debug(lapb, 2, "S%d TX %02X %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
+		};
 	};
 
 }

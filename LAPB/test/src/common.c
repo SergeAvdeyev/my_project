@@ -272,7 +272,7 @@ void print_commands_3(struct lapb_cb * lapb) {
 	else
 		printf("Connected state(modulo 8):\n");
 	printf("Enter text or select command\n");
-	printf("1 Send test buffer(128 byte)\n");
+	printf("1 Send test buffer(10 bytes)\n");
 	printf("2 Send DISC\n");
 	printf("--\n");
 	printf("0 Exit application\n");
@@ -469,11 +469,11 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 							if (action == 1) {
 								data_size = 10;
 								n = 0;
-								while (n < data_size - 1) {
-									buffer[n] = '1';
+								while (n < data_size) {
+									buffer[n] = 'a' + n;
 									n++;
 								};
-								buffer[n] = '2';
+								//buffer[n] = '2';
 								//buffer[n + 1] = '\n';
 							} else
 								data_size = strlen(buffer) - 1;

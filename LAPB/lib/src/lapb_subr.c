@@ -252,7 +252,7 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		dptr++;
 		*dptr++ = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X %02X %02X", lapb->state, data[1], data[2], data[3], data[4], data[5]);
+		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X %02X %02X", lapb->state, (_uchar)data[1], (_uchar)data[2], (_uchar)data[3], (_uchar)data[4], (_uchar)data[5]);
 	} else {
 		data_size = 4;
 		*dptr++ = LAPB_FRMR;
@@ -264,7 +264,7 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		dptr++;
 		*dptr++ = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X", lapb->state, data[1], data[2], data[3]);
+		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X", lapb->state, (_uchar)data[1], (_uchar)data[2], (_uchar)data[3]);
 	};
 
 	lapb_transmit_buffer(lapb, data, data_size, LAPB_RESPONSE);

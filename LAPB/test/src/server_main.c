@@ -57,6 +57,7 @@ void manual_received(char * data, int data_size) {
 	if (man_decode(lapb_server, data, data_size, &frame) == 0) {
 		if (frame.type == LAPB_I) {
 			printf("I(%d) S%d R%d '%s'", frame.pf, frame.ns, frame.nr, buf_to_str(&data[2], data_size -2));
+			lapb_server->vr = frame.ns + 1;
 		} else {
 			for (i = 0; i < data_size; i++)
 				printf(" %02X", (_uchar)data[i]);
@@ -97,7 +98,7 @@ void new_data_received(char * data, int data_size) {
 				if (data_block) { /* Close flag */
 					main_lock();
 					syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-					lapb_data_received(lapb_server, buffer, block_size);
+					lapb_data_received(lapb_server, buffer, block_size, 0);
 					main_unlock();
 					data_block = FALSE;
 					i++;
@@ -364,6 +365,8 @@ void print_man_commands() {
 	printf("3 Send DISC\n");
 	printf("4 Send UA\n");
 	printf("5 Send DM\n");
+	printf("6 Send RR(good)\n");
+	printf("7 Send RR(bad)\n");
 	printf("\n");
 	printf("0 Exit application\n");
 	write(0, ">", 1);
@@ -426,10 +429,15 @@ int manual_process() {
 					lapb_send_control(lapb_server, LAPB_DM, LAPB_POLLON, LAPB_RESPONSE);
 					//
 					break;
-				//case 6:
+				case 6: /* RR good*/
+					lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
 					//
+					break;
+				case 7: /* RR bad*/
+					lapb_server->vr++;
+					lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
 					//
-				//	break;
+					break;
 				case 0:
 					exit_flag = TRUE;
 					break;
