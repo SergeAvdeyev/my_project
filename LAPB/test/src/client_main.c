@@ -207,8 +207,6 @@ int main(int argc, char *argv[]) {
 	callbacks.stop_t1timer = stop_t1timer;
 	callbacks.start_t2timer = start_t2timer;
 	callbacks.stop_t2timer = stop_t2timer;
-	callbacks.t1timer_running = t1timer_running;
-	callbacks.t2timer_running = t2timer_running;
 	callbacks.debug = lapb_debug;
 	lapb_res = lapb_register(&callbacks, &lapb_client);
 	if (lapb_res != LAPB_OK) {

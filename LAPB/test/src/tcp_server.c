@@ -1,20 +1,13 @@
 
-//#include "types_n_consts.h"
 #include "tcp_server.h"
 
 
-pthread_mutex_t server_mutex;
 int server_exit_flag = FALSE;
 int server_socket = -1;
 int client_socket = -1;
 int is_started = FALSE;
 int is_accepted = FALSE;
 
-
-// Private prototipes
-void _mutex_init();
-void _mutex_lock();
-void _mutex_unlock();
 
 
 ///////////////////////////////
@@ -23,57 +16,36 @@ void _mutex_unlock();
 //
 ///////////////////////////////
 
-void tcp_server_init() {
-	_mutex_init();
-}
-
 int tcp_client_socket() {
 	return client_socket;
 }
 
 int is_server_started() {
 	int result;
-	_mutex_lock();
+	main_lock();
 	result = is_started;
-	_mutex_unlock();
+	main_unlock();
 	return result;
 }
 
 int is_server_accepted() {
 	int result;
-	_mutex_lock();
+	main_lock();
 	result = is_accepted;
-	_mutex_unlock();
+	main_unlock();
 	return result;
 }
 
 void terminate_tcp_server() {
-	_mutex_lock();
+	main_lock();
 	server_exit_flag = TRUE;
 	if (server_socket != -1) {
 		shutdown(server_socket, SHUT_RDWR);
 		//close(listen_sd);
 	};
-	_mutex_unlock();
+	main_unlock();
 }
 
-//int sleep_ms(int milliseconds) { // cross-platform sleep function
-//	int result = 0;
-
-//	struct timespec ts, ts2;
-//	ts.tv_sec = milliseconds / 1000;
-//	ts.tv_nsec = (milliseconds % 1000) * 1000000;
-//	ts2.tv_sec = 0;
-//	ts2.tv_nsec = 0;
-//	result = nanosleep(&ts, &ts2);
-//	//if (result == 0)
-//	//	return 0;
-//	if ((ts.tv_sec != ts2.tv_sec) || (ts.tv_nsec > ts2.tv_nsec))
-//		if (ts2.tv_nsec != -1)
-//			result = -1;
-
-//	return result;
-//}
 
 
 
@@ -88,62 +60,39 @@ void terminate_tcp_server() {
 //
 ///////////////////////////////
 
-/* Mutex section */
-void _mutex_init() {
-	if (pthread_mutex_init(&server_mutex, NULL) != 0)
-		syslog(LOG_ERR, "Server mutex init failed, %s", strerror(errno));
-}
-
-void _mutex_lock() {
-	pthread_mutex_lock(&server_mutex);
-}
-
-void _mutex_unlock() {
-	pthread_mutex_unlock(&server_mutex);
-}
-
 void server_started() {
-	_mutex_lock();
+	main_lock();
 	is_started = TRUE;
-	_mutex_unlock();
+	main_unlock();
 }
 
 void server_stopped() {
-	_mutex_lock();
+	main_lock();
 	is_started = FALSE;
-	_mutex_unlock();
+	main_unlock();
 }
 
 void server_accepted() {
-	_mutex_lock();
+	main_lock();
 	is_accepted = TRUE;
-	_mutex_unlock();
+	main_unlock();
 }
 
 void server_listening() {
-	_mutex_lock();
+	main_lock();
 	is_accepted = FALSE;
-	_mutex_unlock();
+	main_unlock();
 }
 
 
 
 int get_server_exit_flag() {
 	int result;
-	_mutex_lock();
+	main_lock();
 	result = server_exit_flag;
-	_mutex_unlock();
+	main_unlock();
 	return result;
 }
-
-
-
-
-
-
-
-
-
 
 
 

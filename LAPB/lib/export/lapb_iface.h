@@ -102,6 +102,9 @@ enum {
 #define	LAPB_NOMEM_STR			"No mem"
 #define	LAPB_NOTREADY_STR		"Phys layer not ready"
 
+#define TRUE  1
+#define FALSE 0
+
 
 typedef unsigned char	_uchar;
 typedef unsigned short	_ushort;
@@ -142,6 +145,7 @@ struct lapb_cb {
 	_ushort		N2;
 	_ushort		N2count;
 	_ushort		T1, T2;
+	_uchar		T1_state, T2_state;
 
 	/* Internal control information */
 	_ushort		N1; /* Maximal I frame size */
@@ -169,8 +173,8 @@ struct lapb_register_struct {
 	void (*stop_t1timer)();
 	void (*start_t2timer)(struct lapb_cb * lapb);
 	void (*stop_t2timer)();
-	int  (*t1timer_running)();
-	int  (*t2timer_running)();
+	//int  (*t1timer_running)();
+	//int  (*t2timer_running)();
 
 	void (*debug)(struct lapb_cb *lapb, int level, const char * format, ...);
 };

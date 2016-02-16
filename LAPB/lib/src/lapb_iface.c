@@ -38,6 +38,8 @@ static struct lapb_cb *lapb_create_cb(void) {
 	lapb->vs = 0;
 	lapb->T1	= LAPB_DEFAULT_T1;
 	lapb->T2	= LAPB_DEFAULT_T2;
+	lapb->T1_state = FALSE;
+	lapb->T2_state = FALSE;
 	lapb->N1	= LAPB_DEFAULT_N1;
 	lapb->N2	= LAPB_DEFAULT_N2;
 	lapb->mode	= LAPB_DEFAULT_MODE;

@@ -8,8 +8,7 @@
 #include <syslog.h>
 #include <string.h>
 
-#define TRUE             1
-#define FALSE            0
+#include "common.h"
 
 struct timer_struct {
 	int interval;
@@ -19,17 +18,19 @@ struct timer_struct {
 };
 
 
-//void timer_init();
 void *timer_function(void * ptr);
 
 void terminate_timer();
 int is_timer_started();
 
-void set_t1_state(int state);
-void set_t1_value(int value);
-int get_t1_state();
-void set_t2_state(int state);
-void set_t2_value(int value);
-int get_t2_state();
+void timer_t1_start();
+void timer_t1_stop();
+void timer_t1_set_interval(int value);
+int  timer_t1_get_state();
+
+void timer_t2_start();
+void timer_t2_stop();
+void timer_t2_set_interval(int value);
+int  timer_t2_get_state();
 
 #endif // CLIENT_TIMER_H

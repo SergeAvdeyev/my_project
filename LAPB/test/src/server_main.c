@@ -250,7 +250,7 @@ int main (int argc, char *argv[]) {
 	server_struct->new_data_received = new_data_received;
 	server_struct->no_active_connection = no_active_connection;
 
-	tcp_server_init();
+	//tcp_server_init();
 	ret = pthread_create(&server_thread, NULL, server_function, (void*)server_struct);
 	if (ret) {
 		fprintf(stderr, "Error - pthread_create() return code: %d\n", ret);

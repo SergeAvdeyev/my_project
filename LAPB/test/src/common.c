@@ -55,6 +55,8 @@ char * buf_to_str(char * data, int data_size) {
 
 
 
+
+
 /*
  * LAPB callback functions for X.25
  *
@@ -89,40 +91,28 @@ int on_new_incoming_data(struct lapb_cb * lapb, char * data, int data_size) {
 
 /* Called by LAPB to start timer T1 */
 void start_t1timer(struct lapb_cb * lapb) {
-	set_t1_value(lapb->T1);
-	set_t1_state(TRUE);
+	timer_t1_set_interval(lapb->T1);
+	timer_t1_start();
 	syslog(LOG_NOTICE, "[LAPB] start_t1timer is called");
 }
 
 /* Called by LAPB to stop timer T1 */
 void stop_t1timer() {
-	set_t1_state(FALSE);
-	set_t1_value(0);
+	timer_t1_stop();
 	syslog(LOG_NOTICE, "[LAPB] stop_t1timer is called");
-}
-
-/* Called by LAPB to check timer T1 state */
-int t1timer_running() {
-	return get_t1_state();
 }
 
 /* Called by LAPB to start timer T2 */
 void start_t2timer(struct lapb_cb * lapb) {
-	set_t2_value(lapb->T2);
-	set_t2_state(TRUE);
+	timer_t2_set_interval(lapb->T2);
+	timer_t2_start();
 	syslog(LOG_NOTICE, "[LAPB] start_t2timer is called");
 }
 
 /* Called by LAPB to stop timer T1 */
 void stop_t2timer() {
-	set_t2_state(FALSE);
-	set_t2_value(0);
+	timer_t2_stop();
 	syslog(LOG_NOTICE, "[LAPB] stop_t2timer is called");
-}
-
-/* Called by LAPB to check timer T2 state */
-int t2timer_running() {
-	return get_t2_state();
 }
 
 

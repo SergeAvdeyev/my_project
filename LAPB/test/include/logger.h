@@ -5,12 +5,11 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <pthread.h>
-//#include <errno.h>
 #include <syslog.h>
 #include <string.h>
 
+#include "common.h"
 
-//void logger_init();
 void *logger_function(void * ptr);
 void logger_enqueue(char * data, int data_size);
 

@@ -18,36 +18,43 @@
 
 
 void lapb_start_t1timer(struct lapb_cb *lapb) {
-	if (lapb->callbacks->start_t1timer)
-		lapb->callbacks->start_t1timer(lapb);
+	if (lapb->T1_state) return;
+
+	if (!lapb->callbacks->start_t1timer) return;
+
+	lapb->callbacks->start_t1timer(lapb);
+	lapb->T1_state = TRUE;
 }
 
 void lapb_start_t2timer(struct lapb_cb *lapb) {
-	if (lapb->callbacks->start_t2timer)
-		lapb->callbacks->start_t2timer(lapb);
+	if (lapb->T2_state) return;
+
+	if (!lapb->callbacks->start_t2timer) return;
+	lapb->callbacks->start_t2timer(lapb);
+	lapb->T2_state = TRUE;
 }
 
 void lapb_stop_t1timer(struct lapb_cb *lapb) {
-	if (lapb->callbacks->stop_t1timer)
-		lapb->callbacks->stop_t1timer(lapb);
+	if (!lapb->T1_state) return;
+
+	if (!lapb->callbacks->stop_t1timer) return;
+	lapb->callbacks->stop_t1timer(lapb);
+	lapb->T1_state = FALSE;
 	lapb->N2count = 0;
 }
 
 void lapb_stop_t2timer(struct lapb_cb *lapb) {
+	if (!lapb->T2_state) return;
 	if (lapb->callbacks->stop_t2timer)
 		lapb->callbacks->stop_t2timer(lapb);
 }
 
 int lapb_t1timer_running(struct lapb_cb *lapb) {
-	if (lapb->callbacks->t1timer_running)
-		return lapb->callbacks->t1timer_running();
-	return 0;
+	return lapb->T1_state;
 }
 
 int lapb_t2timer_running(struct lapb_cb *lapb) {
-	if (lapb->callbacks->t1timer_running)
-		return lapb->callbacks->t1timer_running();
-	return 0;
+	return lapb->T2_state;
 }
 
 
