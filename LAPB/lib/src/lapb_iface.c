@@ -223,9 +223,9 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 
 		case LAPB_STATE_1:
 			lapb->callbacks->debug(lapb, 1, "S1 TX DISC(1)");
-			lapb->callbacks->debug(lapb, 0, "S1 -> S0");
+			lapb->callbacks->debug(lapb, 0, "S1 -> S2");
 			lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
-			lapb->state = LAPB_STATE_0;
+			lapb->state = LAPB_STATE_2;
 			lapb_start_t1timer(lapb);
 			rc = LAPB_NOTCONNECTED;
 			goto out;
@@ -236,13 +236,10 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 	};
 
 	lapb->callbacks->debug(lapb, 1, "S3 DISC(1)");
-	lapb_clear_queues(lapb);
-	lapb->N2count = 0;
 	lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 	lapb->state = LAPB_STATE_2;
-	if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
-		lapb_start_t1timer(lapb);
-	//lapb_stop_t2timer(lapb);
+	lapb->N2count = 0;
+	lapb_start_t1timer(lapb);
 
 	lapb->callbacks->debug(lapb, 0, "S3 -> S2");
 
