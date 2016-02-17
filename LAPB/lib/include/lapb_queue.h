@@ -17,7 +17,7 @@
 //};
 
 void cb_init(struct circular_buffer * cb, size_t capacity, size_t sz);
-void cb_free(struct circular_buffer * cb);
+void cb_free(struct circular_buffer *cb);
 void cb_clear(struct circular_buffer *cb);
 int cb_queue_head(struct circular_buffer *cb, const char *data, int data_size);
 int cb_queue_tail(struct circular_buffer * cb, const char * data, int data_size);

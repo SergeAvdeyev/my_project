@@ -28,8 +28,10 @@ static struct lapb_cb *lapb_create_cb(void) {
 	if (!lapb)
 		goto out;
 
-	cb_init(&lapb->write_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
-	cb_init(&lapb->ack_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
+	//cb_init(&lapb->write_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
+	//cb_init(&lapb->ack_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
+	//lapb->write_queue.buffer = NULL;
+	//lapb->ack_queue.buffer = NULL;
 
 	/* Zero variables */
 	lapb->N2count = 0;
@@ -42,7 +44,7 @@ static struct lapb_cb *lapb_create_cb(void) {
 	lapb->T2_state = FALSE;
 	lapb->N1	= LAPB_DEFAULT_N1;
 	lapb->N2	= LAPB_DEFAULT_N2;
-	lapb->mode	= LAPB_DEFAULT_MODE;
+	//lapb->mode	= LAPB_DEFAULT_MODE;
 	lapb->window = LAPB_DEFAULT_WINDOW;
 	lapb->state	= LAPB_NOT_READY;
 out:
@@ -55,7 +57,11 @@ void default_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 	(void)format;
 }
 
-int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** lapb) {
+extern int lapb_register(struct lapb_register_struct *callbacks,
+						 _uchar modulo,
+						 _uchar protocol,
+						 _uchar equipment,
+						 struct lapb_cb ** lapb) {
 	int rc = LAPB_BADTOKEN;
 
 	*lapb = lapb_create_cb();
@@ -67,7 +73,16 @@ int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** lapb
 		callbacks->debug = default_debug;
 	(*lapb)->callbacks = callbacks;
 
-	//lapb_start_t1timer(*lapb); /* If we are DCE send continious DM */
+	(*lapb)->mode = modulo | protocol | equipment;
+	/* Create write and ack queues */
+	if (modulo == LAPB_STANDARD) {
+		cb_init(&(*lapb)->write_queue, LAPB_SMODULUS, LAPB_DEFAULT_N1);
+		cb_init(&(*lapb)->ack_queue, LAPB_SMODULUS, LAPB_DEFAULT_N1);
+	} else {
+		cb_init(&(*lapb)->write_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
+		cb_init(&(*lapb)->ack_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
+	};
+
 	rc = LAPB_OK;
 out:
 	return rc;
@@ -101,10 +116,8 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	if (!lapb)
 		goto out;
 
-	if (lapb_t1timer_running(lapb))
-		lapb_stop_t1timer(lapb);
-	if (lapb_t2timer_running(lapb))
-		lapb_stop_t2timer(lapb);
+	lapb_stop_t1timer(lapb);
+	lapb_stop_t2timer(lapb);
 	lapb_clear_queues(lapb);
 	/* Zero variables */
 	lapb->N2count = 0;
@@ -114,7 +127,7 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	lapb->condition = 0x00;
 	unsigned char old_state = lapb->state;
 	lapb->state   = init_state;
-	if (lapb->mode & LAPB_DCE)
+	if ((lapb->mode & LAPB_DCE) && (init_state == LAPB_STATE_0))
 		lapb_start_t1timer(lapb);
 
 	lapb->callbacks->debug(lapb, 0, "S%d -> S%d", old_state, init_state);

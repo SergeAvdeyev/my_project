@@ -20,12 +20,14 @@ void cb_free(struct circular_buffer *cb) {
 }
 
 void cb_clear(struct circular_buffer *cb) {
+	if (cb->buffer == NULL) return;
 	cb->count = 0;
 	cb->head = cb->buffer;
 	cb->tail = cb->buffer;
 }
 
 int cb_queue_head(struct circular_buffer *cb, const char *data, int data_size) {
+	if (cb->buffer == NULL) return 0;
 	if (cb->count == cb->capacity)
 		return 0;
 
@@ -41,6 +43,7 @@ int cb_queue_head(struct circular_buffer *cb, const char *data, int data_size) {
 }
 
 int cb_queue_tail(struct circular_buffer *cb, const char *data, int data_size) {
+	if (cb->buffer == NULL) return 0;
 	if (cb->count == cb->capacity)
 		return 0;
 
@@ -55,6 +58,7 @@ int cb_queue_tail(struct circular_buffer *cb, const char *data, int data_size) {
 }
 
 char * cb_peek(struct circular_buffer *cb) {
+	if (cb->buffer == NULL) return NULL;
 	if (cb->count == 0)
 		return NULL;
 	else
@@ -62,6 +66,7 @@ char * cb_peek(struct circular_buffer *cb) {
 }
 
 char * cb_dequeue(struct circular_buffer *cb, int * buffer_size) {
+	if (cb->buffer == NULL) return NULL;
 	if (cb->count == 0)
 		return NULL;
 	char * result = NULL;
@@ -77,6 +82,7 @@ char * cb_dequeue(struct circular_buffer *cb, int * buffer_size) {
 }
 
 char * cb_dequeue_tail(struct circular_buffer *cb, int * buffer_size) {
+	if (cb->buffer == NULL) return NULL;
 	if (cb->count == 0)
 		return NULL;
 	char * result = NULL;

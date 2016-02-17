@@ -141,18 +141,16 @@ int main(int argc, char *argv[]) {
 	pthread_mutex_init(&main_mutex, NULL);
 
 	/* Set up equipment type: DTE or DCE */
-	printf("\nSelect equipment type:\n1. DTE\n2. DCE\n");
-	write(0, ">", 1);
+	fprintf(stderr, "\nSelect equipment type:\n1. DTE\n2. DCE\n>");
 	while (read(0, buffer, sizeof(buffer)) <= 1)
-		write(0, ">", 1);
+		fprintf(stderr, ">");
 	if (atoi(buffer) == 2)
 		lapb_equipment_type = LAPB_DCE;
 
 	/* Set up lapb modulo: STANDARD or EXTENDED */
-	printf("\nSelect modulo value:\n1. STANDARD(8)\n2. EXTENDED(128)\n");
-	write(0, ">", 1);
+	fprintf(stderr, "\nSelect modulo value:\n1. STANDARD(8)\n2. EXTENDED(128)\n>");
 	while (read(0, buffer, sizeof(buffer)) <= 1)
-		write(0, ">", 1);
+		fprintf(stderr, ">");
 	if (atoi(buffer) == 2)
 		lapb_modulo = LAPB_EXTENDED;
 
@@ -208,12 +206,12 @@ int main(int argc, char *argv[]) {
 	callbacks.start_t2timer = start_t2timer;
 	callbacks.stop_t2timer = stop_t2timer;
 	callbacks.debug = lapb_debug;
-	lapb_res = lapb_register(&callbacks, &lapb_client);
+	lapb_res = lapb_register(&callbacks, lapb_modulo, LAPB_SLP, lapb_equipment_type, &lapb_client);
 	if (lapb_res != LAPB_OK) {
 		printf("lapb_register return %d\n", lapb_res);
 		exit(EXIT_FAILURE);
 	};
-	lapb_client->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
+	//lapb_client->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 	/* Redefine some default values */
 	lapb_client->T1 = 5000; /* 5s */
 	lapb_client->T2 = 500;  /* 0.5s */

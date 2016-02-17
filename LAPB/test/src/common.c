@@ -231,7 +231,7 @@ void print_commands_0(struct lapb_cb * lapb) {
 	};
 	printf("--\n");
 	printf("0 Exit application\n");
-	write(0, ">", 1);
+	fprintf(stderr, ">");
 }
 
 void print_commands_1(struct lapb_cb * lapb) {
@@ -242,7 +242,7 @@ void print_commands_1(struct lapb_cb * lapb) {
 	printf("1 Cancel\n");
 	printf("--\n");
 	printf("0 Exit application\n");
-	write(0, ">", 1);
+	fprintf(stderr, ">");
 }
 
 void print_commands_2(struct lapb_cb * lapb) {
@@ -253,7 +253,7 @@ void print_commands_2(struct lapb_cb * lapb) {
 	printf("1 Cancel\n");
 	printf("--\n");
 	printf("0 Exit application\n");
-	write(0, ">", 1);
+	fprintf(stderr, ">");
 }
 
 void print_commands_3(struct lapb_cb * lapb) {
@@ -266,14 +266,14 @@ void print_commands_3(struct lapb_cb * lapb) {
 	printf("2 Send DISC\n");
 	printf("--\n");
 	printf("0 Exit application\n");
-	write(0, ">", 1);
+	fprintf(stderr, ">");
 }
 
 void print_commands_5() {
 	printf("Awaiting physical connection:\n");
 	printf("--\n");
 	printf("0 Exit application\n");
-	write(0, ">", 1);
+	fprintf(stderr, ">");
 }
 
 
@@ -310,7 +310,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					};
 					bzero(buffer, sizeof(buffer));
 					while (read(0, buffer, sizeof(buffer)) <= 1)
-						write(0, ">", 1);
+						fprintf(stderr, ">");
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
@@ -340,7 +340,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					};
 					bzero(buffer, sizeof(buffer));
 					while (read(0, buffer, sizeof(buffer)) <= 1)
-						write(0, ">", 1);
+						fprintf(stderr, ">");
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
@@ -380,7 +380,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					};
 					bzero(buffer, sizeof(buffer));
 					while (read(0, buffer, sizeof(buffer)) <= 1)
-						write(0, ">", 1);
+						fprintf(stderr, ">");
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
@@ -413,7 +413,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					};
 					bzero(buffer, sizeof(buffer));
 					while (read(0, buffer, sizeof(buffer)) <= 1)
-						write(0, ">", 1);
+						fprintf(stderr, ">");
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
@@ -446,7 +446,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					};
 					bzero(buffer, sizeof(buffer));
 					while (read(0, buffer, sizeof(buffer)) <= 1)
-						write(0, ">", 1);
+						fprintf(stderr, ">");
 					printf("\n");
 					//int action = atoi(buffer);
 					char * pEnd;
@@ -512,7 +512,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					};
 					bzero(buffer, sizeof(buffer));
 					while (read(0, buffer, sizeof(buffer)) <= 1)
-						write(0, ">", 1);
+						fprintf(stderr, ">");
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {

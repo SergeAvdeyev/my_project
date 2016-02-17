@@ -113,7 +113,7 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 		case LAPB_UA:
 			lapb->callbacks->debug(lapb, 1, "S1 RX UA(%d)", frame->pf);
 			if (frame->pf) {
-				if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
+				//if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
 					lapb_stop_t1timer(lapb);
 				lapb->state     = LAPB_STATE_3;
 				lapb->condition = 0x00;
@@ -131,9 +131,7 @@ static void lapb_state1_machine(struct lapb_cb *lapb, struct lapb_frame *frame) 
 			if (frame->pf) {
 				lapb->callbacks->debug(lapb, 0, "S1 -> S0");
 				lapb->state = LAPB_STATE_0;
-				if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
-					lapb_stop_t1timer(lapb);
-				lapb_requeue_frames(lapb);
+				lapb_stop_t1timer(lapb);
 				lapb_disconnect_indication(lapb, LAPB_REFUSED);
 			};
 			break;
@@ -327,7 +325,17 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 			if (frame->ns == lapb->vr) {
 				int cn;
 				cn = lapb_data_indication(lapb, data + 2, data_size - 2);
-				(void)cn;
+				/*
+				 * If upper layer has dropped the frame, we
+				 * basically ignore any further protocol
+				 * processing. This will cause the peer
+				 * to re-transmit the frame later like
+				 * a frame lost on the wire.
+				 */
+				if (cn != 0) {
+					lapb->callbacks->debug(lapb, 1, "S3 Upper layer has dropped the frame");
+					break;
+				};
 				lapb->vr = (lapb->vr + 1) % modulus;
 				lapb->condition &= ~LAPB_REJECT_CONDITION;
 				if (frame->pf)

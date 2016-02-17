@@ -37,7 +37,7 @@
 #define	LAPB_FRMR_Z	0x08	/* Invalid N(R)			*/
 
 #define	LAPB_POLLOFF	0
-#define	LAPB_POLLON	1
+#define	LAPB_POLLON		1
 
 /* LAPB C-bit */
 #define LAPB_COMMAND	1
@@ -193,7 +193,11 @@ struct lapb_parms_struct {
 };
 
 /* lapb_iface.c */
-extern int lapb_register(struct lapb_register_struct *callbacks, struct lapb_cb ** lapb);
+extern int lapb_register(struct lapb_register_struct *callbacks,
+						 _uchar modulo,
+						 _uchar protocol,
+						 _uchar equipment,
+						 struct lapb_cb ** lapb);
 extern int lapb_unregister(struct lapb_cb * lapb);
 extern char * lapb_dequeue(struct lapb_cb * lapb, int * buffer_size);
 extern int lapb_reset(struct lapb_cb * lapb, _uchar init_state);

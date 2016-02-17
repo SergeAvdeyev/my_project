@@ -9,7 +9,7 @@ int test_sabm_dce(int next_test);
 int test_disc_sabm_dce(int next_test);
 
 int test_sabme_dte(int next_test);
-int test_disc_sabme_dce(int next_test);
+int test_disc_sabme_dte(int next_test);
 
 int test_sabme_dce(int next_test);
 int test_disc_sabme_dce(int next_test);
@@ -247,6 +247,23 @@ int main(int argc, char *argv[]) {
 	printf("******         LAPB UNIT-TEST        ******\n");
 	printf("******                               ******\n");
 	printf("*******************************************\n");
+	/* https://en.wikipedia.org/wiki/ANSI_escape_code */
+//	printf("\033[1;4;31mbold red text\033[0m\n");
+//	char move_up[] = { 0x1b, '[', '2', 'A', 0 };
+//	printf(move_up);
+//	printf("\033[1;4;31mbold red text\033[0m\n");
+
+	char _cursor[4] = { '|', '/', '-', '\\'};
+	int t = 0;
+	char move_left[] = { 0x1b, '[', '1', 'D', 0 };
+	while (1) {
+		fprintf(stderr, "%c", _cursor[t]);
+		sleep_ms(50);
+		t++;
+		if (t == 4)
+			t = 0;
+		fprintf(stderr, move_left);
+	};
 
 //	printf("sizeof(unsigned char)=%d\n", (int)sizeof(unsigned char));
 //	printf("sizeof(unsigned short)=%d\n", (int)sizeof(unsigned short));
@@ -299,7 +316,7 @@ int main(int argc, char *argv[]) {
 				test_no = test_sabme_dce(TEST_DISC);
 				break;
 			case TEST_DISC:
-				test_no = test_disc(TEST_OK);
+				test_no = test_disc_sabme_dte(TEST_OK);
 				break;
 			case TEST_OK: case TEST_BAD:
 				test_finish = TRUE;
@@ -392,7 +409,7 @@ int test_sabme_dce(int next_test) {
 	printf("OK\n");
 	return next_test;
 }
-int test_disc(int next_test) {
+int test_disc_sabme_dte(int next_test) {
 	write(0, "Test DISC  .......... ", 22);
 	sleep_ms(400);
 

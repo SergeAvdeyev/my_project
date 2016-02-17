@@ -76,7 +76,7 @@ void lapb_kick(struct lapb_cb *lapb) {
 			/*
 			 * Transmit the frame copy.
 			 */
-			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLON);
+			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLOFF);
 
 			lapb->vs = (lapb->vs + 1) % modulus;
 
