@@ -73,6 +73,9 @@ extern int lapb_register(struct lapb_register_struct *callbacks,
 		callbacks->debug = default_debug;
 	(*lapb)->callbacks = callbacks;
 
+	/* Init mutex for sinchronization */
+	pthread_mutex_init(&((*lapb)->_mutex), NULL);
+
 	(*lapb)->mode = modulo | protocol | equipment;
 	/* Create write and ack queues */
 	if (modulo == LAPB_STANDARD) {
@@ -83,6 +86,7 @@ extern int lapb_register(struct lapb_register_struct *callbacks,
 		cb_init(&(*lapb)->ack_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
 	};
 
+	lapb_start_t2timer(*lapb);
 	rc = LAPB_OK;
 out:
 	return rc;
@@ -107,12 +111,22 @@ out:
 }
 
 char * lapb_dequeue(struct lapb_cb * lapb, int * buffer_size) {
-	return cb_dequeue(&lapb->write_queue, buffer_size);
+	char *result = NULL;
+
+	lock(lapb);
+	if (cb_peek(&lapb->ack_queue))
+		result = cb_dequeue(&lapb->write_queue, buffer_size);
+	else if (cb_peek(&lapb->write_queue))
+		result = cb_dequeue(&lapb->write_queue, buffer_size);
+
+	unlock(lapb);
+	return result;
 }
 
 int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	int rc = LAPB_BADTOKEN;
 
+	//lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -134,12 +148,14 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 
 	rc = LAPB_OK;
 out:
+	//unlock(lapb);
 	return rc;
 }
 
 int lapb_getparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
 	int rc = LAPB_BADTOKEN;
 
+	lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -164,12 +180,14 @@ int lapb_getparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
 
 	rc = LAPB_OK;
 out:
+	unlock(lapb);
 	return rc;
 }
 
 int lapb_setparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
 	int rc = LAPB_BADTOKEN;
 
+	lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -196,12 +214,14 @@ int lapb_setparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
 
 	rc = LAPB_OK;
 out:
+	unlock(lapb);
 	return rc;
 }
 
 int lapb_connect_request(struct lapb_cb *lapb) {
 	int rc = LAPB_BADTOKEN;
 
+	lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -220,12 +240,14 @@ int lapb_connect_request(struct lapb_cb *lapb) {
 
 	rc = LAPB_OK;
 out:
+	unlock(lapb);
 	return rc;
 }
 
 int lapb_disconnect_request(struct lapb_cb *lapb) {
 	int rc = LAPB_BADTOKEN;
 
+	lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -258,12 +280,14 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 
 	rc = LAPB_OK;
 out:
+	unlock(lapb);
 	return rc;
 }
 
 int lapb_data_request(struct lapb_cb *lapb, char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
+	lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -293,12 +317,14 @@ int lapb_data_request(struct lapb_cb *lapb, char *data, int data_size) {
 	rc = LAPB_OK;
 
 out:
+	unlock(lapb);
 	return rc;
 }
 
 int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size, _ushort fcs) {
 	int rc = LAPB_BADFCS;
 
+	lock(lapb);
 	if (fcs != 0) /* Drop frames with bad summ */
 		goto out;
 
@@ -308,6 +334,7 @@ int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size, _ushort 
 		rc = LAPB_OK;
 	};
 out:
+	unlock(lapb);
 	return rc;
 }
 

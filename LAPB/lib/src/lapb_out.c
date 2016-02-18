@@ -89,7 +89,8 @@ void lapb_kick(struct lapb_cb *lapb) {
 
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
-		if (!lapb_t1timer_running(lapb))
+		lapb_stop_t1timer(lapb);
+		//if (!lapb_t1timer_running(lapb))
 			lapb_start_t1timer(lapb);
 	};
 }

@@ -89,7 +89,7 @@ enum {
 #define	LAPB_REFUSED		5
 #define	LAPB_TIMEDOUT		6
 #define	LAPB_NOMEM			7
-#define LAPB_NOTREADY		8
+#define LAPB_BUSY			8
 #define LAPB_BADFCS			9
 
 #define	LAPB_OK_STR				"OK"
@@ -99,8 +99,9 @@ enum {
 #define	LAPB_NOTCONNECTED_STR	"Not connected"
 #define	LAPB_REFUSED_STR		"Refused"
 #define	LAPB_TIMEDOUT_STR		"Timed out"
-#define	LAPB_NOMEM_STR			"No mem"
-#define	LAPB_NOTREADY_STR		"Phys layer not ready"
+#define	LAPB_NOMEM_STR			"No memory"
+#define	LAPB_BUSY_STR			"Transmitter busy"
+#define	LAPB_BADFCS_STR			"Bad checksum"
 
 #define TRUE  1
 #define FALSE 0
@@ -158,7 +159,9 @@ struct lapb_cb {
 
 	/* FRMR control information */
 	struct lapb_frame	frmr_data;
-	_uchar		frmr_type;
+	_uchar				frmr_type;
+
+	pthread_mutex_t		_mutex;
 };
 
 
@@ -211,8 +214,8 @@ extern int lapb_data_request(struct lapb_cb *lapb, char * data, int data_size);
 extern int lapb_data_received(struct lapb_cb *lapb, char * data, int data_size, _ushort fcs);
 
 
-/* lapb_subr.c */
-extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
+///* lapb_subr.c */
+//extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 
 /* lapb_timer.c */
 extern void lapb_t1timer_expiry(struct lapb_cb *lapb);

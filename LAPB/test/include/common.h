@@ -17,7 +17,7 @@
 #define FALSE	0
 
 volatile sig_atomic_t exit_flag;
-pthread_mutex_t main_mutex;
+//pthread_mutex_t main_mutex;
 
 struct main_callbacks {
 	int (*is_connected)();
@@ -61,8 +61,8 @@ int wait_stdin(struct lapb_cb * lapb, unsigned char break_condition, int run_onc
 
 char * lapb_error_str(int error);
 
-void main_lock();
-void main_unlock();
+//void main_lock();
+//void main_unlock();
 
 #endif // COMMON_H
 

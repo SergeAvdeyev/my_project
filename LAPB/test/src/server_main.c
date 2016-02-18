@@ -18,7 +18,7 @@ int manual_process();
 int man_decode(struct lapb_cb *lapb, char *data, int data_size, struct lapb_frame *frame);
 void print_man_commands();
 
-
+int fcs = 1;
 
 
 
@@ -96,10 +96,14 @@ void new_data_received(char * data, int data_size) {
 		while (i < data_size) {
 			if (data[i] == 0x7E) { /* Flag */
 				if (data_block) { /* Close flag */
-					main_lock();
+					//main_lock();
 					lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-					lapb_data_received(lapb_server, buffer, block_size, 0);
-					main_unlock();
+					if (fcs > 0)
+						lapb_data_received(lapb_server, buffer, block_size, 0);
+					else
+						lapb_data_received(lapb_server, buffer, block_size, 1);
+					fcs = (fcs + 1) % 4;
+					//main_unlock();
 					data_block = FALSE;
 					i++;
 					continue;
@@ -209,8 +213,8 @@ int main (int argc, char *argv[]) {
 	/* Setup signal handler */
 	setup_signals_handler();
 
-	/* Init mutex for sinchronization */
-	pthread_mutex_init(&main_mutex, NULL);
+	///* Init mutex for sinchronization */
+	//pthread_mutex_init(&main_mutex, NULL);
 
 	if (dbg)
 		goto label_1;
@@ -298,13 +302,13 @@ label_2:
 	//lapb_server->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 
 	/* Redefine some default values */
-	lapb_server->T1 = 5000; /* 5s */
-	lapb_server->T2 = 500;  /* 0.5s */
+	lapb_server->T1 = 500; /* 0.5s */
+	lapb_server->T2 = 50;  /* 0.05s */
 	lapb_server->N2 = 3; /* Try 3 times */
 
 	/* Create timer */
 	timer_struct = malloc(sizeof(struct timer_struct));
-	timer_struct->interval = 50; // milliseconds
+	timer_struct->interval = 10; // milliseconds
 	timer_struct->lapb_addr = (unsigned long int)lapb_server;
 
 	/* Timer callbacks */
@@ -424,32 +428,32 @@ int manual_process() {
 			int action = atoi(buffer);
 			switch (action) {
 				case 1: /* SABM */
-					lapb_send_control(lapb_server, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
+					//lapb_send_control(lapb_server, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 					//
 					break;
 				case 2: /* SABME */
-					lapb_send_control(lapb_server, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
+					//lapb_send_control(lapb_server, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 					//
 					break;
 				case 3: /* DISC */
-					lapb_send_control(lapb_server, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
+					//lapb_send_control(lapb_server, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 					//
 					break;
 				case 4: /* UA */
-					lapb_send_control(lapb_server, LAPB_UA, LAPB_POLLON, LAPB_RESPONSE);
+					//lapb_send_control(lapb_server, LAPB_UA, LAPB_POLLON, LAPB_RESPONSE);
 					//
 					break;
 				case 5: /* DM */
-					lapb_send_control(lapb_server, LAPB_DM, LAPB_POLLON, LAPB_RESPONSE);
+					//lapb_send_control(lapb_server, LAPB_DM, LAPB_POLLON, LAPB_RESPONSE);
 					//
 					break;
 				case 6: /* RR good*/
-					lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
+					//lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
 					//
 					break;
 				case 7: /* RR bad*/
-					lapb_server->vr++;
-					lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
+					//lapb_server->vr++;
+					//lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
 					//
 					break;
 				case 0:

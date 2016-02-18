@@ -63,17 +63,20 @@ int lapb_t2timer_running(struct lapb_cb *lapb) {
 void lapb_t2timer_expiry(struct lapb_cb *lapb) {
 	if (!lapb) return;
 
+	lock(lapb);
 	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d Timer_2 expired", lapb->state);
 	if (lapb->condition & LAPB_ACK_PENDING_CONDITION) {
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 		lapb_timeout_response(lapb);
 	};
 	lapb_stop_t2timer(lapb);
+	unlock(lapb);
 }
 
 void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 	if (!lapb) return;
 
+	lock(lapb);
 	lapb->N2count++;
 	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d Timer_1 expired(%d of %d)", lapb->state, lapb->N2count, lapb->N2);
 	switch (lapb->state) {
@@ -96,7 +99,6 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 				lapb_stop_t1timer(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-				return;
 			} else {
 				if (lapb->mode & LAPB_EXTENDED) {
 					lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX SABME(1)");
@@ -117,7 +119,6 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-				return;
 			} else {
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S2 TX DISC(1)");
 				lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
@@ -133,7 +134,6 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 				lapb_stop_t1timer(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-				return;
 			} else
 				lapb_kick(lapb);
 			break;
@@ -147,10 +147,10 @@ void lapb_t1timer_expiry(struct lapb_cb *lapb) {
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-				return;
 			} else {
 				lapb_transmit_frmr(lapb);
 			};
 			break;
 	};
+	unlock(lapb);
 }

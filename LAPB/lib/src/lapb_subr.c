@@ -19,6 +19,17 @@
 
 char str_buf[1024];
 
+void lock(struct lapb_cb *lapb) {
+	if (!lapb) return;
+	pthread_mutex_lock(&(lapb->_mutex));
+}
+
+void unlock(struct lapb_cb *lapb) {
+	if (!lapb) return;
+	pthread_mutex_unlock(&(lapb->_mutex));
+}
+
+
 char * lapb_buf_to_str(char * data, int data_size) {
 
 	bzero(str_buf, 1024);

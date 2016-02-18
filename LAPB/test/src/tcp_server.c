@@ -2,12 +2,17 @@
 #include "tcp_server.h"
 
 
+pthread_mutex_t server_mutex;
 int server_exit_flag = FALSE;
 int server_socket = -1;
 int client_socket = -1;
 int is_started = FALSE;
 int is_accepted = FALSE;
 
+// Private prototipes
+void _mutex_init();
+void _mutex_lock();
+void _mutex_unlock();
 
 
 ///////////////////////////////
@@ -22,28 +27,28 @@ int tcp_client_socket() {
 
 int is_server_started() {
 	int result;
-	main_lock();
+	_mutex_lock();
 	result = is_started;
-	main_unlock();
+	_mutex_unlock();
 	return result;
 }
 
 int is_server_accepted() {
 	int result;
-	main_lock();
+	_mutex_lock();
 	result = is_accepted;
-	main_unlock();
+	_mutex_unlock();
 	return result;
 }
 
 void terminate_tcp_server() {
-	main_lock();
+	_mutex_lock();
 	server_exit_flag = TRUE;
 	if (server_socket != -1) {
 		shutdown(server_socket, SHUT_RDWR);
 		//close(listen_sd);
 	};
-	main_unlock();
+	_mutex_unlock();
 }
 
 
@@ -60,37 +65,53 @@ void terminate_tcp_server() {
 //
 ///////////////////////////////
 
+/* Mutex section */
+
+void _mutex_init() {
+	if (pthread_mutex_init(&server_mutex, NULL) != 0)
+		perror("\nServer mutex init failed\n");
+}
+
+void _mutex_lock() {
+	pthread_mutex_lock(&server_mutex);
+}
+
+void _mutex_unlock() {
+	pthread_mutex_unlock(&server_mutex);
+}
+
+
 void server_started() {
-	main_lock();
+	_mutex_lock();
 	is_started = TRUE;
-	main_unlock();
+	_mutex_unlock();
 }
 
 void server_stopped() {
-	main_lock();
+	_mutex_lock();
 	is_started = FALSE;
-	main_unlock();
+	_mutex_unlock();
 }
 
 void server_accepted() {
-	main_lock();
+	_mutex_lock();
 	is_accepted = TRUE;
-	main_unlock();
+	_mutex_unlock();
 }
 
 void server_listening() {
-	main_lock();
+	_mutex_lock();
 	is_accepted = FALSE;
-	main_unlock();
+	_mutex_unlock();
 }
 
 
 
 int get_server_exit_flag() {
 	int result;
-	main_lock();
+	_mutex_lock();
 	result = server_exit_flag;
-	main_unlock();
+	_mutex_unlock();
 	return result;
 }
 

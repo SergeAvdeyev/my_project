@@ -1,6 +1,7 @@
 #ifndef LAPB_INT_H
 #define LAPB_INT_H
 
+#include <pthread.h>
 
 #include "lapb_iface.h"
 #include "lapb_queue.h"
@@ -26,6 +27,8 @@ void lapb_check_iframes_acked(struct lapb_cb *lapb, unsigned short);
 void lapb_check_need_response(struct lapb_cb *lapb, int, int);
 
 /* lapb_subr.c */
+void lock(struct lapb_cb *lapb);
+void unlock(struct lapb_cb *lapb);
 char * lapb_buf_to_str(char * data, int data_size);
 void lapb_clear_queues(struct lapb_cb *lapb);
 int lapb_frames_acked(struct lapb_cb *lapb, unsigned short nr);

@@ -132,7 +132,7 @@ void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 		va_start(argList, format);
 		vsnprintf(buf, 256, format, argList);
 		va_end(argList);
-		logger_enqueue(buf, strlen(buf));
+		logger_enqueue(buf, strlen(buf) + 1);
 	};
 }
 
@@ -145,16 +145,12 @@ void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 */
 void t1timer_expiry(unsigned long int lapb_addr) {
 	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	main_lock();
 	lapb_t1timer_expiry(lapb);
-	main_unlock();
 }
 
 void t2timer_expiry(unsigned long int lapb_addr) {
 	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	main_lock();
 	lapb_t2timer_expiry(lapb);
-	main_unlock();
 }
 
 
@@ -180,6 +176,10 @@ char * lapb_error_str(int error) {
 			return LAPB_TIMEDOUT_STR;
 		case LAPB_NOMEM:
 			return LAPB_NOMEM_STR;
+		case LAPB_BUSY:
+			return LAPB_BUSY_STR;
+		case LAPB_BADFCS:
+			return LAPB_BADFCS_STR;
 		default:
 			return "Unknown error";
 			break;
@@ -217,14 +217,6 @@ int wait_stdin(struct lapb_cb * lapb, unsigned char break_condition, int run_onc
 			break;
 	};
 	return sr;
-}
-
-void main_lock() {
-	pthread_mutex_lock(&main_mutex);
-}
-
-void main_unlock() {
-	pthread_mutex_unlock(&main_mutex);
 }
 
 
@@ -306,14 +298,8 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 							sleep_ms(100);
 							continue;
 						};
-						//printf("\n\n");
-						//break;
 					} else {
-						//lapb->state = LAPB_STATE_0;
 						lapb_reset(lapb, LAPB_STATE_0);
-						//lapb->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
-						//if (lapb_equipment_type == LAPB_DCE)
-						//	lapb_start_t1timer(lapb);
 						printf("\nPhysical connection established\n\n");
 						break;
 					};
@@ -354,9 +340,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					int action = atoi(buffer);
 					switch (action) {
 						case 1:  /* SABM or SABME */
-							main_lock();
 							lapb_res = lapb_connect_request(lapb);
-							main_unlock();
 							if (lapb_res != LAPB_OK) {
 								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
 								lapb_reset(lapb, LAPB_STATE_0);
@@ -457,7 +441,6 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					while (read(0, buffer, sizeof(buffer)) <= 1)
 						fprintf(stderr, ">");
 					printf("\n");
-					//int action = atoi(buffer);
 					char * pEnd;
 					int action = strtol(buffer, &pEnd, 10);
 					int data_size;
@@ -472,14 +455,10 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 									buffer[n] = 'a' + n;
 									n++;
 								};
-								//buffer[n] = '2';
-								//buffer[n + 1] = '\n';
 							} else
 								data_size = strlen(buffer) - 1;
 							buffer[data_size] = 0;
-							main_lock();
 							lapb_res = lapb_data_request(lapb, buffer, data_size);
-							main_unlock();
 							if (lapb_res != LAPB_OK) {
 								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
 								lapb_reset(lapb, LAPB_STATE_0);
@@ -487,30 +466,24 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 								while_flag = FALSE;
 							break;
 						case 2: /* Send sequence of data */
-							data_size = 10;
 							while (!break_flag) {
 								bzero(buffer, sizeof(buffer));
 								sprintf(buffer, "abcdefghij_%d", out_counter);
-								main_lock();
 								lapb_res = lapb_data_request(lapb, buffer, strlen(buffer));
-								main_unlock();
 								if (lapb_res != LAPB_OK) {
 									printf("ERROR: %s\n", lapb_error_str(lapb_res));
-									//lapb_reset(lapb, LAPB_STATE_0);
-									sleep_ms(100);
+									sleep_ms(50);
 									continue;
 								};
-								sleep_ms(10);
+								sleep_ms(100);
 								out_counter++;
-								if (out_counter % 500 == 0) break;
+								if (out_counter % 10 == 0) break;
 							};
 							break_flag = FALSE;
 							while_flag = FALSE;
 							break;
 						case 3: /* DISC */
-							main_lock();
 							lapb_res = lapb_disconnect_request(lapb);
-							main_unlock();
 							if (lapb_res != LAPB_OK) {
 								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
 								lapb_reset(lapb, LAPB_STATE_0);

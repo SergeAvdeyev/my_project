@@ -341,12 +341,12 @@ static void lapb_state3_machine(struct lapb_cb *lapb, char * data, int data_size
 				if (frame->pf)
 					lapb_enquiry_response(lapb);
 				else {
-					//if (!(lapb->condition & LAPB_ACK_PENDING_CONDITION)) {
+					if (!(lapb->condition & LAPB_ACK_PENDING_CONDITION)) {
 						lapb->condition |= LAPB_ACK_PENDING_CONDITION;
 						lapb_start_t2timer(lapb);
-					//}
-					//else
-					//	lapb->callbacks->debug(lapb, 1, "[LAPB] S3 lapb->condition=%d", lapb->condition);
+					}
+					else
+						lapb->callbacks->debug(lapb, 1, "[LAPB] S3 lapb->condition=%d", lapb->condition);
 				};
 			} else {
 				if (lapb->condition & LAPB_REJECT_CONDITION) {
