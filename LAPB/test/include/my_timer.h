@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <errno.h>
-#include <syslog.h>
 #include <string.h>
 
 #include "common.h"

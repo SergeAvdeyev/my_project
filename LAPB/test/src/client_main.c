@@ -1,5 +1,4 @@
 #include <signal.h>     /* for signal */
-#include <syslog.h>		/* for syslog writing */
 
 
 #include "lapb_iface.h"
@@ -23,7 +22,7 @@ struct lapb_cb * lapb_client = NULL;
 
 void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
 	(void)lapb;
-	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
+	lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
 	char buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
@@ -31,7 +30,7 @@ void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
 	buffer[data_size + 1] = 0x7E; /* Close flag */
 	int n = send(tcp_client_socket(), buffer, data_size + 2, MSG_NOSIGNAL);
 	if (n < 0)
-		syslog(LOG_ERR, "[LAPB] ERROR writing to socket, %s", strerror(errno));
+		lapb_debug(lapb, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
@@ -51,7 +50,7 @@ void new_data_received(char * data, int data_size) {
 		if (data[i] == 0x7E) { /* Flag */
 			if (data_block) { /* Close flag */
 				main_lock();
-				syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+				lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
 				lapb_data_received(lapb_client, buffer, block_size, 0);
 				main_unlock();
 				data_block = FALSE;
@@ -75,7 +74,18 @@ void new_data_received(char * data, int data_size) {
 }
 
 void connection_lost() {
+	char * buffer;
+	int buffer_size;
+	main_lock();
+	//lapb_debug(NULL, 0, "[X25_CB] disconnected event is called(%s)", lapb_error_str(reason));
+	if (lapb_client->write_queue.count) {
+		printf("\n\nUnacked data:\n");
+		while ((buffer = lapb_dequeue(lapb_client, &buffer_size)) != NULL) {
+			printf("%s\n", buf_to_str(buffer, buffer_size));
+		};
+	};
 	lapb_reset(lapb_client, LAPB_NOT_READY);
+	main_unlock();
 }
 
 
@@ -86,6 +96,8 @@ int main(int argc, char *argv[]) {
 	(void)argv;
 	int ret;
 	char buffer[2048];
+
+	int dbg = TRUE;
 
 	unsigned char lapb_equipment_type = LAPB_DTE;
 	unsigned char lapb_modulo = LAPB_STANDARD;
@@ -132,13 +144,16 @@ int main(int argc, char *argv[]) {
 		sleep_ms(200);
 	printf("Logger started\n\n");
 
-	syslog (LOG_NOTICE, "Program started by User %d", getuid ());
+	lapb_debug(NULL, 0, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
 	setup_signals_handler();
 
 	/* Init mutex for sinchronization */
 	pthread_mutex_init(&main_mutex, NULL);
+
+	if (dbg)
+		goto label_1;
 
 	/* Set up equipment type: DTE or DCE */
 	fprintf(stderr, "\nSelect equipment type:\n1. DTE\n2. DCE\n>");
@@ -154,11 +169,20 @@ int main(int argc, char *argv[]) {
 	if (atoi(buffer) == 2)
 		lapb_modulo = LAPB_EXTENDED;
 
+label_1:
+
 	/* Create TCP client */
 	client_struct = malloc(sizeof(struct tcp_client_struct));
-	printf("\nEnter remote server address[127.0.0.1]: ");
 	client_struct->server_address = calloc(16, 1);
-	bzero(client_struct->server_address, 16);
+	//bzero(client_struct->server_address, 16);
+
+	if (dbg) {
+		memcpy(client_struct->server_address, "127.0.0.1", 9);
+		client_struct->server_port = 1234;
+		goto label_2;
+	};
+
+	printf("\nEnter remote server address[127.0.0.1]: ");
 	fgets(client_struct->server_address, 16, stdin);
 	int tmp_len = strlen(client_struct->server_address);
 	if (tmp_len == 1)
@@ -175,6 +199,9 @@ int main(int argc, char *argv[]) {
 		buffer[strlen(buffer) - 1] = 0;
 		client_struct->server_port = atoi(buffer);
 	};
+
+label_2:
+
 	/* TCP client callbacks */
 	client_struct->new_data_received = new_data_received;
 	client_struct->connection_lost = connection_lost;
@@ -182,7 +209,7 @@ int main(int argc, char *argv[]) {
 	//tcp_client_init();
 	ret = pthread_create(&client_thread, NULL, client_function, (void*)client_struct);
 	if (ret) {
-		syslog(LOG_ERR, "Error - pthread_create() return code: %d\n", ret);
+		lapb_debug(NULL, 0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -219,7 +246,7 @@ int main(int argc, char *argv[]) {
 
 	/* Create timer */
 	timer_struct = malloc(sizeof(struct timer_struct));
-	timer_struct->interval = 100; // milliseconds
+	timer_struct->interval = 50; // milliseconds
 	timer_struct->lapb_addr = (unsigned long int)lapb_client;
 
 	/* Timer callbacks */
@@ -229,7 +256,7 @@ int main(int argc, char *argv[]) {
 	//timer_init();
 	ret = pthread_create(&timer_thread, NULL, timer_function, (void*)timer_struct);
 	if (ret) {
-		syslog(LOG_ERR, "Error - pthread_create() return code: %d\n", ret);
+		lapb_debug(NULL, 0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};

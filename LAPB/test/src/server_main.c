@@ -31,7 +31,7 @@ void print_man_commands();
 /* Called by LAPB to transmit data via physical connection */
 void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
 	(void)lapb;
-	syslog(LOG_NOTICE, "[LAPB] data_transmit is called");
+	lapb_debug(NULL, 0, "[LAPB] data_transmit is called");
 
 	char buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
@@ -39,7 +39,7 @@ void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
 	buffer[data_size + 1] = 0x7E; /* Close flag */
 	int n = send(tcp_client_socket(), buffer, data_size + 2, MSG_NOSIGNAL);
 	if (n < 0)
-		syslog(LOG_ERR, "[LAPB] ERROR writing to socket, %s", strerror(errno));
+		lapb_debug(NULL, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
@@ -97,7 +97,7 @@ void new_data_received(char * data, int data_size) {
 			if (data[i] == 0x7E) { /* Flag */
 				if (data_block) { /* Close flag */
 					main_lock();
-					syslog(LOG_NOTICE, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+					lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
 					lapb_data_received(lapb_server, buffer, block_size, 0);
 					main_unlock();
 					data_block = FALSE;
@@ -165,13 +165,14 @@ int main (int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 	int ret;
+	int dbg = TRUE;
 
 	struct lapb_register_struct callbacks;
 	int lapb_res;
 
 	char buffer[2048];
 
-	unsigned char lapb_equipment_type = LAPB_DTE;
+	unsigned char lapb_equipment_type = LAPB_DCE;
 	unsigned char lapb_modulo = LAPB_STANDARD;
 
 	pthread_t server_thread;
@@ -203,13 +204,16 @@ int main (int argc, char *argv[]) {
 		sleep_ms(200);
 	printf("Logger started\n\n");
 
-	syslog (LOG_NOTICE, "Program started by User %d", getuid ());
+	lapb_debug(NULL, 0, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
 	setup_signals_handler();
 
 	/* Init mutex for sinchronization */
 	pthread_mutex_init(&main_mutex, NULL);
+
+	if (dbg)
+		goto label_1;
 
 	/* Select program mode */
 	printf("\nSelect program mode:\n1. Automatic\n2. Manual\n");
@@ -224,8 +228,8 @@ int main (int argc, char *argv[]) {
 		write(0, ">", 1);
 		while (read(0, buffer, sizeof(buffer)) <= 1)
 			write(0, ">", 1);
-		if (atoi(buffer) == 2)
-			lapb_equipment_type = LAPB_DCE;
+		if (atoi(buffer) == 1)
+			lapb_equipment_type = LAPB_DTE;
 
 		/* Set up lapb modulo: STANDARD or EXTENDED */
 		printf("\nSelect modulo value:\n1. STANDARD(8)\n2. EXTENDED(128)\n");
@@ -236,8 +240,16 @@ int main (int argc, char *argv[]) {
 			lapb_modulo = LAPB_EXTENDED;
 	};
 
+label_1:
+
 	/* Create TCP server */
 	server_struct = malloc(sizeof(struct tcp_server_struct));
+
+	if (dbg) {
+		server_struct->port = 1234;
+		goto label_2;
+	};
+
 	printf("\nEnter server port[1234]: ");
 	fgets(buffer, sizeof(buffer) - 1, stdin);
 	int tmp_len = strlen(buffer);
@@ -247,10 +259,13 @@ int main (int argc, char *argv[]) {
 		buffer[strlen(buffer) - 1] = 0;
 		server_struct->port = atoi(buffer);
 	};
+
+label_2:
+
+	/* TCP server callbacks */
 	server_struct->new_data_received = new_data_received;
 	server_struct->no_active_connection = no_active_connection;
 
-	//tcp_server_init();
 	ret = pthread_create(&server_thread, NULL, server_function, (void*)server_struct);
 	if (ret) {
 		fprintf(stderr, "Error - pthread_create() return code: %d\n", ret);
@@ -275,31 +290,30 @@ int main (int argc, char *argv[]) {
 	callbacks.start_t2timer = start_t2timer;
 	callbacks.stop_t2timer = stop_t2timer;
 	callbacks.debug = lapb_debug;
-	lapb_res = lapb_register(&callbacks, &lapb_server);
+	lapb_res = lapb_register(&callbacks, lapb_modulo, LAPB_SLP, lapb_equipment_type, &lapb_server);
 	if (lapb_res != LAPB_OK) {
 		printf("lapb_register return %d\n", lapb_res);
 		exit(EXIT_FAILURE);
 	};
-	lapb_server->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
+	//lapb_server->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 
 	/* Redefine some default values */
-	lapb_server->T1 = 2000; /* 2s */
+	lapb_server->T1 = 5000; /* 5s */
 	lapb_server->T2 = 500;  /* 0.5s */
 	lapb_server->N2 = 3; /* Try 3 times */
 
 	/* Create timer */
 	timer_struct = malloc(sizeof(struct timer_struct));
-	timer_struct->interval = 100; // milliseconds
+	timer_struct->interval = 50; // milliseconds
 	timer_struct->lapb_addr = (unsigned long int)lapb_server;
 
 	/* Timer callbacks */
 	timer_struct->t1timer_expiry = t1timer_expiry;
 	timer_struct->t2timer_expiry = t2timer_expiry;
 
-	//timer_init();
 	ret = pthread_create(&timer_thread, NULL, timer_function, (void*)timer_struct);
 	if (ret) {
-		syslog(LOG_ERR, "Error - pthread_create() return code: %d\n", ret);
+		lapb_debug(NULL, 0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -387,12 +401,12 @@ int manual_process() {
 	bzero(&callbacks, sizeof(struct lapb_register_struct));
 	callbacks.transmit_data = transmit_data;
 	callbacks.debug = lapb_debug;
-	lapb_res = lapb_register(&callbacks, &lapb_server);
+	lapb_res = lapb_register(&callbacks, LAPB_SMODULUS, LAPB_SLP, LAPB_DCE, &lapb_server);
 	if (lapb_res != LAPB_OK) {
 		printf("lapb_register return %d\n", lapb_res);
 		exit(EXIT_FAILURE);
 	};
-	lapb_server->mode = LAPB_DCE;
+	//lapb_server->mode = LAPB_DCE;
 
 	print_man_commands();
 

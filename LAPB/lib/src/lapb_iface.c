@@ -130,7 +130,7 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 	if ((lapb->mode & LAPB_DCE) && (init_state == LAPB_STATE_0))
 		lapb_start_t1timer(lapb);
 
-	lapb->callbacks->debug(lapb, 0, "S%d -> S%d", old_state, init_state);
+	lapb->callbacks->debug(lapb, 0, "[LAPB] S%d -> S%d", old_state, init_state);
 
 	rc = LAPB_OK;
 out:
@@ -216,7 +216,7 @@ int lapb_connect_request(struct lapb_cb *lapb) {
 	lapb_establish_data_link(lapb);
 	lapb->state = LAPB_STATE_1;
 
-	lapb->callbacks->debug(lapb, 0, "S0 -> S1");
+	lapb->callbacks->debug(lapb, 0, "[LAPB] S0 -> S1");
 
 	rc = LAPB_OK;
 out:
@@ -235,8 +235,8 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 			goto out;
 
 		case LAPB_STATE_1:
-			lapb->callbacks->debug(lapb, 1, "S1 TX DISC(1)");
-			lapb->callbacks->debug(lapb, 0, "S1 -> S2");
+			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX DISC(1)");
+			lapb->callbacks->debug(lapb, 0, "[LAPB] S1 -> S2");
 			lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			lapb->state = LAPB_STATE_2;
 			lapb_start_t1timer(lapb);
@@ -248,13 +248,13 @@ int lapb_disconnect_request(struct lapb_cb *lapb) {
 			goto out;
 	};
 
-	lapb->callbacks->debug(lapb, 1, "S3 DISC(1)");
+	lapb->callbacks->debug(lapb, 1, "[LAPB] S3 DISC(1)");
 	lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 	lapb->state = LAPB_STATE_2;
 	lapb->N2count = 0;
 	lapb_start_t1timer(lapb);
 
-	lapb->callbacks->debug(lapb, 0, "S3 -> S2");
+	lapb->callbacks->debug(lapb, 0, "[LAPB] S3 -> S2");
 
 	rc = LAPB_OK;
 out:
@@ -273,8 +273,22 @@ int lapb_data_request(struct lapb_cb *lapb, char *data, int data_size) {
 
 
 	rc = LAPB_NOMEM;
-	if (!cb_queue_tail(&lapb->write_queue, data, data_size))
+	/* check the filling of the window */
+	int actual_window_size;
+	if (lapb->vs >= lapb->va)
+		actual_window_size = lapb->vs - lapb->va;
+	else {
+		if (lapb->mode & LAPB_EXTENDED)
+			actual_window_size = lapb->vs + LAPB_EMODULUS - lapb->va;
+		else
+			actual_window_size = lapb->vs + LAPB_SMODULUS - lapb->va;
+	};
+	if (actual_window_size >= lapb->window)
 		goto out;
+
+	cb_queue_tail(&lapb->write_queue, data, data_size);
+//	if (!cb_queue_tail(&lapb->write_queue, data, data_size))
+//		goto out;
 	lapb_kick(lapb);
 	rc = LAPB_OK;
 

@@ -4,13 +4,18 @@
 #include "logger.h"
 
 char str_buf[1024];
+int break_flag = FALSE;
+int out_counter;
 
 /* Signals handler */
 void signal_callback_handler(int signum) {
 	printf("Caught signal %d\n", signum);
 	// Cleanup and close up stuff here
 	switch (signum) {
-		case SIGINT: case SIGKILL: case SIGTERM:
+		case SIGINT:
+			break_flag = TRUE;
+			break;
+		case SIGKILL: case SIGTERM:
 			exit_flag = TRUE;
 			break;
 		default:
@@ -64,7 +69,8 @@ char * buf_to_str(char * data, int data_size) {
 /* Called by LAPB to inform X25 that SABM(SABME) is confirmed or UA sended on SABM(SABME) command */
 void on_connected(struct lapb_cb * lapb, int reason) {
 	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] connected event is called(%s)", lapb_error_str(reason));
+	lapb_debug(NULL, 0, "[X25_CB] connected event is called(%s)", lapb_error_str(reason));
+	out_counter = 0;
 }
 
 /* Called by LAPB to inform X25 that DISC is received or UA sended on DISC command */
@@ -72,7 +78,7 @@ void on_disconnected(struct lapb_cb * lapb, int reason) {
 	char * buffer;
 	int buffer_size;
 
-	syslog(LOG_NOTICE, "[X25_CB] disconnected event is called(%s)", lapb_error_str(reason));
+	lapb_debug(NULL, 0, "[X25_CB] disconnected event is called(%s)", lapb_error_str(reason));
 	if (lapb->write_queue.count) {
 		printf("\n\nUnacked data:\n");
 		while ((buffer = lapb_dequeue(lapb, &buffer_size)) != NULL) {
@@ -84,7 +90,7 @@ void on_disconnected(struct lapb_cb * lapb, int reason) {
 /* Called by LAPB to inform X25 about new data */
 int on_new_incoming_data(struct lapb_cb * lapb, char * data, int data_size) {
 	(void)lapb;
-	syslog(LOG_NOTICE, "[X25_CB] received new data");
+	lapb_debug(NULL, 0, "[X25_CB] received new data");
 	printf("%s\n", buf_to_str(data, data_size));
 	return 0;
 }
@@ -93,26 +99,26 @@ int on_new_incoming_data(struct lapb_cb * lapb, char * data, int data_size) {
 void start_t1timer(struct lapb_cb * lapb) {
 	timer_t1_set_interval(lapb->T1);
 	timer_t1_start();
-	syslog(LOG_NOTICE, "[LAPB] start_t1timer is called");
+	lapb_debug(NULL, 0, "[LAPB] start_t1timer is called");
 }
 
 /* Called by LAPB to stop timer T1 */
 void stop_t1timer() {
 	timer_t1_stop();
-	syslog(LOG_NOTICE, "[LAPB] stop_t1timer is called");
+	lapb_debug(NULL, 0, "[LAPB] stop_t1timer is called");
 }
 
 /* Called by LAPB to start timer T2 */
 void start_t2timer(struct lapb_cb * lapb) {
 	timer_t2_set_interval(lapb->T2);
 	timer_t2_start();
-	syslog(LOG_NOTICE, "[LAPB] start_t2timer is called");
+	lapb_debug(NULL, 0, "[LAPB] start_t2timer is called");
 }
 
 /* Called by LAPB to stop timer T1 */
 void stop_t2timer() {
 	timer_t2_stop();
-	syslog(LOG_NOTICE, "[LAPB] stop_t2timer is called");
+	lapb_debug(NULL, 0, "[LAPB] stop_t2timer is called");
 }
 
 
@@ -126,7 +132,6 @@ void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 		va_start(argList, format);
 		vsnprintf(buf, 256, format, argList);
 		va_end(argList);
-		//syslog(LOG_NOTICE, "[LAPB] %s", buf);
 		logger_enqueue(buf, strlen(buf));
 	};
 }
@@ -140,13 +145,16 @@ void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 */
 void t1timer_expiry(unsigned long int lapb_addr) {
 	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
+	main_lock();
 	lapb_t1timer_expiry(lapb);
+	main_unlock();
 }
 
 void t2timer_expiry(unsigned long int lapb_addr) {
 	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
-	syslog(LOG_NOTICE, "[X25_CB] Timer_2 expired");
+	main_lock();
 	lapb_t2timer_expiry(lapb);
+	main_unlock();
 }
 
 
@@ -263,7 +271,8 @@ void print_commands_3(struct lapb_cb * lapb) {
 		printf("Connected state(modulo 8):\n");
 	printf("Enter text or select command\n");
 	printf("1 Send test buffer(10 bytes)\n");
-	printf("2 Send DISC\n");
+	printf("2 Send sequence of data\n");
+	printf("3 Send DISC\n");
 	printf("--\n");
 	printf("0 Exit application\n");
 	fprintf(stderr, ">");
@@ -279,7 +288,7 @@ void print_commands_5() {
 
 void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 	int wait_stdin_result;;
-	char buffer[2048];
+	char buffer[256];
 	int lapb_res;
 	int n;
 
@@ -344,7 +353,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
-						case 1:  // SABM or SABME
+						case 1:  /* SABM or SABME */
 							main_lock();
 							lapb_res = lapb_connect_request(lapb);
 							main_unlock();
@@ -384,7 +393,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
-						case 1:  // Cancel
+						case 1:  /* Cancel */
 							lapb_reset(lapb, LAPB_STATE_0);
 							while_flag = FALSE;
 							break;
@@ -417,7 +426,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
-						case 1:  // Cancel
+						case 1:  /* Cancel */
 							lapb_reset(lapb, LAPB_STATE_0);
 							while_flag = FALSE;
 							break;
@@ -455,7 +464,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					if (buffer == pEnd)
 						action = 99;
 					switch (action) {
-						case 1: default:  // Send test buffer (128 byte) or text from console
+						case 1: default:  /* Send test buffer (128 byte) or text from console */
 							if (action == 1) {
 								data_size = 10;
 								n = 0;
@@ -477,7 +486,28 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 							} else
 								while_flag = FALSE;
 							break;
-						case 2: // DISC
+						case 2: /* Send sequence of data */
+							data_size = 10;
+							while (!break_flag) {
+								bzero(buffer, sizeof(buffer));
+								sprintf(buffer, "abcdefghij_%d", out_counter);
+								main_lock();
+								lapb_res = lapb_data_request(lapb, buffer, strlen(buffer));
+								main_unlock();
+								if (lapb_res != LAPB_OK) {
+									printf("ERROR: %s\n", lapb_error_str(lapb_res));
+									//lapb_reset(lapb, LAPB_STATE_0);
+									sleep_ms(100);
+									continue;
+								};
+								sleep_ms(10);
+								out_counter++;
+								if (out_counter % 500 == 0) break;
+							};
+							break_flag = FALSE;
+							while_flag = FALSE;
+							break;
+						case 3: /* DISC */
 							main_lock();
 							lapb_res = lapb_disconnect_request(lapb);
 							main_unlock();
@@ -500,7 +530,6 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 			case LAPB_STATE_4:
 				while_flag = TRUE;
 				while (while_flag) {
-					//print_commands_2(lapb);
 					wait_stdin_result = wait_stdin(lapb, LAPB_STATE_4, FALSE);
 					if (wait_stdin_result <= 0) {
 						if (lapb->state == LAPB_NOT_READY) {
@@ -516,10 +545,6 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					printf("\n");
 					int action = atoi(buffer);
 					switch (action) {
-//						case 1:  // Cancel
-//							lapb_reset(lapb, LAPB_STATE_0);
-//							while_flag = FALSE;
-//							break;
 						case 0:
 							exit_flag = TRUE;
 							while_flag = FALSE;
@@ -530,10 +555,6 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 					};
 				};
 				break;
-
-
-
-
 
 		};
 	};

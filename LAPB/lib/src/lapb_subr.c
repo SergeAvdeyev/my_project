@@ -43,20 +43,18 @@ void lapb_clear_queues(struct lapb_cb *lapb) {
  * acknowledged. This replaces the boxes labelled "V(a) <- N(r)" on the
  * SDL diagram.
  */
-void lapb_frames_acked(struct lapb_cb *lapb, unsigned short nr) {
-	//struct sk_buff *skb;
-	int modulus;
-
-	modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
+int lapb_frames_acked(struct lapb_cb *lapb, unsigned short nr) {
+	int modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
 	/*
 	 * Remove all the ack-ed frames from the ack queue.
 	 */
-	if (lapb->va != nr)
+	//if (lapb->va != nr)
 		while (cb_peek(&lapb->ack_queue) && lapb->va != nr) {
 			cb_dequeue(&lapb->ack_queue, NULL);
 			lapb->va = (lapb->va + 1) % modulus;
 		};
+	return lapb->va == lapb->vs;
 }
 
 void lapb_requeue_frames(struct lapb_cb *lapb) {
@@ -166,7 +164,7 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * I frame - carries NR/NS/PF
 			 */
-			lapb->callbacks->debug(lapb, 2, "S%d RX %02X %02X %s", (int)lapb->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
+			lapb->callbacks->debug(lapb, 2, "[LAPB] S%d RX %02X %02X %s", (int)lapb->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
 			frame->type = LAPB_I;
 			frame->ns   = (data[1] >> 1) & 0x07;
 			frame->nr   = (data[1] >> 5) & 0x07;
@@ -252,7 +250,7 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		dptr++;
 		*dptr++ = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X %02X %02X", lapb->state, (_uchar)data[1], (_uchar)data[2], (_uchar)data[3], (_uchar)data[4], (_uchar)data[5]);
+		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X", lapb->state, (_uchar)data[1], (_uchar)data[2], (_uchar)data[3], (_uchar)data[4], (_uchar)data[5]);
 	} else {
 		data_size = 4;
 		*dptr++ = LAPB_FRMR;
@@ -264,7 +262,7 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		dptr++;
 		*dptr++ = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "S%d TX FRMR %02X %02X %02X", lapb->state, (_uchar)data[1], (_uchar)data[2], (_uchar)data[3]);
+		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX FRMR %02X %02X %02X", lapb->state, (_uchar)data[1], (_uchar)data[2], (_uchar)data[3]);
 	};
 
 	lapb_transmit_buffer(lapb, data, data_size, LAPB_RESPONSE);

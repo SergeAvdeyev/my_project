@@ -188,10 +188,10 @@ void * logger_function(void *ptr) {
 
 	while (!get_logger_exit_flag()) {
 		if ((buffer = logger_dequeue(&buffer_size)) != NULL) {
-			syslog(LOG_DEBUG, "%s", buffer);
+			syslog(LOG_ALERT, "%s", buffer);
 			free(buffer);
 		} else
-			usleep(50000);
+			usleep(1000);
 	};
 
 

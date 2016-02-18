@@ -11,7 +11,6 @@
 #include <netdb.h>
 #include <errno.h>
 #include <pthread.h>
-#include <syslog.h>
 
 #include "common.h"
 

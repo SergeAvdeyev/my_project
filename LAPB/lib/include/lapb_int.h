@@ -28,7 +28,7 @@ void lapb_check_need_response(struct lapb_cb *lapb, int, int);
 /* lapb_subr.c */
 char * lapb_buf_to_str(char * data, int data_size);
 void lapb_clear_queues(struct lapb_cb *lapb);
-void lapb_frames_acked(struct lapb_cb *lapb, unsigned short);
+int lapb_frames_acked(struct lapb_cb *lapb, unsigned short nr);
 void lapb_requeue_frames(struct lapb_cb *lapb);
 int lapb_validate_nr(struct lapb_cb *lapb, unsigned short);
 int lapb_decode(struct lapb_cb *lapb, char * data, int data_size, struct lapb_frame * frame);

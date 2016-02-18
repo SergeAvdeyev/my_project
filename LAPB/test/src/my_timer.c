@@ -55,6 +55,7 @@ void timer_t1_start() {
 void timer_t1_stop() {
 	_timer_mutex_lock();
 	t1_active = FALSE;
+	t1_interval_tmp = t1_interval;
 	_timer_mutex_unlock();
 }
 
@@ -85,6 +86,7 @@ void timer_t2_start() {
 void timer_t2_stop() {
 	_timer_mutex_lock();
 	t2_active = FALSE;
+	t2_interval_tmp = t2_interval;
 	_timer_mutex_unlock();
 }
 
@@ -208,7 +210,7 @@ void * timer_function(void *ptr) {
 			};
 		};
 		if (timer_t2_get_state()) {
-			if (timer_t1_dec(struct_ptr->interval) <= 0) {
+			if (timer_t2_dec(struct_ptr->interval) <= 0) {
 				//set_t2_state(FALSE);
 				if (struct_ptr->t2timer_expiry)
 					struct_ptr->t2timer_expiry(struct_ptr->lapb_addr);
