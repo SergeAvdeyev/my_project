@@ -1,15 +1,26 @@
+/*
+ *	LAPB release 001
+ *
+ *  By Serge.V.Avdeyev
+ *
+ *  2016-02-01: Start Coding
+ *
+ *
+ */
+
 #ifndef LAPB_INT_H
 #define LAPB_INT_H
 
-#include <pthread.h>
 
 #include "lapb_iface.h"
 #include "lapb_queue.h"
 
+#ifdef INTERNAL_SYNC
+#include <pthread.h>
+#endif
+
 /* lapb_iface.c */
-//void lapb_connect_confirmation(struct lapb_cb *lapb, int);
 void lapb_connect_indication(struct lapb_cb *lapb, int);
-//void lapb_disconnect_confirmation(struct lapb_cb *lapb, int);
 void lapb_disconnect_indication(struct lapb_cb *lapb, int);
 int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size);
 int lapb_data_transmit(struct lapb_cb *lapb, char *data, int data_size);

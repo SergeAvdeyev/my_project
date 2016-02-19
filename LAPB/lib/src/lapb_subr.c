@@ -3,13 +3,8 @@
  *
  *  By Serge.V.Avdeyev
  *
- *  Started Coding
+ *  2016-02-01: Start Coding
  *
- *	This module:
- *		This module is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  *
  */
 
@@ -20,21 +15,30 @@
 char str_buf[1024];
 
 void lock(struct lapb_cb *lapb) {
+#ifndef INTERNAL_SYNC
+	(void)lapb;
+#else
 	if (!lapb) return;
 	pthread_mutex_lock(&(lapb->_mutex));
+#endif
 }
 
 void unlock(struct lapb_cb *lapb) {
+#ifndef INTERNAL_SYNC
+	(void)lapb;
+#else
 	if (!lapb) return;
 	pthread_mutex_unlock(&(lapb->_mutex));
+#endif
 }
 
 
 char * lapb_buf_to_str(char * data, int data_size) {
-
-	bzero(str_buf, 1024);
-	if (data_size < 1023) /* 1 byte for null-terminating */
+	str_buf[0] = '\0';
+	if (data_size < 1024) {/* 1 byte for null-terminating */
 		memcpy(str_buf, data, data_size);
+		str_buf[data_size] = '\0';
+	};
 	return str_buf;
 }
 

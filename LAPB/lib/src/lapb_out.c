@@ -3,16 +3,10 @@
  *
  *  By Serge.V.Avdeyev
  *
- *  Started Coding
+ *  2016-02-01: Start Coding
  *
- *	This module:
- *		This module is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  *
  */
-
 
 
 #include "lapb_int.h"
@@ -126,6 +120,7 @@ void lapb_transmit_buffer(struct lapb_cb *lapb, char * data, int data_size, int 
 		};
 	};
 
+#if LAPB_DEBUG >= 2
 	if (lapb->mode & LAPB_EXTENDED)
 		lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
 	else {
@@ -138,6 +133,8 @@ void lapb_transmit_buffer(struct lapb_cb *lapb, char * data, int data_size, int 
 				lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
 		};
 	};
+#endif
+
 	lapb_data_transmit(lapb, data, data_size);
 }
 

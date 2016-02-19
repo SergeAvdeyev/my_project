@@ -121,7 +121,6 @@ void stop_t2timer() {
 	lapb_debug(NULL, 0, "[LAPB] stop_t2timer is called");
 }
 
-
 /* Called by LAPB to write debug info */
 void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
 	(void)lapb;

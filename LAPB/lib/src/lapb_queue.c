@@ -1,5 +1,16 @@
+/*
+ *	LAPB release 001
+ *
+ *  By Serge.V.Avdeyev
+ *
+ *  2016-02-01: Start Coding
+ *
+ *
+ */
+
 
 #include "lapb_queue.h"
+
 
 void cb_init(struct circular_buffer *cb, size_t capacity, size_t sz) {
 	cb->buffer = malloc(capacity * (sz + 8)); /* 4 bytes for data_size, 4 bytes reserved (for push operations), 2 bytes for FCS */

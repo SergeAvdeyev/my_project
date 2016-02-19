@@ -3,19 +3,13 @@
  *
  *  By Serge.V.Avdeyev
  *
- *  Started Coding
+ *  2016-02-01: Start Coding
  *
- *	This module:
- *		This module is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  *
  */
 
 
 #include "lapb_int.h"
-
 
 /*
  *	Create an empty LAPB control block.
@@ -73,8 +67,10 @@ extern int lapb_register(struct lapb_register_struct *callbacks,
 		callbacks->debug = default_debug;
 	(*lapb)->callbacks = callbacks;
 
+#ifdef INTERNAL_SYNC
 	/* Init mutex for sinchronization */
 	pthread_mutex_init(&((*lapb)->_mutex), NULL);
+#endif
 
 	(*lapb)->mode = modulo | protocol | equipment;
 	/* Create write and ack queues */
