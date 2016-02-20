@@ -11,6 +11,7 @@
 #ifndef LAPB_INT_H
 #define LAPB_INT_H
 
+#include <stdio.h>
 
 #include "lapb_iface.h"
 #include "lapb_queue.h"
@@ -48,6 +49,9 @@ int lapb_validate_nr(struct lapb_cb *lapb, unsigned short);
 int lapb_decode(struct lapb_cb *lapb, char * data, int data_size, struct lapb_frame * frame);
 void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 void lapb_transmit_frmr(struct lapb_cb *lapb);
+void fill_inv_table();
+_uchar invert_uchar(_uchar value);
+
 
 /* lapb_timer.c */
 void lapb_start_t1timer(struct lapb_cb *lapb);

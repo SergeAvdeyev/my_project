@@ -305,6 +305,7 @@ label_2:
 	lapb_server->T1 = 500; /* 0.5s */
 	lapb_server->T2 = 50;  /* 0.05s */
 	lapb_server->N2 = 3; /* Try 3 times */
+	lapb_server->low_order_bits = TRUE;
 
 	/* Create timer */
 	timer_struct = malloc(sizeof(struct timer_struct));

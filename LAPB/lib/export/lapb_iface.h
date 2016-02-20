@@ -14,7 +14,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define INTERNAL_SYNC 0 /* For including pthread.h and make library thread-safe */
+#define INTERNAL_SYNC 1 /* For including pthread.h and make library thread-safe */
 
 #define	LAPB_ACK_PENDING_CONDITION	0x01
 #define	LAPB_REJECT_CONDITION		0x02
@@ -174,6 +174,7 @@ struct lapb_cb {
 #if INTERNAL_SYNC
 	pthread_mutex_t		_mutex;
 #endif
+	int	low_order_bits; /* If 1 - use low-order bit first orientation for addresses, commands, responses and sequence numbers */
 };
 
 

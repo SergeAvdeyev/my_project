@@ -13,6 +13,7 @@
 
 
 char str_buf[1024];
+_uchar uchar_inv_table[256];
 
 void lock(struct lapb_cb *lapb) {
 #if !INTERNAL_SYNC
@@ -32,6 +33,31 @@ void unlock(struct lapb_cb *lapb) {
 #endif
 }
 
+void fill_inv_table() {
+	_uchar i = 0;
+	_uchar tmp;
+	while (1) {
+		tmp =  (i & 0x01) << 7;
+		tmp += (i & 0x80) >> 7;
+
+		tmp += (i & 0x02) << 5;
+		tmp += (i & 0x40) >> 5;
+
+		tmp += (i & 0x04) << 3;
+		tmp += (i & 0x20) >> 3;
+
+		tmp += (i & 0x08) << 1;
+		tmp += (i & 0x10) >> 1;
+
+		uchar_inv_table[i] = tmp;
+		if (i == 255) break;
+		i++;
+	};
+}
+
+_uchar invert_uchar(_uchar value) {
+	return uchar_inv_table[value];
+}
 
 char * lapb_buf_to_str(char * data, int data_size) {
 	str_buf[0] = '\0';
@@ -112,12 +138,15 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 
 	frame->type = LAPB_ILLEGAL;
 
-
 	/* We always need to look at 2 bytes, sometimes we need
 	 * to look at 3 and those cases are handled below.
 	 */
 	if (data_size < 2)
 		return -1;
+
+	/* Address firs (1 byte) */
+	if (lapb->low_order_bits)
+		data[0] = invert_uchar(data[0]);
 
 	if (lapb->mode & LAPB_MLP) {
 		if (lapb->mode & LAPB_DCE) {
@@ -145,11 +174,17 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 		};
 	};
 
+
 	if (lapb->mode & LAPB_EXTENDED) {
 		if (!(data[1] & LAPB_S)) {
 			/*
 			 * I frame - carries NR/NS/PF
 			 */
+			if (lapb->low_order_bits) {
+				data[1] = invert_uchar(data[1]);
+				data[2] = invert_uchar(data[2]);
+			};
+
 			frame->type       = LAPB_I;
 			frame->ns         = (data[1] >> 1) & 0x7F;
 			frame->nr         = (data[2] >> 1) & 0x7F;
@@ -160,6 +195,10 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * S frame - take out PF/NR
 			 */
+			if (lapb->low_order_bits) {
+				data[1] = invert_uchar(data[1]);
+				data[2] = invert_uchar(data[2]);
+			};
 			frame->type       = data[1] & 0x0F;
 			frame->nr         = (data[2] >> 1) & 0x7F;
 			frame->pf         = data[2] & LAPB_EPF;
@@ -169,12 +208,17 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * U frame - take out PF
 			 */
+			if (lapb->low_order_bits)
+				data[1] = invert_uchar(data[1]);
 			frame->type       = data[1] & ~LAPB_SPF;
 			frame->pf         = data[1] & LAPB_SPF;
 			frame->control[0] = data[1];
 			frame->control[1] = 0x00;
 		};
 	} else {
+		if (lapb->low_order_bits)
+			data[1] = invert_uchar(data[1]);
+
 		if (!(data[1] & LAPB_S)) {
 			/*
 			 * I frame - carries NR/NS/PF
@@ -223,17 +267,29 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
 		if ((frametype & LAPB_U) == LAPB_U) {
 			frame[1]  = frametype;
 			frame[1] |= poll_bit ? LAPB_SPF : 0;
+
+			if (lapb->low_order_bits)
+				frame[1] = invert_uchar(frame[1]);
 		} else {
 			frame_size = 3;
 			frame[1]  = frametype;
 			frame[2]  = (lapb->vr << 1);
 			frame[2] |= poll_bit ? LAPB_EPF : 0;
+
+			if (lapb->low_order_bits) {
+				char tmp = invert_uchar(frame[1]);
+				frame[1] = invert_uchar(frame[2]);
+				frame[2] = tmp;
+			};
 		};
 	} else {
 		frame[1]  = frametype;
 		frame[1] |= poll_bit ? LAPB_SPF : 0;
 		if ((frametype & LAPB_U) == LAPB_S)	/* S frames carry NR */
 			frame[1] |= (lapb->vr << 5);
+
+		if (lapb->low_order_bits)
+			frame[1] = invert_uchar(frame[1]);
 	};
 
 	lapb_transmit_buffer(lapb, frame, frame_size, type);
@@ -244,41 +300,55 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
  *	the LAPB control block.
  */
 void lapb_transmit_frmr(struct lapb_cb *lapb) {
-	char  *dptr;
-
-	char data[6];
-	int data_size;
-
-	bzero(data, 6);
-
-	dptr = data;
+	char frame[7];
+	int frame_size;
 
 	if (lapb->mode & LAPB_EXTENDED) {
-		data_size = 6;
-		*dptr++ = LAPB_FRMR;
-		*dptr++ = lapb->frmr_data.control[0];
-		*dptr++ = lapb->frmr_data.control[1];
-		*dptr++ = (lapb->vs << 1) & 0xFE;
-		*dptr   = (lapb->vr << 1) & 0xFE;
+		frame_size = 7;
+		frame[1] = LAPB_FRMR;
+		frame[2] = lapb->frmr_data.control[0];
+		frame[3] = lapb->frmr_data.control[1];
+		frame[4] = (lapb->vs << 1) & 0xFE;
+		frame[5]	= (lapb->vr << 1) & 0xFE;
 		if (lapb->frmr_data.cr == LAPB_RESPONSE)
-			*dptr |= 0x01;
-		dptr++;
-		*dptr++ = lapb->frmr_type;
+			frame[5] |= 0x01;
+		frame[6] = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X", lapb->state, (_uchar)data[1], (_uchar)data[2], (_uchar)data[3], (_uchar)data[4], (_uchar)data[5]);
+		lapb->callbacks->debug(lapb,
+							   1,
+							   "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X",
+							   lapb->state,
+							   (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4], (_uchar)frame[5], (_uchar)frame[6]);
+
+		if (lapb->low_order_bits) {
+			frame[1] = invert_uchar(frame[1]);
+			char tmp = invert_uchar(frame[2]);
+			frame[2] = invert_uchar(frame[3]);
+			frame[3] = tmp;
+			frame[4] = invert_uchar(frame[4]);
+			frame[5] = invert_uchar(frame[5]);
+			frame[6] = invert_uchar(frame[6]);
+		};
 	} else {
-		data_size = 4;
-		*dptr++ = LAPB_FRMR;
-		*dptr++ = lapb->frmr_data.control[0];
-		*dptr   = (lapb->vs << 1) & 0x0E;
-		*dptr  |= (lapb->vr << 5) & 0xE0;
+		frame_size = 5;
+		frame[1] = LAPB_FRMR;
+		frame[2] = lapb->frmr_data.control[0];
+		frame[3] =  (lapb->vs << 1) & 0x0E;
+		frame[3] |= (lapb->vr << 5) & 0xE0;
 		if (lapb->frmr_data.cr == LAPB_RESPONSE)
-			*dptr |= 0x10;
-		dptr++;
-		*dptr++ = lapb->frmr_type;
+			frame[3] |= 0x10;
+		frame[4] = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX FRMR %02X %02X %02X", lapb->state, (_uchar)data[1], (_uchar)data[2], (_uchar)data[3]);
+		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX FRMR %02X %02X %02X", lapb->state, (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4]);
+
+		if (lapb->low_order_bits) {
+			/* Invert bytes */
+			frame[1] = invert_uchar(frame[1]);
+			frame[2] = invert_uchar(frame[2]);
+			frame[3] = invert_uchar(frame[3]);
+			frame[4] = invert_uchar(frame[4]);
+		};
 	};
 
-	lapb_transmit_buffer(lapb, data, data_size, LAPB_RESPONSE);
+	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_RESPONSE);
 }

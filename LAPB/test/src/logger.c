@@ -15,12 +15,10 @@ struct node {
 	struct node *next;
 } *front, *rear;
 
-
 int count = 0;
 
 
 // Private prototipes
-//void _logger_mutex_init();
 void _logger_mutex_lock();
 void _logger_mutex_unlock();
 
@@ -100,16 +98,17 @@ int get_logger_exit_flag() {
 /* Create an empty queue */
 void create_queue() {
 	front = rear = NULL;
+	count = 0;
 }
 
-/* Returns queue size */
-int queue_size() {
-	int result;
-	_logger_mutex_lock();
-	result = count;
-	_logger_mutex_unlock();
-	return result;
-}
+///* Returns queue size */
+//int queue_size() {
+//	int result;
+//	_logger_mutex_lock();
+//	result = count;
+//	_logger_mutex_unlock();
+//	return result;
+//}
 
 /* Enqueing the queue */
 void logger_enqueue(char *data, int data_size) {
@@ -142,10 +141,8 @@ void logger_enqueue(char *data, int data_size) {
 char * logger_dequeue(int *ret_size) {
 	char * result = NULL;
 
-	//_logger_mutex_lock();
 	if (front == NULL) {
 		*ret_size = 0;
-		//_logger_mutex_unlock();
 		return NULL;
 	};
 	result = front->data;
@@ -159,7 +156,7 @@ char * logger_dequeue(int *ret_size) {
 	};
 	free(tmp);
 	count--;
-	//_logger_mutex_unlock();
+
 	return result;
 }
 
@@ -172,8 +169,6 @@ void * logger_function(void *ptr) {
 	char * buffer;
 	int buffer_size;
 
-	//_logger_mutex_init();
-
 	create_queue();
 	logger_started();
 
@@ -184,14 +179,8 @@ void * logger_function(void *ptr) {
 			syslog(LOG_ALERT, "%s", buffer);
 			free(buffer);
 		};
-//		if ((buffer = logger_dequeue(&buffer_size)) != NULL) {
-//			syslog(LOG_ALERT, "%s", buffer);
-//			free(buffer);
-//		} else
-//			usleep(1000);
 		_logger_mutex_unlock();
 	};
-
 
 	logger_stopped();
 	printf("Timer thread is terminated\n");

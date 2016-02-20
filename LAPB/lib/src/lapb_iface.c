@@ -41,6 +41,7 @@ static struct lapb_cb *lapb_create_cb(void) {
 	//lapb->mode	= LAPB_DEFAULT_MODE;
 	lapb->window = LAPB_DEFAULT_WINDOW;
 	lapb->state	= LAPB_NOT_READY;
+	lapb->low_order_bits = FALSE;
 out:
 	return lapb;
 }
@@ -81,6 +82,9 @@ extern int lapb_register(struct lapb_register_struct *callbacks,
 		cb_init(&(*lapb)->write_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
 		cb_init(&(*lapb)->ack_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
 	};
+
+	/* Fill invert table */
+	fill_inv_table();
 
 	lapb_start_t2timer(*lapb);
 	rc = LAPB_OK;

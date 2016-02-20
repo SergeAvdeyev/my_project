@@ -31,6 +31,11 @@ void lapb_send_iframe(struct lapb_cb *lapb, char *data, int data_size, int poll_
 		frame[1] |= lapb->vs << 1;
 		frame[2] = poll_bit ? LAPB_EPF : 0;
 		frame[2] |= lapb->vr << 1;
+
+		if (lapb->low_order_bits) {
+			frame[1] = invert_uchar(frame[1]);
+			frame[2] = invert_uchar(frame[2]);
+		};
 	} else {
 		frame = cb_push(data, 2);
 		frame_size += 2;
@@ -39,6 +44,9 @@ void lapb_send_iframe(struct lapb_cb *lapb, char *data, int data_size, int poll_
 		frame[1] |= poll_bit ? LAPB_SPF : 0;
 		frame[1] |= lapb->vr << 5;
 		frame[1] |= lapb->vs << 1;
+
+		if (lapb->low_order_bits)
+			frame[1] = invert_uchar(frame[1]);
 	};
 
 	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX I(%d) S%d R%d", lapb->state, poll_bit, lapb->vs, lapb->vr);
@@ -134,6 +142,8 @@ void lapb_transmit_buffer(struct lapb_cb *lapb, char * data, int data_size, int 
 		};
 	};
 #endif
+	if (lapb->low_order_bits)
+		data[0] = invert_uchar(data[0]);
 
 	lapb_data_transmit(lapb, data, data_size);
 }

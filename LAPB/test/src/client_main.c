@@ -113,7 +113,6 @@ int main(int argc, char *argv[]) {
 
 	pthread_t logger_thread;
 
-
 	printf("*******************************************\n");
 	printf("******                               ******\n");
 	printf("******  LAPB EMULATOR (client side)  ******\n");
@@ -242,6 +241,7 @@ label_2:
 	lapb_client->T1 = 500; /* 0.5s */
 	lapb_client->T2 = 50;  /* 0.05s */
 	lapb_client->N2 = 3; /* Try 3 times */
+	lapb_client->low_order_bits = TRUE;
 
 
 	/* Create timer */
