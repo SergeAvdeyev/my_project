@@ -6,6 +6,7 @@
 char str_buf[1024];
 int break_flag = FALSE;
 int out_counter;
+int old_state;
 
 /* Signals handler */
 void signal_callback_handler(int signum) {
@@ -262,11 +263,12 @@ void print_commands_3(struct lapb_cb * lapb) {
 		printf("Connected state(modulo 8):\n");
 	printf("Enter text or select command\n");
 	printf("1 Send test buffer(10 bytes)\n");
-	printf("2 Send sequence of data\n");
-	printf("3 Send DISC\n");
+	printf("2 Send sequence of data(500 frames)\n");
+	printf("3 Send sequence of data(500 frames - Bad FCS)\n");
+	printf("4 Send DISC\n");
 	printf("--\n");
 	printf("0 Exit application\n");
-	fprintf(stderr, ">");
+	//fprintf(stderr, ">");
 }
 
 void print_commands_5() {
@@ -284,6 +286,8 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 	int n;
 
 	int while_flag = TRUE;
+	fcs = 1;
+	old_state = LAPB_NOT_READY;
 	while (!exit_flag) {
 		switch (lapb->state) {
 			case LAPB_NOT_READY:
@@ -425,8 +429,9 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 				break;
 			case LAPB_STATE_3:
 				while_flag = TRUE;
+				print_commands_3(lapb);
 				while (while_flag) {
-					print_commands_3(lapb);
+					fprintf(stderr, ">");
 					wait_stdin_result = wait_stdin(lapb, LAPB_STATE_3, FALSE);
 					if (wait_stdin_result <= 0) {
 						if (lapb->state == LAPB_NOT_READY) {
@@ -437,9 +442,13 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 						break;
 					};
 					bzero(buffer, sizeof(buffer));
-					while (read(0, buffer, sizeof(buffer)) <= 1)
-						fprintf(stderr, ">");
-					printf("\n");
+					while (read(0, buffer, sizeof(buffer)) <= 1) {
+						char move_up[] = { 0x1b, '[', '1', 'A', 0 };
+						char move_right[] = { 0x1b, '[', '1', 'C', 0 };
+						//fprintf(stderr, ">");
+						fprintf(stderr, "%s%s", move_up, move_right);
+					};
+					//printf("\n");
 					char * pEnd;
 					int action = strtol(buffer, &pEnd, 10);
 					int data_size;
@@ -461,27 +470,34 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 							if (lapb_res != LAPB_OK) {
 								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
 								lapb_reset(lapb, LAPB_STATE_0);
-							} else
-								while_flag = FALSE;
+							};
+							//else
+							//	while_flag = FALSE;
 							break;
-						case 2: /* Send sequence of data */
+						case 2: case 3: /* Send sequence of data */
 							while (!break_flag) {
 								bzero(buffer, sizeof(buffer));
 								sprintf(buffer, "abcdefghij_%d", out_counter);
 								lapb_res = lapb_data_request(lapb, buffer, strlen(buffer));
 								if (lapb_res != LAPB_OK) {
-									printf("ERROR: %s\n", lapb_error_str(lapb_res));
+									if (lapb_res != LAPB_BUSY)
+										printf("ERROR: %s\n", lapb_error_str(lapb_res));
 									sleep_ms(50);
 									continue;
 								};
-								sleep_ms(100);
+								//sleep_ms(100);
 								out_counter++;
-								if (out_counter % 10 == 0) break;
+								if (out_counter % 500 == 0) break;
+								if (action == 3)
+									fcs = (fcs + 1) % 4;
+								else
+									fcs = 1;
 							};
-							break_flag = FALSE;
-							while_flag = FALSE;
+							fcs = 1;
+							//break_flag = FALSE;
+							//while_flag = FALSE;
 							break;
-						case 3: /* DISC */
+						case 4: /* DISC */
 							lapb_res = lapb_disconnect_request(lapb);
 							if (lapb_res != LAPB_OK) {
 								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));

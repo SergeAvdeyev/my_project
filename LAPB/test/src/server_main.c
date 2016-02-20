@@ -18,7 +18,6 @@ int manual_process();
 int man_decode(struct lapb_cb *lapb, char *data, int data_size, struct lapb_frame *frame);
 void print_man_commands();
 
-int fcs = 1;
 
 
 
@@ -36,8 +35,12 @@ void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
 	char buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
 	memcpy(&buffer[1], data, data_size);
-	buffer[data_size + 1] = 0x7E; /* Close flag */
-	int n = send(tcp_client_socket(), buffer, data_size + 2, MSG_NOSIGNAL);
+	if ((fcs == 0) && (data_size > 4))
+		*(_ushort *)&buffer[data_size + 1] = 1; /* Bad FCS */
+	else
+		*(_ushort *)&buffer[data_size + 1] = 0; /* Good FCS */
+	buffer[data_size + 3] = 0x7E; /* Close flag */
+	int n = send(tcp_client_socket(), buffer, data_size + 4, MSG_NOSIGNAL);
 	if (n < 0)
 		lapb_debug(NULL, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
@@ -90,20 +93,17 @@ void new_data_received(char * data, int data_size) {
 	int i = 0;
 	int data_block = FALSE;
 	int block_size = 0;
+	_ushort rcv_fcs;
 
 	if (AutomaticMode) {
 		//bzero(buffer, 1024);
 		while (i < data_size) {
 			if (data[i] == 0x7E) { /* Flag */
 				if (data_block) { /* Close flag */
-					//main_lock();
+					block_size -= 2; /* 2 bytes for FCS */
+					rcv_fcs = *(_ushort *)&buffer[block_size];
 					lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-					if (fcs > 0)
-						lapb_data_received(lapb_server, buffer, block_size, 0);
-					else
-						lapb_data_received(lapb_server, buffer, block_size, 1);
-					fcs = (fcs + 1) % 4;
-					//main_unlock();
+					lapb_data_received(lapb_server, buffer, block_size, rcv_fcs);
 					data_block = FALSE;
 					i++;
 					continue;

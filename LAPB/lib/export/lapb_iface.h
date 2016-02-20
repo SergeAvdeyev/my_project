@@ -14,7 +14,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-//#define INTERNAL_SYNC /* For including pthread.h and make library thread-safe */
+#define INTERNAL_SYNC 0 /* For including pthread.h and make library thread-safe */
 
 #define	LAPB_ACK_PENDING_CONDITION	0x01
 #define	LAPB_REJECT_CONDITION		0x02
@@ -171,7 +171,7 @@ struct lapb_cb {
 	struct lapb_frame	frmr_data;
 	_uchar				frmr_type;
 
-#ifdef INTERNAL_SYNC
+#if INTERNAL_SYNC
 	pthread_mutex_t		_mutex;
 #endif
 };

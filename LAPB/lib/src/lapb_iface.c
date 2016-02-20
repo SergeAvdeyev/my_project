@@ -67,7 +67,7 @@ extern int lapb_register(struct lapb_register_struct *callbacks,
 		callbacks->debug = default_debug;
 	(*lapb)->callbacks = callbacks;
 
-#ifdef INTERNAL_SYNC
+#if INTERNAL_SYNC
 	/* Init mutex for sinchronization */
 	pthread_mutex_init(&((*lapb)->_mutex), NULL);
 #endif
@@ -292,7 +292,7 @@ int lapb_data_request(struct lapb_cb *lapb, char *data, int data_size) {
 		goto out;
 
 
-	rc = LAPB_NOMEM;
+	rc = LAPB_BUSY;
 	/* check the filling of the window */
 	int actual_window_size;
 	if (lapb->vs >= lapb->va)

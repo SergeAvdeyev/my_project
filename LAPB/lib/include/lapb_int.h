@@ -15,7 +15,7 @@
 #include "lapb_iface.h"
 #include "lapb_queue.h"
 
-#ifdef INTERNAL_SYNC
+#if INTERNAL_SYNC
 #include <pthread.h>
 #endif
 

@@ -17,7 +17,9 @@
 #define FALSE	0
 
 volatile sig_atomic_t exit_flag;
-//pthread_mutex_t main_mutex;
+
+_ushort fcs;
+
 
 struct main_callbacks {
 	int (*is_connected)();

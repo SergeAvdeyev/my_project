@@ -15,7 +15,7 @@
 char str_buf[1024];
 
 void lock(struct lapb_cb *lapb) {
-#ifndef INTERNAL_SYNC
+#if !INTERNAL_SYNC
 	(void)lapb;
 #else
 	if (!lapb) return;
@@ -24,7 +24,7 @@ void lock(struct lapb_cb *lapb) {
 }
 
 void unlock(struct lapb_cb *lapb) {
-#ifndef INTERNAL_SYNC
+#if !INTERNAL_SYNC
 	(void)lapb;
 #else
 	if (!lapb) return;
