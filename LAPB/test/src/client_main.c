@@ -31,9 +31,11 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	buffer[0] = 0x7E; /* Open flag */
 	buffer[1] = 0x7E; /* Open flag */
 	memcpy(&buffer[2], data, data_size);
-	if (fcs == 0)
-		//*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
-		*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
+	int if_nr_present = *(_uchar *)&buffer[3];
+	if_nr_present = if_nr_present & 0x03;
+	if ((if_nr_present != 0x03) && (fcs == 0))
+		*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
+		//*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
 	else
 		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
 	buffer[data_size + 4] = 0x7E; /* Close flag */
@@ -51,25 +53,20 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
  *
 */
 void new_data_received(char * data, int data_size) {
-//	char buffer[1024];
 	int i = 0;
-//	int data_block = FALSE;
-//	int block_size = 0;
 	_ushort rcv_fcs;
 
 	while (i < data_size) {
 		if (data[i] == 0x7E) { /* Flag */
 			if (data[i + 1] == 0x7E) {
 				if (data_block) { /* Close flag */
-					//lapb_debug(NULL, 0, "[PHYS_CB] close flag");
 					data_block = FALSE;
 					block_size -= 2; /* 2 bytes for FCS */
 					rcv_fcs = *(_ushort *)&in_buffer[block_size];
-					lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+					//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
 					lapb_data_received(lapb_client, in_buffer, block_size, rcv_fcs);
 				} else {
 					/* Open flag */
-					//lapb_debug(NULL, 0, "[PHYS_CB] open flag");
 					bzero(in_buffer, 1024);
 					block_size = 0;
 					data_block = TRUE;
@@ -93,15 +90,13 @@ void new_data_received(char * data, int data_size) {
 			i++;
 		};
 	};
-	//if (data_block)
-	//	lapb_debug(NULL, 0, "[PHYS_CB] not closed data(%d)", block_size);
 }
 
 void connection_lost() {
 	char * buffer;
 	int buffer_size;
 
-	printf("\n\nUnacked data:\n");
+	printf("\nUnacked data:\n");
 	while ((buffer = lapb_dequeue(lapb_client, &buffer_size)) != NULL)
 		printf("%s\n", buf_to_str(buffer, buffer_size));
 
@@ -194,7 +189,6 @@ label_1:
 
 	if (dbg) {
 		sprintf(client_struct->server_address, "127.0.0.1");
-		//memcpy(client_struct->server_address, "127.0.0.1", 9);
 		client_struct->server_port = 1234;
 		goto label_2;
 	};
@@ -204,7 +198,6 @@ label_1:
 	int tmp_len = strlen(client_struct->server_address);
 	if (tmp_len == 1)
 		sprintf(client_struct->server_address, "127.0.0.1");
-		//memcpy(client_struct->server_address, "127.0.0.1", 9);
 	else
 		client_struct->server_address[tmp_len - 1] = 0;
 
@@ -259,7 +252,7 @@ label_2:
 	//lapb_client->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 	/* Redefine some default values */
 	lapb_client->T1 = 1000;	/* 1s */
-	lapb_client->T2 = 500;	/* 0.5s */
+	lapb_client->T2 = 100;	/* 0.5s */
 	lapb_client->N2 = 10;	/* Try 10 times */
 	//lapb_client->low_order_bits = TRUE;
 

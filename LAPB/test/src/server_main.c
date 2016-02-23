@@ -51,9 +51,11 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	buffer[0] = 0x7E; /* Open flag */
 	buffer[1] = 0x7E; /* Open flag */
 	memcpy(&buffer[2], data, data_size);
-	if (fcs == 0)
-		//*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
-		*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
+	int if_nr_present = *(_uchar *)&buffer[3];
+	if_nr_present = if_nr_present & 0x03;
+	if ((if_nr_present != 0x03) && (fcs == 0))
+		*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
+		//*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
 	else
 		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
 	buffer[data_size + 4] = 0x7E; /* Close flag */
@@ -107,22 +109,16 @@ void manual_received(char * data, int data_size) {
 }
 
 void new_data_received(char * data, int data_size) {
-//	char buffer[1024];
 	int i = 0;
-//	int data_block = FALSE;
-//	int block_size = 0;
 	_ushort rcv_fcs;
 
 	//hex_dump(data, data_size);
 
-	//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(total %d bytes)", data_size);
 	if (AutomaticMode) {
-		//bzero(buffer, 1024);
 		while (i < data_size) {
 			if (data[i] == 0x7E) { /* Flag */
 				if (data[i + 1] == 0x7E) {
 					if (data_block) { /* Close flag */
-						//lapb_debug(NULL, 0, "[PHYS_CB] close flag");
 						data_block = FALSE;
 						block_size -= 2; /* 2 bytes for FCS */
 						rcv_fcs = *(_ushort *)&in_buffer[block_size];
@@ -130,7 +126,6 @@ void new_data_received(char * data, int data_size) {
 						lapb_data_received(lapb_server, in_buffer, block_size, rcv_fcs);
 					} else {
 						/* Open flag */
-						//lapb_debug(NULL, 0, "[PHYS_CB] open flag");
 						bzero(in_buffer, 1024);
 						block_size = 0;
 						data_block = TRUE;
@@ -154,8 +149,6 @@ void new_data_received(char * data, int data_size) {
 				i++;
 			};
 		};
-		//if (data_block)
-		//	lapb_debug(NULL, 0, "[PHYS_CB] not closed data(%d)", block_size);
 	} else {
 		printf("\nData received:");
 
@@ -189,10 +182,14 @@ void new_data_received(char * data, int data_size) {
 }
 
 void no_active_connection() {
+	char * buffer;
+	int buffer_size;
+
+	printf("\nUnacked data:\n");
+	while ((buffer = lapb_dequeue(lapb_server, &buffer_size)) != NULL)
+		printf("%s\n", buf_to_str(buffer, buffer_size));
+
 	lapb_reset(lapb_server, LAPB_NOT_READY);
-	//lapb_server->state = LAPB_NOT_READY;
-	printf("Physical connection lost\n");
-	printf("Waiting new\n");
 }
 
 
@@ -247,9 +244,6 @@ int main (int argc, char *argv[]) {
 
 	/* Setup signal handler */
 	setup_signals_handler();
-
-	///* Init mutex for sinchronization */
-	//pthread_mutex_init(&main_mutex, NULL);
 
 	if (dbg)
 		goto label_1;
@@ -338,7 +332,7 @@ label_2:
 
 	/* Redefine some default values */
 	lapb_server->T1 = 1000; /* 1s */
-	lapb_server->T2 = 500;  /* 0.5s */
+	lapb_server->T2 = 100;  /* 0.5s */
 	lapb_server->N2 = 10;	/* Try 10 times */
 	//lapb_server->low_order_bits = TRUE;
 

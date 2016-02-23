@@ -117,7 +117,7 @@ char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size) {
 
 	//lock(lapb);
 	if (cb_peek(&lapb->ack_queue))
-		result = cb_dequeue(&lapb->write_queue, buffer_size);
+		result = cb_dequeue(&lapb->ack_queue, buffer_size);
 	else if (cb_peek(&lapb->write_queue))
 		result = cb_dequeue(&lapb->write_queue, buffer_size);
 
@@ -166,7 +166,8 @@ int lapb_connect_request(struct lapb_cs *lapb) {
 		goto out;
 
 	rc = LAPB_CONNECTED;
-	if (lapb->state == LAPB_STATE_3 || lapb->state == LAPB_STATE_4)
+	//if (lapb->state == LAPB_STATE_3 || lapb->state == LAPB_STATE_4)
+	if (lapb->state == LAPB_STATE_3)
 		goto out;
 
 	lapb_establish_data_link(lapb);
@@ -228,14 +229,15 @@ int lapb_data_request(struct lapb_cs *lapb, char *data, int data_size) {
 		goto out;
 
 	rc = LAPB_NOTCONNECTED;
-	if (lapb->state != LAPB_STATE_3 && lapb->state != LAPB_STATE_4)
+	//if (lapb->state != LAPB_STATE_3 && lapb->state != LAPB_STATE_4)
+	if (lapb->state != LAPB_STATE_3)
 		goto out;
 
 
 	rc = LAPB_BUSY;
-	/* check the filling of the window */
 	if (lapb->condition == LAPB_FRMR_CONDITION)
 		goto out;
+	/* check the filling of the window */
 	int actual_window_size;
 	if (lapb->vs >= lapb->va)
 		actual_window_size = lapb->vs - lapb->va;

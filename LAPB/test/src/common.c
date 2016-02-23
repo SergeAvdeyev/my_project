@@ -81,7 +81,7 @@ void on_disconnected(struct lapb_cs * lapb, int reason) {
 
 	lapb_debug(NULL, 0, "[X25_CB] disconnected event is called(%s)", lapb_error_str(reason));
 	if (lapb->write_queue.count) {
-		printf("\n\nUnacked data:\n");
+		printf("\nUnacked data:\n");
 		while ((buffer = lapb_dequeue(lapb, &buffer_size)) != NULL) {
 			printf("%s\n", buf_to_str(buffer, buffer_size));
 		};
@@ -268,7 +268,6 @@ void print_commands_3(struct lapb_cs * lapb) {
 	printf("4 Send DISC\n");
 	printf("--\n");
 	printf("0 Exit application\n");
-	//fprintf(stderr, ">");
 }
 
 void print_commands_5() {
@@ -445,10 +444,8 @@ void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
 					while (read(0, buffer, sizeof(buffer)) <= 1) {
 						char move_up[] = { 0x1b, '[', '1', 'A', 0 };
 						char move_right[] = { 0x1b, '[', '1', 'C', 0 };
-						//fprintf(stderr, ">");
 						fprintf(stderr, "%s%s", move_up, move_right);
 					};
-					//printf("\n");
 					char * pEnd;
 					int action = strtol(buffer, &pEnd, 10);
 					int data_size;
@@ -496,8 +493,6 @@ void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
 									fcs = 1;
 							};
 							fcs = 1;
-							//break_flag = FALSE;
-							//while_flag = FALSE;
 							break;
 						case 4: /* DISC */
 							lapb_res = lapb_disconnect_request(lapb);
@@ -517,34 +512,6 @@ void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
 
 
 
-			case LAPB_STATE_4:
-				while_flag = TRUE;
-				while (while_flag) {
-					wait_stdin_result = wait_stdin(lapb, LAPB_STATE_4, FALSE);
-					if (wait_stdin_result <= 0) {
-						if (lapb->state == LAPB_NOT_READY) {
-							printf("\nPhysical connection lost\n");
-							printf("Reconnecting");
-						};
-						printf("\n\n");
-						break;
-					};
-					bzero(buffer, sizeof(buffer));
-					while (read(0, buffer, sizeof(buffer)) <= 1)
-						fprintf(stderr, ">");
-					printf("\n");
-					int action = atoi(buffer);
-					switch (action) {
-						case 0:
-							exit_flag = TRUE;
-							while_flag = FALSE;
-							break;
-						default:
-							printf("Command is not supported\n\n");
-							break;
-					};
-				};
-				break;
 
 		};
 	};

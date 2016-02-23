@@ -186,9 +186,11 @@ void lapb_check_iframes_acked(struct lapb_cs *lapb, unsigned short nr) {
 //		lapb_frames_acked(lapb, nr);
 //		lapb_start_t1timer(lapb);
 //	};
-	lapb_stop_t1timer(lapb);
-	if (!lapb_frames_acked(lapb, nr))
-		lapb_start_t1timer(lapb);
+	//lapb_stop_t1timer(lapb);
+	if (lapb_frames_acked(lapb, nr))
+		lapb_stop_t1timer(lapb);
+	else
+		lapb_restart_t1timer(lapb);
 }
 
 void lapb_check_need_response(struct lapb_cs *lapb, int type, int pf) {

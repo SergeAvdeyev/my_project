@@ -31,14 +31,15 @@ void lapb_stop_t1timer(struct lapb_cs *lapb) {
 }
 
 void lapb_restart_t1timer(struct lapb_cs *lapb) {
-	if ((lapb->T1_state) && (lapb->callbacks->stop_t1timer))
-		lapb->callbacks->stop_t1timer(lapb);
-	lapb->T1_state = FALSE;
+	//if ((lapb->T1_state) && (lapb->callbacks->stop_t1timer))
+	//	lapb->callbacks->stop_t1timer(lapb);
+	//lapb->T1_state = FALSE;
 	lapb->N2count = 0;
 
-	if (lapb->callbacks->start_t1timer)
+	if ((!lapb->T1_state) && (lapb->callbacks->start_t1timer)) {
 		lapb->callbacks->start_t1timer(lapb);
-	lapb->T1_state = TRUE;
+		lapb->T1_state = TRUE;
+	};
 }
 
 int lapb_t1timer_running(struct lapb_cs *lapb) {
@@ -71,11 +72,11 @@ void lapb_t2timer_expiry(struct lapb_cs *lapb) {
 
 	lock(lapb);
 	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d Timer_2 expired", lapb->state);
+	lapb_stop_t2timer(lapb);
 	if (lapb->condition & LAPB_ACK_PENDING_CONDITION) {
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 		lapb_timeout_response(lapb);
 	};
-	lapb_stop_t2timer(lapb);
 	unlock(lapb);
 }
 
@@ -140,23 +141,27 @@ void lapb_t1timer_expiry(struct lapb_cs *lapb) {
 				lapb_stop_t1timer(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
-			} else
-				lapb_kick(lapb);
+			} else {
+				if (lapb->condition & LAPB_FRMR_CONDITION)
+					lapb_transmit_frmr(lapb);
+				else
+					lapb_kick(lapb);
+			};
 			break;
 
 		/*
 		 *	Frame reject state, restransmit FRMR frames, up to N2 times.
 		 */
-		case LAPB_STATE_4:
-			if (lapb->N2count >= lapb->N2) {
-				lapb_stop_t1timer(lapb);
-				lapb_requeue_frames(lapb);
-				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
-				lapb_reset(lapb, LAPB_STATE_0);
-			} else {
-				lapb_transmit_frmr(lapb);
-			};
-			break;
+//		case LAPB_STATE_4:
+//			if (lapb->N2count >= lapb->N2) {
+//				lapb_stop_t1timer(lapb);
+//				lapb_requeue_frames(lapb);
+//				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
+//				lapb_reset(lapb, LAPB_STATE_0);
+//			} else {
+//				lapb_transmit_frmr(lapb);
+//			};
+//			break;
 	};
 	unlock(lapb);
 }

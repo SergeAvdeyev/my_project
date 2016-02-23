@@ -65,7 +65,7 @@ enum {
 	LAPB_STATE_1,	/* Awaiting Connection State	*/
 	LAPB_STATE_2,	/* Awaiting Disconnection State	*/
 	LAPB_STATE_3,	/* Data Transfer State		*/
-	LAPB_STATE_4,	/* Frame Reject State		*/
+	//LAPB_STATE_4,	/* Frame Reject State		*/
 	LAPB_NOT_READY	/* Physical layer not ready */
 };
 
@@ -128,13 +128,13 @@ typedef unsigned int	_uint;
 typedef unsigned long	_ulong;
 
 struct circular_buffer {
-        char * buffer;		// data buffer
-        char * buffer_end;	// end of data buffer
-        size_t capacity;	// maximum number of items in the buffer
-        size_t count;		// number of items in the buffer
-        size_t sz;			// size of each item in the buffer
-        char * head;		// pointer to head
-        char * tail;		// pointer to tail
+		char * buffer;		/* data buffer */
+		char * buffer_end;	/* end of data buffer */
+		size_t capacity;	/* maximum number of items in the buffer */
+		size_t count;		/* number of items in the buffer */
+		size_t sz;			/* size of each item in the buffer */
+		char * head;		/* pointer to head */
+		char * tail;		/* pointer to tail */
 };
 
 
@@ -144,8 +144,8 @@ struct circular_buffer {
 struct lapb_frame {
 	_ushort		type;		/* Parsed type		*/
 	_ushort		nr, ns;		/* N(R), N(S)		*/
-	_uchar		cr;		/* Command/Response	*/
-	_uchar		pf;		/* Poll/Final		*/
+	_uchar		cr;			/* Command/Response	*/
+	_uchar		pf;			/* Poll/Final		*/
 	_uchar		control[2];	/* Original control data*/
 };
 
