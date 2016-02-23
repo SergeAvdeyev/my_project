@@ -15,7 +15,7 @@
  *  This procedure is passed a buffer descriptor for an iframe. It builds
  *  the rest of the control part of the frame and then writes it out.
  */
-void lapb_send_iframe(struct lapb_cb *lapb, char *data, int data_size, int poll_bit) {
+void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_bit) {
 	if (!data)
 		return;
 
@@ -55,7 +55,7 @@ void lapb_send_iframe(struct lapb_cb *lapb, char *data, int data_size, int poll_
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
 }
 
-void lapb_kick(struct lapb_cb *lapb) {
+void lapb_kick(struct lapb_cs *lapb) {
 
 	unsigned short modulus, start, end;
 	char * buffer;
@@ -91,13 +91,11 @@ void lapb_kick(struct lapb_cb *lapb) {
 
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
-		lapb_stop_t1timer(lapb);
-		//if (!lapb_t1timer_running(lapb))
-			lapb_start_t1timer(lapb);
+		lapb_start_t1timer(lapb);
 	};
 }
 
-void lapb_transmit_buffer(struct lapb_cb *lapb, char * data, int data_size, int type) {
+void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int type) {
 	char *ptr;
 
 	ptr = data;
@@ -148,7 +146,7 @@ void lapb_transmit_buffer(struct lapb_cb *lapb, char * data, int data_size, int 
 	lapb_data_transmit(lapb, data, data_size);
 }
 
-void lapb_establish_data_link(struct lapb_cb *lapb) {
+void lapb_establish_data_link(struct lapb_cs *lapb) {
 	lapb->condition = 0x00;
 
 	if (lapb->mode & LAPB_EXTENDED) {
@@ -163,7 +161,7 @@ void lapb_establish_data_link(struct lapb_cb *lapb) {
 		lapb_start_t1timer(lapb);
 }
 
-void lapb_enquiry_response(struct lapb_cb *lapb) {
+void lapb_enquiry_response(struct lapb_cs *lapb) {
 	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX RR(1) R%d", lapb->state, lapb->vr);
 
 	lapb_send_control(lapb, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
@@ -171,7 +169,7 @@ void lapb_enquiry_response(struct lapb_cb *lapb) {
 	lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 }
 
-void lapb_timeout_response(struct lapb_cb *lapb) {
+void lapb_timeout_response(struct lapb_cs *lapb) {
 
 	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX RR(0) R%d", lapb->state, lapb->vr);
 
@@ -180,7 +178,7 @@ void lapb_timeout_response(struct lapb_cb *lapb) {
 	lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 }
 
-void lapb_check_iframes_acked(struct lapb_cb *lapb, unsigned short nr) {
+void lapb_check_iframes_acked(struct lapb_cs *lapb, unsigned short nr) {
 //	if (lapb->vs == nr) {
 //		lapb_frames_acked(lapb, nr);
 //		lapb_stop_t1timer(lapb);
@@ -193,7 +191,7 @@ void lapb_check_iframes_acked(struct lapb_cb *lapb, unsigned short nr) {
 		lapb_start_t1timer(lapb);
 }
 
-void lapb_check_need_response(struct lapb_cb *lapb, int type, int pf) {
+void lapb_check_need_response(struct lapb_cs *lapb, int type, int pf) {
 	if ((type == LAPB_COMMAND) && pf)
 		lapb_enquiry_response(lapb);
 }

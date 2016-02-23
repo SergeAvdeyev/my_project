@@ -14,10 +14,10 @@
 /*
  *	Create an empty LAPB control block.
  */
-static struct lapb_cb *lapb_create_cb(void) {
-	struct lapb_cb *lapb;
+static struct lapb_cs *lapb_create_cb(void) {
+	struct lapb_cs *lapb;
 
-	lapb = malloc(sizeof(struct lapb_cb));
+	lapb = malloc(sizeof(struct lapb_cs));
 
 	if (!lapb)
 		goto out;
@@ -32,31 +32,32 @@ static struct lapb_cb *lapb_create_cb(void) {
 	lapb->va = 0;
 	lapb->vr = 0;
 	lapb->vs = 0;
+	lapb->condition = 0;
 	lapb->T1	= LAPB_DEFAULT_T1;
 	lapb->T2	= LAPB_DEFAULT_T2;
 	lapb->T1_state = FALSE;
 	lapb->T2_state = FALSE;
 	lapb->N1	= LAPB_DEFAULT_N1;
 	lapb->N2	= LAPB_DEFAULT_N2;
-	//lapb->mode	= LAPB_DEFAULT_MODE;
-	lapb->window = LAPB_DEFAULT_WINDOW;
+	lapb->mode	= LAPB_DEFAULT_SMODE;
+	lapb->window = LAPB_DEFAULT_SWINDOW;
 	lapb->state	= LAPB_NOT_READY;
 	lapb->low_order_bits = FALSE;
 out:
 	return lapb;
 }
 
-void default_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
+void default_debug(struct lapb_cs *lapb, int level, const char * format, ...) {
 	(void)lapb;
 	(void)level;
 	(void)format;
 }
 
-extern int lapb_register(struct lapb_register_struct *callbacks,
+int lapb_register(struct lapb_callbacks *callbacks,
 						 _uchar modulo,
 						 _uchar protocol,
 						 _uchar equipment,
-						 struct lapb_cb ** lapb) {
+						 struct lapb_cs ** lapb) {
 	int rc = LAPB_BADTOKEN;
 
 	*lapb = lapb_create_cb();
@@ -79,6 +80,7 @@ extern int lapb_register(struct lapb_register_struct *callbacks,
 		cb_init(&(*lapb)->write_queue, LAPB_SMODULUS, LAPB_DEFAULT_N1);
 		cb_init(&(*lapb)->ack_queue, LAPB_SMODULUS, LAPB_DEFAULT_N1);
 	} else {
+		(*lapb)->window = LAPB_DEFAULT_EWINDOW;
 		cb_init(&(*lapb)->write_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
 		cb_init(&(*lapb)->ack_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
 	};
@@ -92,7 +94,7 @@ out:
 	return rc;
 }
 
-int lapb_unregister(struct lapb_cb * lapb) {
+int lapb_unregister(struct lapb_cs * lapb) {
 	int rc = LAPB_BADTOKEN;
 
 	if (!lapb)
@@ -110,23 +112,22 @@ out:
 	return rc;
 }
 
-char * lapb_dequeue(struct lapb_cb * lapb, int * buffer_size) {
+char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size) {
 	char *result = NULL;
 
-	lock(lapb);
+	//lock(lapb);
 	if (cb_peek(&lapb->ack_queue))
 		result = cb_dequeue(&lapb->write_queue, buffer_size);
 	else if (cb_peek(&lapb->write_queue))
 		result = cb_dequeue(&lapb->write_queue, buffer_size);
 
-	unlock(lapb);
+	//unlock(lapb);
 	return result;
 }
 
-int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
+int lapb_reset(struct lapb_cs * lapb, unsigned char init_state) {
 	int rc = LAPB_BADTOKEN;
 
-	//lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -148,77 +149,12 @@ int lapb_reset(struct lapb_cb * lapb, unsigned char init_state) {
 
 	rc = LAPB_OK;
 out:
-	//unlock(lapb);
 	return rc;
 }
 
-int lapb_getparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
-	int rc = LAPB_BADTOKEN;
 
-	lock(lapb);
-	if (!lapb)
-		goto out;
 
-	parms->T1      = lapb->T1;
-	parms->T2      = lapb->T2;
-	parms->N1      = lapb->N1;
-	parms->N2      = lapb->N2;
-	parms->N2count = lapb->N2count;
-	parms->state   = lapb->state;
-	parms->window  = lapb->window;
-	parms->mode    = lapb->mode;
-
-//	if (!timer_pending(&lapb->t1timer))
-//		parms->t1timer = 0;
-//	else
-//		parms->t1timer = (lapb->t1timer.expires - jiffies) / HZ;
-
-//	if (!timer_pending(&lapb->t2timer))
-//		parms->t2timer = 0;
-//	else
-//		parms->t2timer = (lapb->t2timer.expires - jiffies) / HZ;
-
-	rc = LAPB_OK;
-out:
-	unlock(lapb);
-	return rc;
-}
-
-int lapb_setparms(struct lapb_cb *lapb, struct lapb_parms_struct *parms) {
-	int rc = LAPB_BADTOKEN;
-
-	lock(lapb);
-	if (!lapb)
-		goto out;
-
-	rc = LAPB_INVALUE;
-	if (parms->T1 < 1 || parms->T2 < 1 || parms->N2 < 1)
-		goto out;
-
-	if (lapb->state == LAPB_STATE_0) {
-		if (parms->mode & LAPB_EXTENDED) {
-			if (parms->window < 1 || parms->window > 127)
-				goto out;
-		} else {
-			if (parms->window < 1 || parms->window > 7)
-				goto out;
-		};
-		lapb->mode    = parms->mode;
-		lapb->window  = parms->window;
-	};
-
-	lapb->T1    = parms->T1;
-	lapb->T2    = parms->T2;
-	lapb->N2    = parms->N2;
-	lapb->N1    = parms->N1;
-
-	rc = LAPB_OK;
-out:
-	unlock(lapb);
-	return rc;
-}
-
-int lapb_connect_request(struct lapb_cb *lapb) {
+int lapb_connect_request(struct lapb_cs *lapb) {
 	int rc = LAPB_BADTOKEN;
 
 	lock(lapb);
@@ -244,7 +180,7 @@ out:
 	return rc;
 }
 
-int lapb_disconnect_request(struct lapb_cb *lapb) {
+int lapb_disconnect_request(struct lapb_cs *lapb) {
 	int rc = LAPB_BADTOKEN;
 
 	lock(lapb);
@@ -284,7 +220,7 @@ out:
 	return rc;
 }
 
-int lapb_data_request(struct lapb_cb *lapb, char *data, int data_size) {
+int lapb_data_request(struct lapb_cs *lapb, char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
 	lock(lapb);
@@ -298,6 +234,8 @@ int lapb_data_request(struct lapb_cb *lapb, char *data, int data_size) {
 
 	rc = LAPB_BUSY;
 	/* check the filling of the window */
+	if (lapb->condition == LAPB_FRMR_CONDITION)
+		goto out;
 	int actual_window_size;
 	if (lapb->vs >= lapb->va)
 		actual_window_size = lapb->vs - lapb->va;
@@ -321,7 +259,7 @@ out:
 	return rc;
 }
 
-int lapb_data_received(struct lapb_cb *lapb, char *data, int data_size, _ushort fcs) {
+int lapb_data_received(struct lapb_cs *lapb, char *data, int data_size, _ushort fcs) {
 	int rc = LAPB_BADFCS;
 
 	lock(lapb);
@@ -338,24 +276,26 @@ out:
 	return rc;
 }
 
-void lapb_connect_indication(struct lapb_cb *lapb, int reason) {
+
+/* Callback functions */
+void lapb_connect_indication(struct lapb_cs *lapb, int reason) {
 	if (lapb->callbacks->on_connected)
 		lapb->callbacks->on_connected(lapb, reason);
 }
 
-void lapb_disconnect_indication(struct lapb_cb *lapb, int reason) {
+void lapb_disconnect_indication(struct lapb_cs *lapb, int reason) {
 	if (lapb->callbacks->on_disconnected)
 		lapb->callbacks->on_disconnected(lapb, reason);
 }
 
-int lapb_data_indication(struct lapb_cb *lapb, char * data, int data_size) {
+int lapb_data_indication(struct lapb_cs *lapb, char * data, int data_size) {
 	if (lapb->callbacks->on_new_data)
 		return lapb->callbacks->on_new_data(lapb, data, data_size);
 
 	return 0;
 }
 
-int lapb_data_transmit(struct lapb_cb *lapb, char *data, int data_size) {
+int lapb_data_transmit(struct lapb_cs *lapb, char *data, int data_size) {
 	int used = 0;
 
 	if (lapb->callbacks->transmit_data) {

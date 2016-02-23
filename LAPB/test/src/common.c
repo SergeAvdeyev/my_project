@@ -68,14 +68,14 @@ char * buf_to_str(char * data, int data_size) {
  *
 */
 /* Called by LAPB to inform X25 that SABM(SABME) is confirmed or UA sended on SABM(SABME) command */
-void on_connected(struct lapb_cb * lapb, int reason) {
+void on_connected(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
 	lapb_debug(NULL, 0, "[X25_CB] connected event is called(%s)", lapb_error_str(reason));
 	out_counter = 0;
 }
 
 /* Called by LAPB to inform X25 that DISC is received or UA sended on DISC command */
-void on_disconnected(struct lapb_cb * lapb, int reason) {
+void on_disconnected(struct lapb_cs * lapb, int reason) {
 	char * buffer;
 	int buffer_size;
 
@@ -89,15 +89,15 @@ void on_disconnected(struct lapb_cb * lapb, int reason) {
 }
 
 /* Called by LAPB to inform X25 about new data */
-int on_new_incoming_data(struct lapb_cb * lapb, char * data, int data_size) {
+int on_new_incoming_data(struct lapb_cs * lapb, char * data, int data_size) {
 	(void)lapb;
-	lapb_debug(NULL, 0, "[X25_CB] received new data");
+	//lapb_debug(NULL, 0, "[X25_CB] received new data");
 	printf("%s\n", buf_to_str(data, data_size));
 	return 0;
 }
 
 /* Called by LAPB to start timer T1 */
-void start_t1timer(struct lapb_cb * lapb) {
+void start_t1timer(struct lapb_cs * lapb) {
 	timer_t1_set_interval(lapb->T1);
 	timer_t1_start();
 	lapb_debug(NULL, 0, "[LAPB] start_t1timer is called");
@@ -110,7 +110,7 @@ void stop_t1timer() {
 }
 
 /* Called by LAPB to start timer T2 */
-void start_t2timer(struct lapb_cb * lapb) {
+void start_t2timer(struct lapb_cs * lapb) {
 	timer_t2_set_interval(lapb->T2);
 	timer_t2_start();
 	lapb_debug(NULL, 0, "[LAPB] start_t2timer is called");
@@ -123,7 +123,7 @@ void stop_t2timer() {
 }
 
 /* Called by LAPB to write debug info */
-void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
+void lapb_debug(struct lapb_cs *lapb, int level, const char * format, ...) {
 	(void)lapb;
 	if (level < LAPB_DEBUG) {
 		char buf[256];
@@ -144,12 +144,12 @@ void lapb_debug(struct lapb_cb *lapb, int level, const char * format, ...) {
  *
 */
 void t1timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
+	struct lapb_cs * lapb = (struct lapb_cs *)lapb_addr;
 	lapb_t1timer_expiry(lapb);
 }
 
 void t2timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cb * lapb = (struct lapb_cb *)lapb_addr;
+	struct lapb_cs * lapb = (struct lapb_cs *)lapb_addr;
 	lapb_t2timer_expiry(lapb);
 }
 
@@ -202,7 +202,7 @@ int sleep_ms(int milliseconds) {
 	return result;
 }
 
-int wait_stdin(struct lapb_cb * lapb, unsigned char break_condition, int run_once) {
+int wait_stdin(struct lapb_cs * lapb, unsigned char break_condition, int run_once) {
 	fd_set			read_set;
 	struct timeval	timeout;
 	int sr = 0;
@@ -221,7 +221,7 @@ int wait_stdin(struct lapb_cb * lapb, unsigned char break_condition, int run_onc
 
 
 
-void print_commands_0(struct lapb_cb * lapb) {
+void print_commands_0(struct lapb_cs * lapb) {
 	if ((lapb->mode & LAPB_EXTENDED) == LAPB_EXTENDED) {
 		printf("Disconnected state(modulo 128):\n");
 		printf("1 Send SABME\n");
@@ -234,7 +234,7 @@ void print_commands_0(struct lapb_cb * lapb) {
 	fprintf(stderr, ">");
 }
 
-void print_commands_1(struct lapb_cb * lapb) {
+void print_commands_1(struct lapb_cs * lapb) {
 	if ((lapb->mode & LAPB_EXTENDED) == LAPB_EXTENDED)
 		printf("Awaiting connection state(modulo 128):\n");
 	else
@@ -245,7 +245,7 @@ void print_commands_1(struct lapb_cb * lapb) {
 	fprintf(stderr, ">");
 }
 
-void print_commands_2(struct lapb_cb * lapb) {
+void print_commands_2(struct lapb_cs * lapb) {
 	if ((lapb->mode & LAPB_EXTENDED) == LAPB_EXTENDED)
 		printf("Awaiting disconnection state(modulo 128):\n");
 	else
@@ -256,7 +256,7 @@ void print_commands_2(struct lapb_cb * lapb) {
 	fprintf(stderr, ">");
 }
 
-void print_commands_3(struct lapb_cb * lapb) {
+void print_commands_3(struct lapb_cs * lapb) {
 	if ((lapb->mode & LAPB_EXTENDED) == LAPB_EXTENDED)
 		printf("Connected state(modulo 128):\n");
 	else
@@ -279,7 +279,7 @@ void print_commands_5() {
 }
 
 
-void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
+void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
 	int wait_stdin_result;;
 	char buffer[256];
 	int lapb_res;
@@ -480,8 +480,10 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 								sprintf(buffer, "abcdefghij_%d", out_counter);
 								lapb_res = lapb_data_request(lapb, buffer, strlen(buffer));
 								if (lapb_res != LAPB_OK) {
-									if (lapb_res != LAPB_BUSY)
+									if (lapb_res != LAPB_BUSY) {
 										printf("ERROR: %s\n", lapb_error_str(lapb_res));
+										break;
+									};
 									sleep_ms(50);
 									continue;
 								};
@@ -489,7 +491,7 @@ void main_loop(struct lapb_cb *lapb, const struct main_callbacks * callbacks) {
 								out_counter++;
 								if (out_counter % 500 == 0) break;
 								if (action == 3)
-									fcs = (fcs + 1) % 4;
+									fcs = (fcs + 1) % 13;
 								else
 									fcs = 1;
 							};

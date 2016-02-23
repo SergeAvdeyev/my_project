@@ -26,7 +26,6 @@ HEADERS += \
     ../include/my_timer.h \
     ../include/common.h \
     ../include/logger.h \
-    ../../lib/include/lapb_queue.h \
     ../../lib/include/lapb_iface.h
 
 

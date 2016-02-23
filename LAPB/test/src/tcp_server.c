@@ -125,7 +125,7 @@ void * server_function(void *ptr) {
 	int		max_sd;
 	int		desc_ready;
 	int		close_conn;
-	char	buffer[2048];
+	char	buffer[4096];
 	struct sockaddr_in6 addr;
 	struct timeval      timeout;
 	fd_set              master_set, working_set;

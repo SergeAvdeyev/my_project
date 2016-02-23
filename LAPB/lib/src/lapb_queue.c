@@ -9,7 +9,7 @@
  */
 
 
-#include "lapb_queue.h"
+#include "lapb_int.h"
 
 
 void cb_init(struct circular_buffer *cb, size_t capacity, size_t sz) {

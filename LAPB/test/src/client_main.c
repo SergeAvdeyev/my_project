@@ -9,8 +9,11 @@
 
 #include "common.h"
 
-struct lapb_cb * lapb_client = NULL;
+struct lapb_cs * lapb_client = NULL;
 
+char in_buffer[4096];
+int data_block = FALSE;
+int block_size = 0;
 
 
 
@@ -20,19 +23,22 @@ struct lapb_cb * lapb_client = NULL;
  *
 */
 
-void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
+void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	(void)lapb;
-	lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
+	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
 	char buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
-	memcpy(&buffer[1], data, data_size);
+	buffer[1] = 0x7E; /* Open flag */
+	memcpy(&buffer[2], data, data_size);
 	if (fcs == 0)
-		*(_ushort *)&buffer[data_size + 1] = 1; /* Bad FCS */
+		//*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
+		*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
 	else
-		*(_ushort *)&buffer[data_size + 1] = 0; /* Good FCS */
-	buffer[data_size + 3] = 0x7E; /* Close flag */
-	int n = send(tcp_client_socket(), buffer, data_size + 4, MSG_NOSIGNAL);
+		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	buffer[data_size + 4] = 0x7E; /* Close flag */
+	buffer[data_size + 5] = 0x7E; /* Close flag */
+	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
 	if (n < 0)
 		lapb_debug(lapb, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
@@ -45,36 +51,50 @@ void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
  *
 */
 void new_data_received(char * data, int data_size) {
-	char buffer[1024];
+//	char buffer[1024];
 	int i = 0;
-	int data_block = FALSE;
-	int block_size = 0;
+//	int data_block = FALSE;
+//	int block_size = 0;
 	_ushort rcv_fcs;
 
 	while (i < data_size) {
 		if (data[i] == 0x7E) { /* Flag */
-			if (data_block) { /* Close flag */
-				block_size -= 2; /* 2 bytes for FCS */
-				rcv_fcs = *(_ushort *)&buffer[block_size];
-				lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-				lapb_data_received(lapb_client, buffer, block_size, rcv_fcs);
-				data_block = FALSE;
-				i++;
+			if (data[i + 1] == 0x7E) {
+				if (data_block) { /* Close flag */
+					//lapb_debug(NULL, 0, "[PHYS_CB] close flag");
+					data_block = FALSE;
+					block_size -= 2; /* 2 bytes for FCS */
+					rcv_fcs = *(_ushort *)&in_buffer[block_size];
+					lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+					lapb_data_received(lapb_client, in_buffer, block_size, rcv_fcs);
+				} else {
+					/* Open flag */
+					//lapb_debug(NULL, 0, "[PHYS_CB] open flag");
+					bzero(in_buffer, 1024);
+					block_size = 0;
+					data_block = TRUE;
+				};
+				i += 2;
 				continue;
-			};
-			/* Open flag */
-			data_block = TRUE;
-			bzero(buffer, 1024);
-			block_size = 0;
+			} else {
+				if (data_block) {
+					in_buffer[block_size] = data[i];
+					block_size++;
+				} else {
+					lapb_debug(NULL, 0, "[PHYS_CB] data error");
+					break;
+				};
+			}
+
 			i++;
-			continue;
-		};
-		if (data_block) {
-			buffer[block_size] = data[i];
+		} else if (data_block) {
+			in_buffer[block_size] = data[i];
 			block_size++;
+			i++;
 		};
-		i++;
 	};
+	//if (data_block)
+	//	lapb_debug(NULL, 0, "[PHYS_CB] not closed data(%d)", block_size);
 }
 
 void connection_lost() {
@@ -102,7 +122,7 @@ int main(int argc, char *argv[]) {
 	unsigned char lapb_equipment_type = LAPB_DTE;
 	unsigned char lapb_modulo = LAPB_STANDARD;
 
-	struct lapb_register_struct callbacks;
+	struct lapb_callbacks callbacks;
 	int lapb_res;
 
 	pthread_t client_thread;
@@ -218,7 +238,7 @@ label_2:
 
 
 	/* LAPB init */
-	bzero(&callbacks, sizeof(struct lapb_register_struct));
+	bzero(&callbacks, sizeof(struct lapb_callbacks));
 	callbacks.on_connected = on_connected;
 	callbacks.on_disconnected = on_disconnected;
 	callbacks.on_new_data = on_new_incoming_data;
@@ -238,10 +258,10 @@ label_2:
 	};
 	//lapb_client->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 	/* Redefine some default values */
-	lapb_client->T1 = 500; /* 0.5s */
-	lapb_client->T2 = 50;  /* 0.05s */
-	lapb_client->N2 = 3; /* Try 3 times */
-	lapb_client->low_order_bits = TRUE;
+	lapb_client->T1 = 1000;	/* 1s */
+	lapb_client->T2 = 500;	/* 0.5s */
+	lapb_client->N2 = 10;	/* Try 10 times */
+	//lapb_client->low_order_bits = TRUE;
 
 
 	/* Create timer */

@@ -10,16 +10,31 @@
 #include "logger.h"
 
 
-struct lapb_cb * lapb_server = NULL;
+struct lapb_cs * lapb_server = NULL;
+
+char in_buffer[4096];
+int data_block = FALSE;
+int block_size = 0;
+
 
 int AutomaticMode = TRUE;
 
 int manual_process();
-int man_decode(struct lapb_cb *lapb, char *data, int data_size, struct lapb_frame *frame);
+int man_decode(struct lapb_cs *lapb, char *data, int data_size, struct lapb_frame *frame);
 void print_man_commands();
 
 
 
+void hex_dump(char * data, int data_size) {
+	int i = 0;
+	while (i < data_size) {
+		printf("%02X ", (_uchar)data[i]);
+		i++;
+		if ((i % 32) == 0)
+			printf("\n");
+	};
+	printf("\n");
+}
 
 
 
@@ -28,19 +43,22 @@ void print_man_commands();
 // *
 
 /* Called by LAPB to transmit data via physical connection */
-void transmit_data(struct lapb_cb * lapb, char *data, int data_size) {
+void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	(void)lapb;
-	lapb_debug(NULL, 0, "[LAPB] data_transmit is called");
+	//lapb_debug(NULL, 0, "[LAPB] data_transmit is called");
 
 	char buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
-	memcpy(&buffer[1], data, data_size);
-	if ((fcs == 0) && (data_size > 4))
-		*(_ushort *)&buffer[data_size + 1] = 1; /* Bad FCS */
+	buffer[1] = 0x7E; /* Open flag */
+	memcpy(&buffer[2], data, data_size);
+	if (fcs == 0)
+		//*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
+		*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
 	else
-		*(_ushort *)&buffer[data_size + 1] = 0; /* Good FCS */
-	buffer[data_size + 3] = 0x7E; /* Close flag */
-	int n = send(tcp_client_socket(), buffer, data_size + 4, MSG_NOSIGNAL);
+		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	buffer[data_size + 4] = 0x7E; /* Close flag */
+	buffer[data_size + 5] = 0x7E; /* Close flag */
+	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
 	if (n < 0)
 		lapb_debug(NULL, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
@@ -89,38 +107,55 @@ void manual_received(char * data, int data_size) {
 }
 
 void new_data_received(char * data, int data_size) {
-	char buffer[1024];
+//	char buffer[1024];
 	int i = 0;
-	int data_block = FALSE;
-	int block_size = 0;
+//	int data_block = FALSE;
+//	int block_size = 0;
 	_ushort rcv_fcs;
 
+	//hex_dump(data, data_size);
+
+	//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(total %d bytes)", data_size);
 	if (AutomaticMode) {
 		//bzero(buffer, 1024);
 		while (i < data_size) {
 			if (data[i] == 0x7E) { /* Flag */
-				if (data_block) { /* Close flag */
-					block_size -= 2; /* 2 bytes for FCS */
-					rcv_fcs = *(_ushort *)&buffer[block_size];
-					lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-					lapb_data_received(lapb_server, buffer, block_size, rcv_fcs);
-					data_block = FALSE;
-					i++;
+				if (data[i + 1] == 0x7E) {
+					if (data_block) { /* Close flag */
+						//lapb_debug(NULL, 0, "[PHYS_CB] close flag");
+						data_block = FALSE;
+						block_size -= 2; /* 2 bytes for FCS */
+						rcv_fcs = *(_ushort *)&in_buffer[block_size];
+						//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+						lapb_data_received(lapb_server, in_buffer, block_size, rcv_fcs);
+					} else {
+						/* Open flag */
+						//lapb_debug(NULL, 0, "[PHYS_CB] open flag");
+						bzero(in_buffer, 1024);
+						block_size = 0;
+						data_block = TRUE;
+					};
+					i += 2;
 					continue;
-				};
-				/* Open flag */
-				data_block = TRUE;
-				bzero(buffer, 1024);
-				block_size = 0;
+				} else {
+					if (data_block) {
+						in_buffer[block_size] = data[i];
+						block_size++;
+					} else {
+						lapb_debug(NULL, 0, "[PHYS_CB] data error");
+						break;
+					};
+				}
+
 				i++;
-				continue;
-			};
-			if (data_block) {
-				buffer[block_size] = data[i];
+			} else if (data_block) {
+				in_buffer[block_size] = data[i];
 				block_size++;
+				i++;
 			};
-			i++;
 		};
+		//if (data_block)
+		//	lapb_debug(NULL, 0, "[PHYS_CB] not closed data(%d)", block_size);
 	} else {
 		printf("\nData received:");
 
@@ -128,20 +163,20 @@ void new_data_received(char * data, int data_size) {
 		while (i < data_size) {
 			if (data[i] == 0x7E) { /* Flag */
 				if (data_block) { /* Close flag */
-					manual_received(buffer, block_size);
+					manual_received(in_buffer, block_size);
 					data_block = FALSE;
 					i++;
 					continue;
 				};
 				/* Open flag */
 				data_block = TRUE;
-				bzero(buffer, 1024);
+				bzero(in_buffer, 1024);
 				block_size = 0;
 				i++;
 				continue;
 			};
 			if (data_block) {
-				buffer[block_size] = data[i];
+				in_buffer[block_size] = data[i];
 				block_size++;
 			};
 			i++;
@@ -171,7 +206,7 @@ int main (int argc, char *argv[]) {
 	int ret;
 	int dbg = TRUE;
 
-	struct lapb_register_struct callbacks;
+	struct lapb_callbacks callbacks;
 	int lapb_res;
 
 	char buffer[2048];
@@ -284,7 +319,7 @@ label_2:
 		return manual_process();
 
 	/* LAPB init */
-	bzero(&callbacks, sizeof(struct lapb_register_struct));
+	bzero(&callbacks, sizeof(struct lapb_callbacks));
 	callbacks.on_connected = on_connected;
 	callbacks.on_disconnected = on_disconnected;
 	callbacks.on_new_data = on_new_incoming_data;
@@ -302,10 +337,10 @@ label_2:
 	//lapb_server->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 
 	/* Redefine some default values */
-	lapb_server->T1 = 500; /* 0.5s */
-	lapb_server->T2 = 50;  /* 0.05s */
-	lapb_server->N2 = 3; /* Try 3 times */
-	lapb_server->low_order_bits = TRUE;
+	lapb_server->T1 = 1000; /* 1s */
+	lapb_server->T2 = 500;  /* 0.5s */
+	lapb_server->N2 = 10;	/* Try 10 times */
+	//lapb_server->low_order_bits = TRUE;
 
 	/* Create timer */
 	timer_struct = malloc(sizeof(struct timer_struct));
@@ -393,7 +428,7 @@ void print_man_commands() {
 
 
 int manual_process() {
-	struct lapb_register_struct callbacks;
+	struct lapb_callbacks callbacks;
 	int lapb_res;
 
 	fd_set			read_set;
@@ -403,7 +438,7 @@ int manual_process() {
 	char buffer[4];
 
 	/* LAPB init */
-	bzero(&callbacks, sizeof(struct lapb_register_struct));
+	bzero(&callbacks, sizeof(struct lapb_callbacks));
 	callbacks.transmit_data = transmit_data;
 	callbacks.debug = lapb_debug;
 	lapb_res = lapb_register(&callbacks, LAPB_SMODULUS, LAPB_SLP, LAPB_DCE, &lapb_server);
@@ -475,7 +510,7 @@ int manual_process() {
 }
 
 
-int man_decode(struct lapb_cb *lapb, char *data, int data_size, struct lapb_frame *frame) {
+int man_decode(struct lapb_cs *lapb, char *data, int data_size, struct lapb_frame *frame) {
 	frame->type = LAPB_ILLEGAL;
 
 

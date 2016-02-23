@@ -15,7 +15,7 @@
 char str_buf[1024];
 _uchar uchar_inv_table[256];
 
-void lock(struct lapb_cb *lapb) {
+void lock(struct lapb_cs *lapb) {
 #if !INTERNAL_SYNC
 	(void)lapb;
 #else
@@ -24,7 +24,7 @@ void lock(struct lapb_cb *lapb) {
 #endif
 }
 
-void unlock(struct lapb_cb *lapb) {
+void unlock(struct lapb_cs *lapb) {
 #if !INTERNAL_SYNC
 	(void)lapb;
 #else
@@ -71,12 +71,9 @@ char * lapb_buf_to_str(char * data, int data_size) {
 /*
  *	This routine delete all the queues of frames.
  */
-void lapb_clear_queues(struct lapb_cb *lapb) {
+void lapb_clear_queues(struct lapb_cs *lapb) {
 	cb_clear(&lapb->write_queue);
 	cb_clear(&lapb->ack_queue);
-	//skb_queue_purge(&lapb->write_queue);
-	//skb_queue_purge(&lapb->ack_queue);
-
 }
 
 /*
@@ -84,38 +81,37 @@ void lapb_clear_queues(struct lapb_cb *lapb) {
  * acknowledged. This replaces the boxes labelled "V(a) <- N(r)" on the
  * SDL diagram.
  */
-int lapb_frames_acked(struct lapb_cb *lapb, unsigned short nr) {
+int lapb_frames_acked(struct lapb_cs *lapb, unsigned short nr) {
 	int modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
 	/*
 	 * Remove all the ack-ed frames from the ack queue.
 	 */
-	//if (lapb->va != nr)
-		while (cb_peek(&lapb->ack_queue) && lapb->va != nr) {
-			cb_dequeue(&lapb->ack_queue, NULL);
-			lapb->va = (lapb->va + 1) % modulus;
-		};
+	while (cb_peek(&lapb->ack_queue) && lapb->va != nr) {
+		cb_dequeue(&lapb->ack_queue, NULL);
+		lapb->va = (lapb->va + 1) % modulus;
+	};
 	return lapb->va == lapb->vs;
 }
 
-void lapb_requeue_frames(struct lapb_cb *lapb) {
+/*
+ * Requeue all the un-ack-ed frames on the output queue to be picked
+ * up by lapb_kick called from the timer. This arrangement handles the
+ * possibility of an empty output queue.
+ */
+void lapb_requeue_frames(struct lapb_cs *lapb) {
 	char *buffer;
 	int buffer_size;
-	/*
-	 * Requeue all the un-ack-ed frames on the output queue to be picked
-	 * up by lapb_kick called from the timer. This arrangement handles the
-	 * possibility of an empty output queue.
-	 */
-	while ((buffer = cb_dequeue_tail(&lapb->ack_queue, &buffer_size)) != NULL) {
+
+	while ((buffer = cb_dequeue_tail(&lapb->ack_queue, &buffer_size)) != NULL)
 		cb_queue_head(&lapb->write_queue, buffer, buffer_size);
-	};
 }
 
 /*
  *	Validate that the value of nr is between va and vs. Return true or
  *	false for testing.
  */
-int lapb_validate_nr(struct lapb_cb *lapb, unsigned short nr) {
+int lapb_validate_nr(struct lapb_cs *lapb, unsigned short nr) {
 	unsigned short vc = lapb->va;
 	int modulus;
 
@@ -134,7 +130,7 @@ int lapb_validate_nr(struct lapb_cb *lapb, unsigned short nr) {
  *	This routine is the centralised routine for parsing the control
  *	information for the different frame formats.
  */
-int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_frame * frame) {
+int lapb_decode(struct lapb_cs * lapb, char * data, int data_size, 	struct lapb_frame * frame) {
 
 	frame->type = LAPB_ILLEGAL;
 
@@ -176,14 +172,14 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 
 
 	if (lapb->mode & LAPB_EXTENDED) {
+		if (lapb->low_order_bits)
+			data[1] = invert_uchar(data[1]);
 		if (!(data[1] & LAPB_S)) {
 			/*
 			 * I frame - carries NR/NS/PF
 			 */
-			if (lapb->low_order_bits) {
-				data[1] = invert_uchar(data[1]);
+			if (lapb->low_order_bits)
 				data[2] = invert_uchar(data[2]);
-			};
 
 			frame->type       = LAPB_I;
 			frame->ns         = (data[1] >> 1) & 0x7F;
@@ -195,10 +191,9 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * S frame - take out PF/NR
 			 */
-			if (lapb->low_order_bits) {
-				data[1] = invert_uchar(data[1]);
+			if (lapb->low_order_bits)
 				data[2] = invert_uchar(data[2]);
-			};
+
 			frame->type       = data[1] & 0x0F;
 			frame->nr         = (data[2] >> 1) & 0x7F;
 			frame->pf         = data[2] & LAPB_EPF;
@@ -208,8 +203,6 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * U frame - take out PF
 			 */
-			if (lapb->low_order_bits)
-				data[1] = invert_uchar(data[1]);
 			frame->type       = data[1] & ~LAPB_SPF;
 			frame->pf         = data[1] & LAPB_SPF;
 			frame->control[0] = data[1];
@@ -239,7 +232,7 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * U frame - take out PF
 			 */
-			frame->type = data[1] & ~LAPB_SPF;
+			frame->type = (_uchar)data[1] & ~LAPB_SPF;
 			frame->pf   = data[1] & LAPB_SPF;
 		};
 
@@ -257,7 +250,7 @@ int lapb_decode(struct lapb_cb * lapb, char * data, int data_size, 	struct lapb_
  *	Only supervisory or unnumbered frames are processed, FRMRs are handled
  *	by lapb_transmit_frmr below.
  */
-void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int type) {
+void lapb_send_control(struct lapb_cs *lapb, int frametype, int poll_bit, int type) {
 	char frame[3]; /* Address[1]+Control[1/2]] */
 	int frame_size = 2;
 
@@ -277,9 +270,8 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
 			frame[2] |= poll_bit ? LAPB_EPF : 0;
 
 			if (lapb->low_order_bits) {
-				char tmp = invert_uchar(frame[1]);
-				frame[1] = invert_uchar(frame[2]);
-				frame[2] = tmp;
+				frame[1] = invert_uchar(frame[1]);
+				frame[2] = invert_uchar(frame[2]);
 			};
 		};
 	} else {
@@ -299,7 +291,7 @@ void lapb_send_control(struct lapb_cb *lapb, int frametype, int poll_bit, int ty
  *	This routine generates FRMRs based on information previously stored in
  *	the LAPB control block.
  */
-void lapb_transmit_frmr(struct lapb_cb *lapb) {
+void lapb_transmit_frmr(struct lapb_cs *lapb) {
 	char frame[7];
 	int frame_size;
 
@@ -309,7 +301,7 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 		frame[2] = lapb->frmr_data.control[0];
 		frame[3] = lapb->frmr_data.control[1];
 		frame[4] = (lapb->vs << 1) & 0xFE;
-		frame[5]	= (lapb->vr << 1) & 0xFE;
+		frame[5] = (lapb->vr << 1) & 0xFE;
 		if (lapb->frmr_data.cr == LAPB_RESPONSE)
 			frame[5] |= 0x01;
 		frame[6] = lapb->frmr_type;
@@ -339,7 +331,9 @@ void lapb_transmit_frmr(struct lapb_cb *lapb) {
 			frame[3] |= 0x10;
 		frame[4] = lapb->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX FRMR %02X %02X %02X", lapb->state, (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4]);
+		lapb->callbacks->debug(lapb, 1,
+							   "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X", lapb->state,
+							   (_uchar)frame[0], (_uchar)frame[1], (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4]);
 
 		if (lapb->low_order_bits) {
 			/* Invert bytes */

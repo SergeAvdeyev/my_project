@@ -19,6 +19,7 @@
 #define	LAPB_ACK_PENDING_CONDITION	0x01
 #define	LAPB_REJECT_CONDITION		0x02
 #define	LAPB_PEER_RX_BUSY_CONDITION	0x04
+#define	LAPB_FRMR_CONDITION			0x08
 
 /* Control field templates */
 #define	LAPB_I		0x00	/* Information frames */
@@ -68,8 +69,6 @@ enum {
 	LAPB_NOT_READY	/* Physical layer not ready */
 };
 
-#define	LAPB_STANDARD	0x00
-#define	LAPB_EXTENDED	0x01
 
 #define	LAPB_SLP		0x00
 #define	LAPB_MLP		0x02
@@ -78,15 +77,21 @@ enum {
 #define	LAPB_DCE		0x04
 
 
-#define	LAPB_DEFAULT_MODE		(LAPB_STANDARD | LAPB_SLP | LAPB_DTE)
-#define	LAPB_DEFAULT_WINDOW		7		/* Window=7 */
+#define	LAPB_STANDARD	0x00
+#define	LAPB_SMODULUS	8
+#define	LAPB_DEFAULT_SMODE		(LAPB_STANDARD | LAPB_SLP | LAPB_DTE)
+#define	LAPB_DEFAULT_SWINDOW	7		/* Window=7 for standard modulo */
+
+#define	LAPB_EXTENDED	0x01
+#define	LAPB_EMODULUS	128
+#define	LAPB_DEFAULT_EMODE		(LAPB_EXTENDED | LAPB_SLP | LAPB_DTE)
+#define	LAPB_DEFAULT_EWINDOW	127		/* Window=127 for extended modulo */
+
 #define	LAPB_DEFAULT_T1			5000	/* T1=5s    */
 #define	LAPB_DEFAULT_T2			1000	/* T2=1s    */
 #define	LAPB_DEFAULT_N2			20		/* N2=20    */
 #define	LAPB_DEFAULT_N1			135		/* Default I frame maximal size */
 
-#define	LAPB_SMODULUS	8
-#define	LAPB_EMODULUS	128
 
 
 
@@ -147,7 +152,7 @@ struct lapb_frame {
 /*
  *	The per LAPB connection control structure.
  */
-struct lapb_cb {
+struct lapb_cs {
 	/* Link status fields */
 	_uchar		mode;	/* Bit mask for STANDARD-EXTENDED|SLP-MLP|DTE-DCE */
 	_uchar		state;
@@ -165,7 +170,7 @@ struct lapb_cb {
 	struct circular_buffer	ack_queue;
 
 	_uchar		window;
-	const struct lapb_register_struct *callbacks;
+	const struct lapb_callbacks *callbacks;
 
 	/* FRMR control information */
 	struct lapb_frame	frmr_data;
@@ -179,20 +184,18 @@ struct lapb_cb {
 
 
 
-struct lapb_register_struct {
-	void (*on_connected)(struct lapb_cb * lapb, int reason);
-	void (*on_disconnected)(struct lapb_cb * lapb, int reason);
-	int  (*on_new_data)(struct lapb_cb * lapb, char * data, int data_size);
-	void (*transmit_data)(struct lapb_cb * lapb, char *data, int data_size);
+struct lapb_callbacks {
+	void (*on_connected)(struct lapb_cs * lapb, int reason);
+	void (*on_disconnected)(struct lapb_cs * lapb, int reason);
+	int  (*on_new_data)(struct lapb_cs * lapb, char * data, int data_size);
+	void (*transmit_data)(struct lapb_cs * lapb, char *data, int data_size);
 
-	void (*start_t1timer)(struct lapb_cb * lapb);
+	void (*start_t1timer)(struct lapb_cs * lapb);
 	void (*stop_t1timer)();
-	void (*start_t2timer)(struct lapb_cb * lapb);
+	void (*start_t2timer)(struct lapb_cs * lapb);
 	void (*stop_t2timer)();
-	//int  (*t1timer_running)();
-	//int  (*t2timer_running)();
 
-	void (*debug)(struct lapb_cb *lapb, int level, const char * format, ...);
+	void (*debug)(struct lapb_cs *lapb, int level, const char * format, ...);
 };
 
 struct lapb_parms_struct {
@@ -209,30 +212,28 @@ struct lapb_parms_struct {
 };
 
 /* lapb_iface.c */
-extern int lapb_register(struct lapb_register_struct *callbacks,
+extern int lapb_register(struct lapb_callbacks *callbacks,
 						 _uchar modulo,
 						 _uchar protocol,
 						 _uchar equipment,
-						 struct lapb_cb ** lapb);
-extern int lapb_unregister(struct lapb_cb * lapb);
-extern char * lapb_dequeue(struct lapb_cb * lapb, int * buffer_size);
-extern int lapb_reset(struct lapb_cb * lapb, _uchar init_state);
-extern int lapb_getparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms);
-extern int lapb_setparms(struct lapb_cb * lapb, struct lapb_parms_struct *parms);
-extern int lapb_connect_request(struct lapb_cb *lapb);
-extern int lapb_disconnect_request(struct lapb_cb *lapb);
-extern int lapb_data_request(struct lapb_cb *lapb, char * data, int data_size);
+						 struct lapb_cs ** lapb);
+extern int lapb_unregister(struct lapb_cs * lapb);
+extern char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size);
+extern int lapb_reset(struct lapb_cs * lapb, _uchar init_state);
+extern int lapb_connect_request(struct lapb_cs *lapb);
+extern int lapb_disconnect_request(struct lapb_cs *lapb);
+extern int lapb_data_request(struct lapb_cs *lapb, char * data, int data_size);
 
 /* Executing by physical leyer (when new incoming data received) */
-extern int lapb_data_received(struct lapb_cb *lapb, char * data, int data_size, _ushort fcs);
+extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, _ushort fcs);
 
 
 ///* lapb_subr.c */
 //extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 
 /* lapb_timer.c */
-extern void lapb_t1timer_expiry(struct lapb_cb *lapb);
-extern void lapb_t2timer_expiry(struct lapb_cb *lapb);
+extern void lapb_t1timer_expiry(struct lapb_cs *lapb);
+extern void lapb_t2timer_expiry(struct lapb_cs *lapb);
 
 
 /*
