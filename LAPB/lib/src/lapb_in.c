@@ -506,8 +506,8 @@ static void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size
 void lapb_data_input(struct lapb_cs *lapb, char *data, int data_size) {
 	struct lapb_frame frame;
 
-	if (lapb->state == LAPB_NOT_READY)
-		return;
+	//if (lapb->state == LAPB_NOT_READY)
+	//	return;
 	if (lapb_decode(lapb, data, data_size, &frame) < 0)
 		return;
 

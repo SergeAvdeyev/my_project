@@ -45,6 +45,7 @@ void hex_dump(char * data, int data_size) {
 /* Called by LAPB to transmit data via physical connection */
 void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	(void)lapb;
+	if (!is_server_accepted()) return;
 	//lapb_debug(NULL, 0, "[LAPB] data_transmit is called");
 
 	char buffer[1024];
@@ -189,7 +190,7 @@ void no_active_connection() {
 	while ((buffer = lapb_dequeue(lapb_server, &buffer_size)) != NULL)
 		printf("%s\n", buf_to_str(buffer, buffer_size));
 
-	lapb_reset(lapb_server, LAPB_NOT_READY);
+	lapb_reset(lapb_server, LAPB_STATE_0);
 }
 
 
@@ -354,7 +355,7 @@ label_2:
 	printf("Timer thread created(code %d)\n", ret);
 	while (!is_timer_started())
 		sleep_ms(200);
-	printf("Timer started\n");
+	printf("Timer started\n\n");
 
 	struct main_callbacks m_callbacks;
 	bzero(&m_callbacks, sizeof(struct main_callbacks));

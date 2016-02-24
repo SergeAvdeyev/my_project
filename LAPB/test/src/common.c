@@ -6,7 +6,7 @@
 char str_buf[1024];
 int break_flag = FALSE;
 int out_counter;
-int old_state;
+//int old_state;
 
 /* Signals handler */
 void signal_callback_handler(int signum) {
@@ -207,13 +207,16 @@ int wait_stdin(struct lapb_cs * lapb, unsigned char break_condition, int run_onc
 	struct timeval	timeout;
 	int sr = 0;
 
-	while (lapb->state == break_condition) {
+	//while (lapb->state == break_condition) {
+	while (1) {
 		FD_ZERO(&read_set);
 		FD_SET(fileno(stdin), &read_set);
 		timeout.tv_sec  = 0;
 		timeout.tv_usec = 100000;
 		sr = select(fileno(stdin) + 1, &read_set, NULL, NULL, &timeout);
 		if ((sr > 0) || (run_once))
+			break;
+		if ((lapb) && (lapb->state != break_condition))
 			break;
 	};
 	return sr;
@@ -278,241 +281,283 @@ void print_commands_5() {
 }
 
 
-void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+int lapb_not_ready(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+	int while_flag;
+	int wait_stdin_result;;
+	char buffer[256];
+	int result = 0;
+
+	if (callbacks->is_connected())
+		return 1;
+	while_flag = TRUE;
+	print_commands_5();
+	while (while_flag) {
+		if (!callbacks->is_connected()) {
+			wait_stdin_result = wait_stdin(lapb, LAPB_STATE_0, TRUE);
+			if (wait_stdin_result <= 0) {
+				sleep_ms(100);
+				continue;
+			};
+		} else {
+			lapb_reset(lapb, LAPB_STATE_0);
+			printf("\nPhysical connection established\n\n");
+			result = 1;
+			break;
+		};
+		bzero(buffer, sizeof(buffer));
+		while (read(0, buffer, sizeof(buffer)) <= 1)
+			fprintf(stderr, ">");
+		printf("\n");
+		int action = atoi(buffer);
+		switch (action) {
+			case 0:
+				exit_flag = TRUE;
+				while_flag = FALSE;
+				break;
+			default:
+				printf("Command is not supported\n\n");
+				break;
+		};
+	};
+	return result;
+}
+
+void lapb_state_0(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
 	int wait_stdin_result;;
 	char buffer[256];
 	int lapb_res;
-	int n;
 
-	int while_flag = TRUE;
-	fcs = 1;
-	old_state = LAPB_NOT_READY;
-	while (!exit_flag) {
-		switch (lapb->state) {
-			case LAPB_NOT_READY:
-
-				while_flag = TRUE;
-				print_commands_5();
-				while (while_flag) {
-					if (!callbacks->is_connected()) {
-						wait_stdin_result = wait_stdin(lapb, LAPB_NOT_READY, TRUE);
-						if (wait_stdin_result <= 0) {
-							sleep_ms(100);
-							continue;
-						};
-					} else {
-						lapb_reset(lapb, LAPB_STATE_0);
-						printf("\nPhysical connection established\n\n");
-						break;
-					};
-					bzero(buffer, sizeof(buffer));
-					while (read(0, buffer, sizeof(buffer)) <= 1)
-						fprintf(stderr, ">");
-					printf("\n");
-					int action = atoi(buffer);
-					switch (action) {
-						case 0:
-							exit_flag = TRUE;
-							while_flag = FALSE;
-							break;
-						default:
-							printf("Command is not supported\n\n");
-							break;
-					};
-				};
-
+	int while_flag;
+	while_flag = TRUE;
+	print_commands_0(lapb);
+	while (while_flag) {
+		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_0, TRUE);
+		if (wait_stdin_result <= 0) {
+			if (!callbacks->is_connected()) {
+				printf("\nPhysical connection lost\n");
+				printf("Reconnecting\n\n");
 				break;
-			case LAPB_STATE_0:
-				while_flag = TRUE;
-				while (while_flag) {
-					print_commands_0(lapb);
-					wait_stdin_result = wait_stdin(lapb, LAPB_STATE_0, FALSE);
-					if (wait_stdin_result <= 0) {
-						if (lapb->state == LAPB_NOT_READY) {
-							printf("\nPhysical connection lost\n");
-							printf("Reconnecting");
-						};
-						printf("\n\n");
-						break;
-					};
-					bzero(buffer, sizeof(buffer));
-					while (read(0, buffer, sizeof(buffer)) <= 1)
-						fprintf(stderr, ">");
-					printf("\n");
-					int action = atoi(buffer);
-					switch (action) {
-						case 1:  /* SABM or SABME */
-							lapb_res = lapb_connect_request(lapb);
-							if (lapb_res != LAPB_OK) {
-								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
-								lapb_reset(lapb, LAPB_STATE_0);
-							} else
-								while_flag = FALSE;
-							break;
-						case 0:
-							exit_flag = TRUE;
-							while_flag = FALSE;
-							break;
-						default:
-							printf("Command is not supported\n\n");
-							break;
-					};
+			} else {
+				if (lapb->state != LAPB_STATE_0) {
+					printf("\n\n");
+					break;
 				};
+				sleep_ms(100);
+				continue;
+			};
+			//printf("\n\n");
+			//break;
+		};
+		bzero(buffer, sizeof(buffer));
+		while (read(0, buffer, sizeof(buffer)) <= 1)
+			fprintf(stderr, ">");
+		printf("\n");
+		int action = atoi(buffer);
+		switch (action) {
+			case 1:  /* SABM or SABME */
+				lapb_res = lapb_connect_request(lapb);
+				if (lapb_res != LAPB_OK) {
+					printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
+					lapb_reset(lapb, LAPB_STATE_0);
+				} else
+					while_flag = FALSE;
+				break;
+			case 0:
+				exit_flag = TRUE;
+				while_flag = FALSE;
+				break;
+			default:
+				printf("Command is not supported\n\n");
+				break;
+		};
+	};
+}
 
+void lapb_state_1(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+	int while_flag;
+	int wait_stdin_result;
+	char buffer[256];
+
+	while_flag = TRUE;
+	while (while_flag) {
+		print_commands_1(lapb);
+		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_1, FALSE);
+		if (wait_stdin_result <= 0) {
+			if (!callbacks->is_connected()) {
+				printf("\nPhysical connection lost\n");
+				printf("Reconnecting");
+			};
+			printf("\n\n");
+			break;
+		};
+		bzero(buffer, sizeof(buffer));
+		while (read(0, buffer, sizeof(buffer)) <= 1)
+			fprintf(stderr, ">");
+		printf("\n");
+		int action = atoi(buffer);
+		switch (action) {
+			case 1:  /* Cancel */
+				lapb_reset(lapb, LAPB_STATE_0);
+				while_flag = FALSE;
+				break;
+			case 0:
+				exit_flag = TRUE;
+				while_flag = FALSE;
+				break;
+			default:
+				printf("Command is not supported\n\n");
+				break;
+		};
+	};
+}
+
+void lapb_state_2(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+	int while_flag;
+	int wait_stdin_result;
+	char buffer[256];
+
+	while_flag = TRUE;
+	while (while_flag) {
+		print_commands_2(lapb);
+		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_2, FALSE);
+		if (wait_stdin_result <= 0) {
+			if (!callbacks->is_connected()) {
+				printf("\nPhysical connection lost\n");
+				printf("Reconnecting");
+			};
+			printf("\n\n");
+			break;
+		};
+		bzero(buffer, sizeof(buffer));
+		while (read(0, buffer, sizeof(buffer)) <= 1)
+			fprintf(stderr, ">");
+		printf("\n");
+		int action = atoi(buffer);
+		switch (action) {
+			case 1:  /* Cancel */
+				lapb_reset(lapb, LAPB_STATE_0);
+				while_flag = FALSE;
+				break;
+			case 0:
+				exit_flag = TRUE;
+				while_flag = FALSE;
+				break;
+			default:
+				printf("Command is not supported\n\n");
+				break;
+		};
+	};
+}
+
+void lapb_state_3(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+	int while_flag;
+	int wait_stdin_result;
+	char buffer[256];
+	int n;
+	int lapb_res;
+
+	while_flag = TRUE;
+	print_commands_3(lapb);
+	while (while_flag) {
+		fprintf(stderr, ">");
+		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_3, FALSE);
+		if (wait_stdin_result <= 0) {
+			if (!callbacks->is_connected()) {
+				printf("\nPhysical connection lost\n");
+				printf("Reconnecting");
+			};
+			printf("\n\n");
+			break;
+		};
+		bzero(buffer, sizeof(buffer));
+		while (read(0, buffer, sizeof(buffer)) <= 1) {
+			char move_up[] = { 0x1b, '[', '1', 'A', 0 };
+			char move_right[] = { 0x1b, '[', '1', 'C', 0 };
+			fprintf(stderr, "%s%s", move_up, move_right);
+		};
+		char * pEnd;
+		int action = strtol(buffer, &pEnd, 10);
+		int data_size;
+		if (buffer == pEnd)
+			action = 99;
+		switch (action) {
+			case 1: default:  /* Send test buffer (128 byte) or text from console */
+				if (action == 1) {
+					data_size = 10;
+					n = 0;
+					while (n < data_size) {
+						buffer[n] = 'a' + n;
+						n++;
+					};
+				} else
+					data_size = strlen(buffer) - 1;
+				buffer[data_size] = 0;
+				lapb_res = lapb_data_request(lapb, buffer, data_size);
+				if (lapb_res != LAPB_OK) {
+					printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
+					lapb_reset(lapb, LAPB_STATE_0);
+				};
+				//else
+				//	while_flag = FALSE;
+				break;
+			case 2: case 3: /* Send sequence of data */
+				while (!break_flag) {
+					bzero(buffer, sizeof(buffer));
+					sprintf(buffer, "abcdefghij_%d", out_counter);
+					lapb_res = lapb_data_request(lapb, buffer, strlen(buffer));
+					if (lapb_res != LAPB_OK) {
+						if (lapb_res != LAPB_BUSY) {
+							printf("ERROR: %s\n", lapb_error_str(lapb_res));
+							break;
+						};
+						sleep_ms(50);
+						continue;
+					};
+					//sleep_ms(100);
+					out_counter++;
+					if (out_counter % 500 == 0) break;
+					if (action == 3)
+						fcs = (fcs + 1) % 13;
+					else
+						fcs = 1;
+				};
+				fcs = 1;
+				break;
+			case 4: /* DISC */
+				lapb_res = lapb_disconnect_request(lapb);
+				if (lapb_res != LAPB_OK) {
+					printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
+					lapb_reset(lapb, LAPB_STATE_0);
+				} else
+					while_flag = FALSE;
+				break;
+			case 0:
+				exit_flag = TRUE;
+				while_flag = FALSE;
+				break;
+		};
+	};
+}
+
+void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+
+	fcs = 1;
+	while (!exit_flag) {
+		if (!lapb_not_ready(lapb, callbacks))
+			continue;
+		switch (lapb->state) {
+			case LAPB_STATE_0:
+				lapb_state_0(lapb, callbacks);
 				break;
 			case LAPB_STATE_1:
-				while_flag = TRUE;
-				while (while_flag) {
-					print_commands_1(lapb);
-					wait_stdin_result = wait_stdin(lapb, LAPB_STATE_1, FALSE);
-					if (wait_stdin_result <= 0) {
-						if (lapb->state == LAPB_NOT_READY) {
-							printf("\nPhysical connection lost\n");
-							printf("Reconnecting");
-						};
-						printf("\n\n");
-						break;
-					};
-					bzero(buffer, sizeof(buffer));
-					while (read(0, buffer, sizeof(buffer)) <= 1)
-						fprintf(stderr, ">");
-					printf("\n");
-					int action = atoi(buffer);
-					switch (action) {
-						case 1:  /* Cancel */
-							lapb_reset(lapb, LAPB_STATE_0);
-							while_flag = FALSE;
-							break;
-						case 0:
-							exit_flag = TRUE;
-							while_flag = FALSE;
-							break;
-						default:
-							printf("Command is not supported\n\n");
-							break;
-					};
-				};
+				lapb_state_1(lapb, callbacks);
 				break;
 			case LAPB_STATE_2:
-				while_flag = TRUE;
-				while (while_flag) {
-					print_commands_2(lapb);
-					wait_stdin_result = wait_stdin(lapb, LAPB_STATE_2, FALSE);
-					if (wait_stdin_result <= 0) {
-						if (lapb->state == LAPB_NOT_READY) {
-							printf("\nPhysical connection lost\n");
-							printf("Reconnecting");
-						};
-						printf("\n\n");
-						break;
-					};
-					bzero(buffer, sizeof(buffer));
-					while (read(0, buffer, sizeof(buffer)) <= 1)
-						fprintf(stderr, ">");
-					printf("\n");
-					int action = atoi(buffer);
-					switch (action) {
-						case 1:  /* Cancel */
-							lapb_reset(lapb, LAPB_STATE_0);
-							while_flag = FALSE;
-							break;
-						case 0:
-							exit_flag = TRUE;
-							while_flag = FALSE;
-							break;
-						default:
-							printf("Command is not supported\n\n");
-							break;
-					};
-				};
+				lapb_state_2(lapb, callbacks);
 				break;
 			case LAPB_STATE_3:
-				while_flag = TRUE;
-				print_commands_3(lapb);
-				while (while_flag) {
-					fprintf(stderr, ">");
-					wait_stdin_result = wait_stdin(lapb, LAPB_STATE_3, FALSE);
-					if (wait_stdin_result <= 0) {
-						if (lapb->state == LAPB_NOT_READY) {
-							printf("\nPhysical connection lost\n");
-							printf("Reconnecting");
-						};
-						printf("\n\n");
-						break;
-					};
-					bzero(buffer, sizeof(buffer));
-					while (read(0, buffer, sizeof(buffer)) <= 1) {
-						char move_up[] = { 0x1b, '[', '1', 'A', 0 };
-						char move_right[] = { 0x1b, '[', '1', 'C', 0 };
-						fprintf(stderr, "%s%s", move_up, move_right);
-					};
-					char * pEnd;
-					int action = strtol(buffer, &pEnd, 10);
-					int data_size;
-					if (buffer == pEnd)
-						action = 99;
-					switch (action) {
-						case 1: default:  /* Send test buffer (128 byte) or text from console */
-							if (action == 1) {
-								data_size = 10;
-								n = 0;
-								while (n < data_size) {
-									buffer[n] = 'a' + n;
-									n++;
-								};
-							} else
-								data_size = strlen(buffer) - 1;
-							buffer[data_size] = 0;
-							lapb_res = lapb_data_request(lapb, buffer, data_size);
-							if (lapb_res != LAPB_OK) {
-								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
-								lapb_reset(lapb, LAPB_STATE_0);
-							};
-							//else
-							//	while_flag = FALSE;
-							break;
-						case 2: case 3: /* Send sequence of data */
-							while (!break_flag) {
-								bzero(buffer, sizeof(buffer));
-								sprintf(buffer, "abcdefghij_%d", out_counter);
-								lapb_res = lapb_data_request(lapb, buffer, strlen(buffer));
-								if (lapb_res != LAPB_OK) {
-									if (lapb_res != LAPB_BUSY) {
-										printf("ERROR: %s\n", lapb_error_str(lapb_res));
-										break;
-									};
-									sleep_ms(50);
-									continue;
-								};
-								//sleep_ms(100);
-								out_counter++;
-								if (out_counter % 500 == 0) break;
-								if (action == 3)
-									fcs = (fcs + 1) % 13;
-								else
-									fcs = 1;
-							};
-							fcs = 1;
-							break;
-						case 4: /* DISC */
-							lapb_res = lapb_disconnect_request(lapb);
-							if (lapb_res != LAPB_OK) {
-								printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
-								lapb_reset(lapb, LAPB_STATE_0);
-							} else
-								while_flag = FALSE;
-							break;
-						case 0:
-							exit_flag = TRUE;
-							while_flag = FALSE;
-							break;
-					};
-				};
+				lapb_state_3(lapb, callbacks);
 				break;
-
-
-
-
 		};
 	};
 

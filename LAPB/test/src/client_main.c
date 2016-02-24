@@ -100,7 +100,7 @@ void connection_lost() {
 	while ((buffer = lapb_dequeue(lapb_client, &buffer_size)) != NULL)
 		printf("%s\n", buf_to_str(buffer, buffer_size));
 
-	lapb_reset(lapb_client, LAPB_NOT_READY);
+	lapb_reset(lapb_client, LAPB_STATE_0);
 }
 
 

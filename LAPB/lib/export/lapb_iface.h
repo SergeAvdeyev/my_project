@@ -64,9 +64,9 @@ enum {
 	LAPB_STATE_0,	/* Disconnected State		*/
 	LAPB_STATE_1,	/* Awaiting Connection State	*/
 	LAPB_STATE_2,	/* Awaiting Disconnection State	*/
-	LAPB_STATE_3,	/* Data Transfer State		*/
+	LAPB_STATE_3	/* Data Transfer State		*/
 	//LAPB_STATE_4,	/* Frame Reject State		*/
-	LAPB_NOT_READY	/* Physical layer not ready */
+	//LAPB_NOT_READY	/* Physical layer not ready */
 };
 
 

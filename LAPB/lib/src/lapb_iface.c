@@ -41,7 +41,7 @@ static struct lapb_cs *lapb_create_cb(void) {
 	lapb->N2	= LAPB_DEFAULT_N2;
 	lapb->mode	= LAPB_DEFAULT_SMODE;
 	lapb->window = LAPB_DEFAULT_SWINDOW;
-	lapb->state	= LAPB_NOT_READY;
+	lapb->state	= LAPB_STATE_0;
 	lapb->low_order_bits = FALSE;
 out:
 	return lapb;
@@ -114,6 +114,8 @@ out:
 
 char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size) {
 	char *result = NULL;
+
+	if (!lapb) return NULL;
 
 	//lock(lapb);
 	if (cb_peek(&lapb->ack_queue))

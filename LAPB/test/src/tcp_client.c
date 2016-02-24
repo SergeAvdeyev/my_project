@@ -253,9 +253,9 @@ void * client_function(void *ptr) {
 					lapb_debug(NULL, 0, "Connection closed by server");
 					close(client_socket);
 					client_socket = -1;
+					client_disconnected();
 					if (((struct tcp_client_struct *)ptr)->connection_lost)
 						((struct tcp_client_struct *)ptr)->connection_lost();
-					client_disconnected();
 					break;
 				} else {
 					/* Data was received                          */
