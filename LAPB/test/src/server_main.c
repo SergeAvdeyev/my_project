@@ -52,12 +52,19 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	buffer[0] = 0x7E; /* Open flag */
 	buffer[1] = 0x7E; /* Open flag */
 	memcpy(&buffer[2], data, data_size);
-	int if_nr_present = *(_uchar *)&buffer[3];
-	if_nr_present = if_nr_present & 0x03;
-	if ((if_nr_present != 0x03) && (fcs == 0))
-		*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
-		//*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
-	else
+	if (error_type == 1) { /* Bad FCS (for I frames) */
+		int i_frame = ~(*(_uchar *)&buffer[3] & 0x01);
+		if (i_frame && (error_counter == 0))
+			*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
+		else
+			*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	} else if (error_type == 2) { /* Bad N(R) (for I or S frames) */
+		int if_nr_present = *(_uchar *)&buffer[3];
+		if_nr_present = if_nr_present & 0x03;
+		if ((if_nr_present != 0x03) && (error_counter == 0))
+			*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
+		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	} else
 		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
 	buffer[data_size + 4] = 0x7E; /* Close flag */
 	buffer[data_size + 5] = 0x7E; /* Close flag */

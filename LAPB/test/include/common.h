@@ -18,7 +18,8 @@
 
 volatile sig_atomic_t exit_flag;
 
-_ushort fcs;
+_ushort error_type; /* 0 - no error; 1 - FCS error; 2 - N(R) error */
+_ushort error_counter;
 
 
 struct main_callbacks {

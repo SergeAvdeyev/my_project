@@ -332,8 +332,8 @@ void lapb_transmit_frmr(struct lapb_cs *lapb) {
 		frame[4] = lapb->frmr_type;
 
 		lapb->callbacks->debug(lapb, 1,
-							   "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X", lapb->state,
-							   (_uchar)frame[0], (_uchar)frame[1], (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4]);
+							   "[LAPB] S%d TX FRMR %02X %02X %02X %02X", lapb->state,
+							   (_uchar)frame[1], (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4]);
 
 		if (lapb->low_order_bits) {
 			/* Invert bytes */

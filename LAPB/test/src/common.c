@@ -268,7 +268,8 @@ void print_commands_3(struct lapb_cs * lapb) {
 	printf("1 Send test buffer(10 bytes)\n");
 	printf("2 Send sequence of data(500 frames)\n");
 	printf("3 Send sequence of data(500 frames - Bad FCS)\n");
-	printf("4 Send DISC\n");
+	printf("4 Send sequence of data(500 frames - Bad N(R))\n");
+	printf("9 Send DISC\n");
 	printf("--\n");
 	printf("0 Exit application\n");
 }
@@ -500,7 +501,9 @@ void lapb_state_3(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 				//else
 				//	while_flag = FALSE;
 				break;
-			case 2: case 3: /* Send sequence of data */
+			case 2: case 3: case 4: /* Send sequence of data */
+				error_type = action - 2;
+				error_counter = 1;
 				while (!break_flag) {
 					bzero(buffer, sizeof(buffer));
 					sprintf(buffer, "abcdefghij_%d", out_counter);
@@ -516,14 +519,11 @@ void lapb_state_3(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 					//sleep_ms(100);
 					out_counter++;
 					if (out_counter % 500 == 0) break;
-					if (action == 3)
-						fcs = (fcs + 1) % 13;
-					else
-						fcs = 1;
+					if (error_type != 0)
+						error_counter = (error_counter + 1) % 13;
 				};
-				fcs = 1;
 				break;
-			case 4: /* DISC */
+			case 9: /* DISC */
 				lapb_res = lapb_disconnect_request(lapb);
 				if (lapb_res != LAPB_OK) {
 					printf("ERROR: %s\n\n", lapb_error_str(lapb_res));
@@ -541,7 +541,8 @@ void lapb_state_3(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 
 void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
 
-	fcs = 1;
+	error_type = 0; /* No errors */
+	error_counter = 1;
 	while (!exit_flag) {
 		if (!lapb_not_ready(lapb, callbacks))
 			continue;
