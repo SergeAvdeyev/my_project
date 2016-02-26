@@ -15,7 +15,7 @@
  *	State machine for state 0, Disconnected State.
  *	The handling of the timer(s) is in file lapb_timer.c.
  */
-static void lapb_state0_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
+void lapb_state0_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 	switch (frame->type) {
 		case LAPB_SABM:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S0 RX SABM(%d)", frame->pf);
@@ -70,7 +70,7 @@ static void lapb_state0_machine(struct lapb_cs *lapb, struct lapb_frame *frame) 
  *	State machine for state 1, Awaiting Connection State.
  *	The handling of the timer(s) is in file lapb_timer.c.
  */
-static void lapb_state1_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
+void lapb_state1_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 	switch (frame->type) {
 		case LAPB_SABM:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 RX SABM(%d)", frame->pf);
@@ -141,7 +141,7 @@ static void lapb_state1_machine(struct lapb_cs *lapb, struct lapb_frame *frame) 
  *	State machine for state 2, Awaiting Release State.
  *	The handling of the timer(s) is in file lapb_timer.c
  */
-static void lapb_state2_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
+void lapb_state2_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 	switch (frame->type) {
 		case LAPB_SABM:
 		case LAPB_SABME:
@@ -191,7 +191,7 @@ static void lapb_state2_machine(struct lapb_cs *lapb, struct lapb_frame *frame) 
  *	State machine for state 3, Connected State.
  *	The handling of the timer(s) is in file lapb_timer.c
  */
-static void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size, struct lapb_frame *frame) {
+void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size, struct lapb_frame *frame) {
 	//int queued = 0;
 	int modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
@@ -426,7 +426,7 @@ static void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size
  *	State machine for state 4, Frame Reject State.
  *	The handling of the timer(s) is in file lapb_timer.c.
  */
-//static void lapb_state4_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
+//void lapb_state4_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 //	switch (frame->type) {
 //		/* Command */
 //		case LAPB_SABM:
@@ -498,7 +498,6 @@ static void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size
 //			break;
 //	};
 //}
-
 
 /*
  *	Process an incoming LAPB frame

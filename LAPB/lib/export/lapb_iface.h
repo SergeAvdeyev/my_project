@@ -16,6 +16,10 @@
 
 #define INTERNAL_SYNC 1 /* For including pthread.h and make library thread-safe */
 
+#if INTERNAL_SYNC
+#include <pthread.h>
+#endif
+
 #define	LAPB_ACK_PENDING_CONDITION	0x01
 #define	LAPB_REJECT_CONDITION		0x02
 #define	LAPB_PEER_RX_BUSY_CONDITION	0x04

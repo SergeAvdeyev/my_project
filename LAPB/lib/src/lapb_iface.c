@@ -14,18 +14,13 @@
 /*
  *	Create an empty LAPB control block.
  */
-static struct lapb_cs *lapb_create_cb(void) {
+struct lapb_cs *lapb_create_cs(void) {
 	struct lapb_cs *lapb;
 
 	lapb = malloc(sizeof(struct lapb_cs));
 
 	if (!lapb)
 		goto out;
-
-	//cb_init(&lapb->write_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
-	//cb_init(&lapb->ack_queue, LAPB_DEFAULT_WINDOW, LAPB_DEFAULT_N1);
-	//lapb->write_queue.buffer = NULL;
-	//lapb->ack_queue.buffer = NULL;
 
 	/* Zero variables */
 	lapb->N2count = 0;
@@ -47,7 +42,7 @@ out:
 	return lapb;
 }
 
-void default_debug(struct lapb_cs *lapb, int level, const char * format, ...) {
+void lapb_default_debug(struct lapb_cs *lapb, int level, const char * format, ...) {
 	(void)lapb;
 	(void)level;
 	(void)format;
@@ -60,13 +55,13 @@ int lapb_register(struct lapb_callbacks *callbacks,
 						 struct lapb_cs ** lapb) {
 	int rc = LAPB_BADTOKEN;
 
-	*lapb = lapb_create_cb();
+	*lapb = lapb_create_cs();
 	rc = LAPB_NOMEM;
 	if (!*lapb)
 		goto out;
 
 	if (!callbacks->debug)
-		callbacks->debug = default_debug;
+		callbacks->debug = lapb_default_debug;
 	(*lapb)->callbacks = callbacks;
 
 #if INTERNAL_SYNC

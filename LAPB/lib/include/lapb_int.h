@@ -15,9 +15,6 @@
 
 #include "lapb_iface.h"
 
-#if INTERNAL_SYNC
-#include <pthread.h>
-#endif
 
 /* lapb_iface.c */
 void lapb_connect_indication(struct lapb_cs *lapb, int);
