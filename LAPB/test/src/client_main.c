@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 	int ret;
 	char buffer[2048];
 
-	int dbg = TRUE;
+	int dbg = FALSE;
 
 	unsigned char lapb_equipment_type = LAPB_DTE;
 	unsigned char lapb_modulo = LAPB_STANDARD;
