@@ -83,7 +83,7 @@ int lapb_register(struct lapb_callbacks *callbacks,
 	/* Fill invert table */
 	fill_inv_table();
 
-	lapb_start_t2timer(*lapb);
+	//lapb_start_t2timer(*lapb);
 	rc = LAPB_OK;
 out:
 	return rc;
@@ -209,6 +209,7 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 	lapb->state = LAPB_STATE_2;
 	lapb->N2count = 0;
 	lapb_start_t1timer(lapb);
+	lapb_stop_t2timer(lapb);
 
 	lapb->callbacks->debug(lapb, 0, "[LAPB] S3 -> S2");
 
@@ -277,19 +278,29 @@ out:
 
 
 /* Callback functions */
+void lapb_connect_confirmation(struct lapb_cs *lapb, int reason) {
+	if (lapb->callbacks->connect_confirmation)
+		lapb->callbacks->connect_confirmation(lapb, reason);
+}
+
 void lapb_connect_indication(struct lapb_cs *lapb, int reason) {
-	if (lapb->callbacks->on_connected)
-		lapb->callbacks->on_connected(lapb, reason);
+	if (lapb->callbacks->connect_indication)
+		lapb->callbacks->connect_indication(lapb, reason);
+}
+
+void lapb_disconnect_confirmation(struct lapb_cs *lapb, int reason) {
+	if (lapb->callbacks->disconnect_confirmation)
+		lapb->callbacks->disconnect_confirmation(lapb, reason);
 }
 
 void lapb_disconnect_indication(struct lapb_cs *lapb, int reason) {
-	if (lapb->callbacks->on_disconnected)
-		lapb->callbacks->on_disconnected(lapb, reason);
+	if (lapb->callbacks->disconnect_indication)
+		lapb->callbacks->disconnect_indication(lapb, reason);
 }
 
 int lapb_data_indication(struct lapb_cs *lapb, char * data, int data_size) {
-	if (lapb->callbacks->on_new_data)
-		return lapb->callbacks->on_new_data(lapb, data, data_size);
+	if (lapb->callbacks->data_indication)
+		return lapb->callbacks->data_indication(lapb, data, data_size);
 
 	return 0;
 }

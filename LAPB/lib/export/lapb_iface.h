@@ -65,12 +65,11 @@
 
 /* Define Link State constants. */
 enum {
-	LAPB_STATE_0,	/* Disconnected State		*/
-	LAPB_STATE_1,	/* Awaiting Connection State	*/
+	LAPB_STATE_0,	/* Disconnected State */
+	LAPB_STATE_1,	/* Awaiting Connection State */
 	LAPB_STATE_2,	/* Awaiting Disconnection State	*/
-	LAPB_STATE_3	/* Data Transfer State		*/
-	//LAPB_STATE_4,	/* Frame Reject State		*/
-	//LAPB_NOT_READY	/* Physical layer not ready */
+	LAPB_STATE_3,	/* Data Transfer State */
+	LAPB_STATE_4	/* Frame Reject State */
 };
 
 
@@ -164,7 +163,9 @@ struct lapb_cs {
 	_uchar		condition;
 	_ushort		N2;
 	_ushort		N2count;
-	_ushort		T1, T2;
+	_ushort		T1, T2;		/* T1 and T2 intervals */
+	void *		T1_timer;
+	void *		T2_timer;
 	_uchar		T1_state, T2_state;
 
 	/* Internal control information */
@@ -189,15 +190,23 @@ struct lapb_cs {
 
 
 struct lapb_callbacks {
-	void (*on_connected)(struct lapb_cs * lapb, int reason);
-	void (*on_disconnected)(struct lapb_cs * lapb, int reason);
-	int  (*on_new_data)(struct lapb_cs * lapb, char * data, int data_size);
+	void (*connect_confirmation)(struct lapb_cs * lapb, int reason);	/* Connection to the remote system has been established, it
+																		   was initiated by the local system due to the DL Connect
+																		   Request message. */
+	void (*connect_indication)(struct lapb_cs * lapb, int reason);		/* Connection to the remote system has been established, it
+																		   was initiated by the remote system. */
+	void (*disconnect_confirmation)(struct lapb_cs * lapb, int reason);	/* Connection with the remote system has been terminated, it
+																		   was terminated by the local system due to the DL
+																		   Disconnect Request message. */
+	void (*disconnect_indication)(struct lapb_cs * lapb, int reason);	/* Connection with the remote system has been terminated, it
+																		   was terminated by the remote system, or the connection
+																		   initiation requested by the DL Connect Request message
+																		   has been refused by the remote system. */
+	int  (*data_indication)(struct lapb_cs * lapb, char * data, int data_size);	/* Data from the remote system has been received. */
 	void (*transmit_data)(struct lapb_cs * lapb, char *data, int data_size);
 
-	void (*start_t1timer)(struct lapb_cs * lapb);
-	void (*stop_t1timer)();
-	void (*start_t2timer)(struct lapb_cs * lapb);
-	void (*stop_t2timer)();
+	void (*start_timer)(void * timer);
+	void (*stop_timer)(void * timer);
 
 	void (*debug)(struct lapb_cs *lapb, int level, const char * format, ...);
 };
@@ -236,8 +245,8 @@ extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, 
 //extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 
 /* lapb_timer.c */
-extern void lapb_t1timer_expiry(struct lapb_cs *lapb);
-extern void lapb_t2timer_expiry(struct lapb_cs *lapb);
+extern void lapb_t1timer_expiry(unsigned long int lapb_addr);
+extern void lapb_t2timer_expiry(unsigned long int lapb_addr);
 
 
 /*

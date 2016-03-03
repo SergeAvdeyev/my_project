@@ -17,7 +17,9 @@
 
 
 /* lapb_iface.c */
+void lapb_connect_confirmation(struct lapb_cs *lapb, int);
 void lapb_connect_indication(struct lapb_cs *lapb, int);
+void lapb_disconnect_confirmation(struct lapb_cs *lapb, int);
 void lapb_disconnect_indication(struct lapb_cs *lapb, int);
 int lapb_data_indication(struct lapb_cs *lapb, char * data, int data_size);
 int lapb_data_transmit(struct lapb_cs *lapb, char *data, int data_size);

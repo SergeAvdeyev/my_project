@@ -6,7 +6,7 @@
 char str_buf[1024];
 int break_flag = FALSE;
 int out_counter;
-//int old_state;
+int old_state = FALSE;
 
 /* Signals handler */
 void signal_callback_handler(int signum) {
@@ -67,19 +67,32 @@ char * buf_to_str(char * data, int data_size) {
  * LAPB callback functions for X.25
  *
 */
-/* Called by LAPB to inform X25 that SABM(SABME) is confirmed or UA sended on SABM(SABME) command */
-void on_connected(struct lapb_cs * lapb, int reason) {
+/* Called by LAPB to inform X25 that Connect Request is confirmed */
+void connect_confirmation(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
-	lapb_debug(NULL, 0, "[X25_CB] connected event is called(%s)", lapb_error_str(reason));
+	lapb_debug(NULL, 0, "[X25_CB] connect_confirmation event is called(%s)", lapb_error_str(reason));
 	out_counter = 0;
 }
 
-/* Called by LAPB to inform X25 that DISC is received or UA sended on DISC command */
-void on_disconnected(struct lapb_cs * lapb, int reason) {
+/* Called by LAPB to inform X25 that connection was initiated by the remote system */
+void connect_indication(struct lapb_cs * lapb, int reason) {
+	(void)lapb;
+	lapb_debug(NULL, 0, "[X25_CB] connect_indication event is called(%s)", lapb_error_str(reason));
+	out_counter = 0;
+}
+
+/* Called by LAPB to inform X25 that Disconnect Request is confirmed */
+void disconnect_confirmation(struct lapb_cs * lapb, int reason) {
+	(void)lapb;
+	lapb_debug(NULL, 0, "[X25_CB] disconnect_confirmation event is called(%s)", lapb_error_str(reason));
+}
+
+/* Called by LAPB to inform X25 that connection was terminated by the remote system */
+void disconnect_indication(struct lapb_cs * lapb, int reason) {
 	char * buffer;
 	int buffer_size;
 
-	lapb_debug(NULL, 0, "[X25_CB] disconnected event is called(%s)", lapb_error_str(reason));
+	lapb_debug(NULL, 0, "[X25_CB] disconnect_indication event is called(%s)", lapb_error_str(reason));
 	if (lapb->write_queue.count) {
 		printf("\nUnacked data:\n");
 		while ((buffer = lapb_dequeue(lapb, &buffer_size)) != NULL) {
@@ -89,38 +102,13 @@ void on_disconnected(struct lapb_cs * lapb, int reason) {
 }
 
 /* Called by LAPB to inform X25 about new data */
-int on_new_incoming_data(struct lapb_cs * lapb, char * data, int data_size) {
+int data_indication(struct lapb_cs * lapb, char * data, int data_size) {
 	(void)lapb;
 	//lapb_debug(NULL, 0, "[X25_CB] received new data");
 	printf("%s\n", buf_to_str(data, data_size));
 	return 0;
 }
 
-/* Called by LAPB to start timer T1 */
-void start_t1timer(struct lapb_cs * lapb) {
-	timer_t1_set_interval(lapb->T1);
-	timer_t1_start();
-	lapb_debug(NULL, 0, "[LAPB] start_t1timer is called");
-}
-
-/* Called by LAPB to stop timer T1 */
-void stop_t1timer() {
-	timer_t1_stop();
-	lapb_debug(NULL, 0, "[LAPB] stop_t1timer is called");
-}
-
-/* Called by LAPB to start timer T2 */
-void start_t2timer(struct lapb_cs * lapb) {
-	timer_t2_set_interval(lapb->T2);
-	timer_t2_start();
-	lapb_debug(NULL, 0, "[LAPB] start_t2timer is called");
-}
-
-/* Called by LAPB to stop timer T1 */
-void stop_t2timer() {
-	timer_t2_stop();
-	lapb_debug(NULL, 0, "[LAPB] stop_t2timer is called");
-}
 
 /* Called by LAPB to write debug info */
 void lapb_debug(struct lapb_cs *lapb, int level, const char * format, ...) {
@@ -135,24 +123,6 @@ void lapb_debug(struct lapb_cs *lapb, int level, const char * format, ...) {
 		logger_enqueue(buf, strlen(buf) + 1);
 	};
 }
-
-
-
-
-/*
- * Timer callback functions
- *
-*/
-void t1timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cs * lapb = (struct lapb_cs *)lapb_addr;
-	lapb_t1timer_expiry(lapb);
-}
-
-void t2timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cs * lapb = (struct lapb_cs *)lapb_addr;
-	lapb_t2timer_expiry(lapb);
-}
-
 
 
 
@@ -288,8 +258,15 @@ int lapb_not_ready(struct lapb_cs *lapb, const struct main_callbacks * callbacks
 	char buffer[256];
 	int result = 0;
 
-	if (callbacks->is_connected())
+	if (callbacks->is_connected()) {
+		if (!old_state) {
+			lapb_reset(lapb, LAPB_STATE_0);
+			printf("\nPhysical connection established\n\n");
+			old_state = TRUE;
+		};
 		return 1;
+	};
+	old_state = FALSE;
 	while_flag = TRUE;
 	print_commands_5();
 	while (while_flag) {

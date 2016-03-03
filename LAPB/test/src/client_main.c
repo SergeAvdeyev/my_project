@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
 	struct tcp_client_struct * client_struct = NULL;
 
 	pthread_t timer_thread;
-	struct timer_struct * timer_struct = NULL;
+	struct timer_thread_struct * timer_struct = NULL;
 
 	pthread_t logger_thread;
 
@@ -239,15 +239,15 @@ label_2:
 
 	/* LAPB init */
 	bzero(&callbacks, sizeof(struct lapb_callbacks));
-	callbacks.on_connected = on_connected;
-	callbacks.on_disconnected = on_disconnected;
-	callbacks.on_new_data = on_new_incoming_data;
+	callbacks.connect_confirmation = connect_confirmation;
+	callbacks.connect_indication = connect_indication;
+	callbacks.disconnect_confirmation = disconnect_confirmation;
+	callbacks.disconnect_indication = disconnect_indication;
+	callbacks.data_indication = data_indication;
 	callbacks.transmit_data = transmit_data;
 
-	callbacks.start_t1timer = start_t1timer;
-	callbacks.stop_t1timer = stop_t1timer;
-	callbacks.start_t2timer = start_t2timer;
-	callbacks.stop_t2timer = stop_t2timer;
+	callbacks.start_timer = timer_start;
+	callbacks.stop_timer = timer_stop;
 
 	callbacks.debug = lapb_debug;
 
@@ -265,22 +265,30 @@ label_2:
 
 
 	/* Create timer */
-	timer_struct = malloc(sizeof(struct timer_struct));
+	timer_struct = malloc(sizeof(struct timer_thread_struct));
 	timer_struct->interval = 10; /* milliseconds */
 	timer_struct->lapb_addr = (unsigned long int)lapb_client;
+	bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
+	timer_struct->timers_list[0] = malloc(sizeof(struct timer_descr));
+	timer_struct->timers_list[0]->interval = lapb_client->T1;
+	timer_struct->timers_list[0]->active = FALSE;
+	timer_struct->timers_list[0]->timer_expiry = lapb_t1timer_expiry;
+	timer_struct->timers_list[1] = malloc(sizeof(struct timer_descr));
+	timer_struct->timers_list[1]->interval = lapb_client->T2;
+	timer_struct->timers_list[1]->active = FALSE;
+	timer_struct->timers_list[1]->timer_expiry = lapb_t2timer_expiry;
 
-	/* Timer callbacks */
-	timer_struct->t1timer_expiry = t1timer_expiry;
-	timer_struct->t2timer_expiry = t2timer_expiry;
+	lapb_client->T1_timer = timer_struct->timers_list[0];
+	lapb_client->T2_timer = timer_struct->timers_list[1];
 
-	ret = pthread_create(&timer_thread, NULL, timer_function, (void*)timer_struct);
+	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
 	if (ret) {
 		lapb_debug(NULL, 0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
 	printf("Timer thread created(code %d)\n", ret);
-	while (!is_timer_started())
+	while (!is_timer_thread_started())
 		sleep_ms(200);
 	printf("Timer started\n\n");
 
@@ -305,8 +313,8 @@ label_2:
 		free(client_struct);
 	};
 
-	terminate_timer();
-	while (is_timer_started())
+	terminate_timer_thread();
+	while (is_timer_thread_started())
 		sleep_ms(200);
 	printf("Timer stopped\n");
 	pthread_join(timer_thread, (void **)&thread_result);

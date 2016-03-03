@@ -15,19 +15,21 @@
 void lapb_start_t1timer(struct lapb_cs *lapb) {
 	if (lapb->T1_state) return;
 
-	if (!lapb->callbacks->start_t1timer) return;
+	if (!lapb->callbacks->start_timer) return;
 
-	lapb->callbacks->start_t1timer(lapb);
+	lapb->callbacks->start_timer(lapb->T1_timer);
 	lapb->T1_state = TRUE;
+	lapb->callbacks->debug(lapb, 0, "[LAPB] start_t1timer is called");
 }
 
 void lapb_stop_t1timer(struct lapb_cs *lapb) {
 	if (!lapb->T1_state) return;
 
-	if (!lapb->callbacks->stop_t1timer) return;
-	lapb->callbacks->stop_t1timer(lapb);
+	if (!lapb->callbacks->stop_timer) return;
+	lapb->callbacks->stop_timer(lapb->T1_timer);
 	lapb->T1_state = FALSE;
 	lapb->N2count = 0;
+	lapb->callbacks->debug(lapb, 0, "[LAPB] stop_t1timer is called");
 }
 
 void lapb_restart_t1timer(struct lapb_cs *lapb) {
@@ -36,8 +38,8 @@ void lapb_restart_t1timer(struct lapb_cs *lapb) {
 	//lapb->T1_state = FALSE;
 	lapb->N2count = 0;
 
-	if ((!lapb->T1_state) && (lapb->callbacks->start_t1timer)) {
-		lapb->callbacks->start_t1timer(lapb);
+	if ((!lapb->T1_state) && (lapb->callbacks->start_timer)) {
+		lapb->callbacks->start_timer(lapb->T1_timer);
 		lapb->T1_state = TRUE;
 	};
 }
@@ -49,17 +51,19 @@ int lapb_t1timer_running(struct lapb_cs *lapb) {
 void lapb_start_t2timer(struct lapb_cs *lapb) {
 	if (lapb->T2_state) return;
 
-	if (!lapb->callbacks->start_t2timer) return;
-	lapb->callbacks->start_t2timer(lapb);
+	if (!lapb->callbacks->start_timer) return;
+	lapb->callbacks->start_timer(lapb->T2_timer);
 	lapb->T2_state = TRUE;
+	lapb->callbacks->debug(lapb, 0, "[LAPB] start_t2timer is called");
 }
 
 void lapb_stop_t2timer(struct lapb_cs *lapb) {
 	if (!lapb->T2_state) return;
 
-	if (!lapb->callbacks->stop_t2timer) return;
-	lapb->callbacks->stop_t2timer(lapb);
+	if (!lapb->callbacks->stop_timer) return;
+	lapb->callbacks->stop_timer(lapb->T2_timer);
 	lapb->T2_state = FALSE;
+	lapb->callbacks->debug(lapb, 0, "[LAPB] stop_t2timer is called");
 }
 
 int lapb_t2timer_running(struct lapb_cs *lapb) {
@@ -67,7 +71,8 @@ int lapb_t2timer_running(struct lapb_cs *lapb) {
 }
 
 
-void lapb_t2timer_expiry(struct lapb_cs *lapb) {
+void lapb_t2timer_expiry(unsigned long int lapb_addr) {
+	struct lapb_cs *lapb = (struct lapb_cs *)lapb_addr;
 	if (!lapb) return;
 
 	lock(lapb);
@@ -80,7 +85,8 @@ void lapb_t2timer_expiry(struct lapb_cs *lapb) {
 	unlock(lapb);
 }
 
-void lapb_t1timer_expiry(struct lapb_cs *lapb) {
+void lapb_t1timer_expiry(unsigned long int lapb_addr) {
+	struct lapb_cs *lapb = (struct lapb_cs *)lapb_addr;
 	if (!lapb) return;
 
 	lock(lapb);

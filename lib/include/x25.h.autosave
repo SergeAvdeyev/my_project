@@ -9,7 +9,7 @@
 
 #ifndef _X25_H
 #define _X25_H 
-//include <linux/x25.h>
+#include <linux/x25.h>
 //#include <linux/slab.h>
 //#include <net/sock.h>
 
@@ -24,29 +24,29 @@
 #define	X25_GFI_STDSEQ			0x10
 #define	X25_GFI_EXTSEQ			0x20
 
-#define	X25_Q_BIT			0x80
-#define	X25_D_BIT			0x40
-#define	X25_STD_M_BIT			0x10
-#define	X25_EXT_M_BIT			0x01
+#define	X25_Q_BIT						0x80
+#define	X25_D_BIT						0x40
+#define	X25_STD_M_BIT					0x10
+#define	X25_EXT_M_BIT					0x01
 
-#define	X25_CALL_REQUEST		0x0B
-#define	X25_CALL_ACCEPTED		0x0F
-#define	X25_CLEAR_REQUEST		0x13
-#define	X25_CLEAR_CONFIRMATION		0x17
-#define	X25_DATA			0x00
-#define	X25_INTERRUPT			0x23
-#define	X25_INTERRUPT_CONFIRMATION	0x27
-#define	X25_RR				0x01
-#define	X25_RNR				0x05
-#define	X25_REJ				0x09
-#define	X25_RESET_REQUEST		0x1B
-#define	X25_RESET_CONFIRMATION		0x1F
-#define	X25_REGISTRATION_REQUEST	0xF3
+#define	X25_CALL_REQUEST				0x0B
+#define	X25_CALL_ACCEPTED				0x0F
+#define	X25_CLEAR_REQUEST				0x13
+#define	X25_CLEAR_CONFIRMATION			0x17
+#define	X25_DATA						0x00
+#define	X25_INTERRUPT					0x23
+#define	X25_INTERRUPT_CONFIRMATION		0x27
+#define	X25_RR							0x01
+#define	X25_RNR							0x05
+#define	X25_REJ							0x09
+#define	X25_RESET_REQUEST				0x1B
+#define	X25_RESET_CONFIRMATION			0x1F
+#define	X25_REGISTRATION_REQUEST		0xF3
 #define	X25_REGISTRATION_CONFIRMATION	0xF7
-#define	X25_RESTART_REQUEST		0xFB
-#define	X25_RESTART_CONFIRMATION	0xFF
-#define	X25_DIAGNOSTIC			0xF1
-#define	X25_ILLEGAL			0xFD
+#define	X25_RESTART_REQUEST				0xFB
+#define	X25_RESTART_CONFIRMATION		0xFF
+#define	X25_DIAGNOSTIC					0xF1
+#define	X25_ILLEGAL						0xFD
 
 /* Define the various conditions that may exist */
 
@@ -54,21 +54,23 @@
 #define	X25_COND_OWN_RX_BUSY	0x02
 #define	X25_COND_PEER_RX_BUSY	0x04
 
-/* Define Link State constants. */
+/* X.25 Restart Layer states */
 enum {
-	X25_STATE_0,		/* Ready */
-	X25_STATE_1,		/* Awaiting Call Accepted */
-	X25_STATE_2,		/* Awaiting Clear Confirmation */
-	X25_STATE_3,		/* Data Transfer */
-	X25_STATE_4		/* Awaiting Reset Confirmation */
+	X25_RL_STATE_0,		/* Idle state */
+	X25_RL_STATE_1,		/* Awaiting Connection state */
+	X25_RL_STATE_2,		/* Awaiting Restart state */
+	X25_RL_STATE_3		/* Link Active state */
 };
 
+/* X.25 Packet Layer states */
 enum {
-	X25_LINK_STATE_0,
-	X25_LINK_STATE_1,
-	X25_LINK_STATE_2,
-	X25_LINK_STATE_3
+	X25_PL_STATE_0,		/* Disconnected state */
+	X25_PL_STATE_1,		/* Awaiting Connection state */
+	X25_PL_STATE_2,		/* Awaiting Disconnection state */
+	X25_PL_STATE_3,		/* Data Transfer state */
+	X25_PL_STATE_4		/* Awaiting Reset state */
 };
+
 
 #define X25_DEFAULT_T20		(180 * HZ)		/* Default T20 value */
 #define X25_DEFAULT_T21		(200 * HZ)		/* Default T21 value */

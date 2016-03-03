@@ -29,31 +29,19 @@ struct main_callbacks {
 
 
 
-/* Called by LAPB to inform X25 that SABM(SABME) is confirmed or UA sended on SABM(SABME) command */
-void on_connected(struct lapb_cs * lapb, int reason);
-/* Called by LAPB to inform X25 that DISC is received or UA sended on DISC command */
-void on_disconnected(struct lapb_cs * lapb, int reason);
+/* Called by LAPB to inform X25 that Connect Request is confirmed */
+void connect_confirmation(struct lapb_cs * lapb, int reason);
+/* Called by LAPB to inform X25 that connection was initiated by the remote system */
+void connect_indication(struct lapb_cs * lapb, int reason);
+/* Called by LAPB to inform X25 that Disconnect Request is confirmed */
+void disconnect_confirmation(struct lapb_cs * lapb, int reason);
+/* Called by LAPB to inform X25 that connection was terminated by the remote system */
+void disconnect_indication(struct lapb_cs * lapb, int reason);
 /* Called by LAPB to inform X25 about new data */
-int on_new_incoming_data(struct lapb_cs * lapb, char * data, int data_size);
-/* Called by LAPB to start timer T1 */
-void start_t1timer(struct lapb_cs * lapb);
-/* Called by LAPB to stop timer T1 */
-void stop_t1timer();
-/* Called by LAPB to check timer T1 state */
-int t1timer_running();
-/* Called by LAPB to start timer T2 */
-void start_t2timer(struct lapb_cs * lapb);
-/* Called by LAPB to stop timer T1 */
-void stop_t2timer();
-/* Called by LAPB to check timer T2 state */
-int t2timer_running();
+int data_indication(struct lapb_cs * lapb, char * data, int data_size);
+
 /* Called by LAPB to write debug info */
 void lapb_debug(struct lapb_cs *lapb, int level, const char * format, ...);
-
-
-void t1timer_expiry(unsigned long int lapb_addr);
-void t2timer_expiry(unsigned long int lapb_addr);
-
 
 
 void setup_signals_handler();
@@ -63,9 +51,6 @@ void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks);
 int wait_stdin(struct lapb_cs * lapb, unsigned char break_condition, int run_once);
 
 char * lapb_error_str(int error);
-
-//void main_lock();
-//void main_unlock();
 
 #endif // COMMON_H
 

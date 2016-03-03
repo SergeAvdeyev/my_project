@@ -9,27 +9,26 @@
 
 #include "common.h"
 
-struct timer_struct {
+struct timer_descr {
 	int interval;
-	unsigned long int lapb_addr;
-	void (*t1timer_expiry)(unsigned long int lapb_addr);
-	void (*t2timer_expiry)(unsigned long int lapb_addr);
+	int interval_tmp;
+	int active;
+	void (*timer_expiry)(unsigned long int lapb_addr);
 };
 
 
-void *timer_function(void * ptr);
+struct timer_thread_struct {
+	int interval;
+	struct timer_descr * timers_list[10];
+	unsigned long int lapb_addr;
+};
 
-void terminate_timer();
-int is_timer_started();
+void *timer_thread_function(void * ptr);
 
-void timer_t1_start();
-void timer_t1_stop();
-void timer_t1_set_interval(int value);
-int  timer_t1_get_state();
+void terminate_timer_thread();
+int is_timer_thread_started();
 
-void timer_t2_start();
-void timer_t2_stop();
-void timer_t2_set_interval(int value);
-int  timer_t2_get_state();
+void timer_start(void * timer);
+void timer_stop(void * timer);
 
 #endif // CLIENT_TIMER_H
