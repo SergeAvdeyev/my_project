@@ -91,8 +91,8 @@ void lapb_kick(struct lapb_cs *lapb) {
 
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
-		lapb_start_t1timer(lapb);
-		lapb_stop_t2timer(lapb);
+		lapb_start_t201timer(lapb);
+		lapb_stop_t202timer(lapb);
 	};
 }
 
@@ -158,8 +158,8 @@ void lapb_establish_data_link(struct lapb_cs *lapb) {
 		lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 	};
 
-	if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
-		lapb_start_t1timer(lapb);
+	//if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
+		lapb_start_t201timer(lapb);
 }
 
 void lapb_enquiry_response(struct lapb_cs *lapb) {
@@ -189,9 +189,9 @@ void lapb_check_iframes_acked(struct lapb_cs *lapb, unsigned short nr) {
 //	};
 	//lapb_stop_t1timer(lapb);
 	if (lapb_frames_acked(lapb, nr))
-		lapb_stop_t1timer(lapb);
+		lapb_stop_t201timer(lapb);
 	else
-		lapb_restart_t1timer(lapb);
+		lapb_restart_t201timer(lapb);
 }
 
 void lapb_check_need_response(struct lapb_cs *lapb, int type, int pf) {

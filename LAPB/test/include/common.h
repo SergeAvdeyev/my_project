@@ -22,10 +22,10 @@ _ushort error_type; /* 0 - no error; 1 - FCS error; 2 - N(R) error */
 _ushort error_counter;
 
 
-struct main_callbacks {
-	int (*is_connected)();
+//struct main_callbacks {
+//	int (*is_connected)();
 
-};
+//};
 
 
 
@@ -47,7 +47,7 @@ void lapb_debug(struct lapb_cs *lapb, int level, const char * format, ...);
 void setup_signals_handler();
 int sleep_ms(int milliseconds);
 char * buf_to_str(char * data, int data_size);
-void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks);
+void main_loop(struct lapb_cs *lapb);
 int wait_stdin(struct lapb_cs * lapb, unsigned char break_condition, int run_once);
 
 char * lapb_error_str(int error);

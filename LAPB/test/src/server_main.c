@@ -38,9 +38,10 @@ void hex_dump(char * data, int data_size) {
 
 
 
-///*
-// * LAPB callback functions for X.25
-// *
+/*
+ * LAPB callback functions for X.25
+ *
+ */
 
 /* Called by LAPB to transmit data via physical connection */
 void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
@@ -342,8 +343,8 @@ label_2:
 	//lapb_server->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 
 	/* Redefine some default values */
-	lapb_server->T1 = 1000; /* 1s */
-	lapb_server->T2 = 100;  /* 0.5s */
+	lapb_server->T201 = 1000; /* 1s */
+	lapb_server->T202 = 100;  /* 0.5s */
 	lapb_server->N2 = 10;	/* Try 10 times */
 	//lapb_server->low_order_bits = TRUE;
 
@@ -353,15 +354,15 @@ label_2:
 	timer_struct->lapb_addr = (unsigned long int)lapb_server;
 	bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
 	timer_struct->timers_list[0] = malloc(sizeof(struct timer_descr));
-	timer_struct->timers_list[0]->interval = lapb_server->T1;
+	timer_struct->timers_list[0]->interval = lapb_server->T201;
 	timer_struct->timers_list[0]->active = FALSE;
-	timer_struct->timers_list[0]->timer_expiry = lapb_t1timer_expiry;
+	timer_struct->timers_list[0]->timer_expiry = lapb_t201timer_expiry;
 	timer_struct->timers_list[1] = malloc(sizeof(struct timer_descr));
-	timer_struct->timers_list[1]->interval = lapb_server->T2;
+	timer_struct->timers_list[1]->interval = lapb_server->T202;
 	timer_struct->timers_list[1]->active = FALSE;
-	timer_struct->timers_list[1]->timer_expiry = lapb_t2timer_expiry;
-	lapb_server->T1_timer = timer_struct->timers_list[0];
-	lapb_server->T2_timer = timer_struct->timers_list[1];
+	timer_struct->timers_list[1]->timer_expiry = lapb_t202timer_expiry;
+	lapb_server->T201_timer = timer_struct->timers_list[0];
+	lapb_server->T202_timer = timer_struct->timers_list[1];
 
 	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
 	if (ret) {
@@ -374,14 +375,7 @@ label_2:
 		sleep_ms(200);
 	printf("Timer started\n\n");
 
-	struct main_callbacks m_callbacks;
-	bzero(&m_callbacks, sizeof(struct main_callbacks));
-	m_callbacks.is_connected = is_server_accepted;
-	//m_callbacks.print_commands_0 = print_commands_0;
-	//m_callbacks.print_commands_1 = print_commands_1;
-	//m_callbacks.print_commands_2 = print_commands_2;
-	//m_callbacks.print_commands_3 = print_commands_3;
-	main_loop(lapb_server, &m_callbacks);
+	main_loop(lapb_server);
 
 	printf("Main loop ended\n");
 

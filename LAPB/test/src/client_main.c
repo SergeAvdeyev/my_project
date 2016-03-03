@@ -258,8 +258,8 @@ label_2:
 	};
 	//lapb_client->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 	/* Redefine some default values */
-	lapb_client->T1 = 1000;	/* 1s */
-	lapb_client->T2 = 100;	/* 0.5s */
+	lapb_client->T201 = 1000;	/* 1s */
+	lapb_client->T202 = 100;	/* 0.5s */
 	lapb_client->N2 = 10;	/* Try 10 times */
 	//lapb_client->low_order_bits = TRUE;
 
@@ -270,16 +270,16 @@ label_2:
 	timer_struct->lapb_addr = (unsigned long int)lapb_client;
 	bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
 	timer_struct->timers_list[0] = malloc(sizeof(struct timer_descr));
-	timer_struct->timers_list[0]->interval = lapb_client->T1;
+	timer_struct->timers_list[0]->interval = lapb_client->T201;
 	timer_struct->timers_list[0]->active = FALSE;
-	timer_struct->timers_list[0]->timer_expiry = lapb_t1timer_expiry;
+	timer_struct->timers_list[0]->timer_expiry = lapb_t201timer_expiry;
 	timer_struct->timers_list[1] = malloc(sizeof(struct timer_descr));
-	timer_struct->timers_list[1]->interval = lapb_client->T2;
+	timer_struct->timers_list[1]->interval = lapb_client->T202;
 	timer_struct->timers_list[1]->active = FALSE;
-	timer_struct->timers_list[1]->timer_expiry = lapb_t2timer_expiry;
+	timer_struct->timers_list[1]->timer_expiry = lapb_t202timer_expiry;
 
-	lapb_client->T1_timer = timer_struct->timers_list[0];
-	lapb_client->T2_timer = timer_struct->timers_list[1];
+	lapb_client->T201_timer = timer_struct->timers_list[0];
+	lapb_client->T202_timer = timer_struct->timers_list[1];
 
 	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
 	if (ret) {
@@ -292,11 +292,7 @@ label_2:
 		sleep_ms(200);
 	printf("Timer started\n\n");
 
-	struct main_callbacks m_callbacks;
-	bzero(&m_callbacks, sizeof(struct main_callbacks));
-	m_callbacks.is_connected = is_client_connected;
-
-	main_loop(lapb_client, &m_callbacks);
+	main_loop(lapb_client);
 
 	printf("Main loop ended\n");
 

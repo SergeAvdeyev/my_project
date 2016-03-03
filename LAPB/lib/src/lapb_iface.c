@@ -28,10 +28,10 @@ struct lapb_cs *lapb_create_cs(void) {
 	lapb->vr = 0;
 	lapb->vs = 0;
 	lapb->condition = 0;
-	lapb->T1	= LAPB_DEFAULT_T1;
-	lapb->T2	= LAPB_DEFAULT_T2;
-	lapb->T1_state = FALSE;
-	lapb->T2_state = FALSE;
+	lapb->T201	= LAPB_DEFAULT_T1;
+	lapb->T202	= LAPB_DEFAULT_T2;
+	lapb->T201_state = FALSE;
+	lapb->T202_state = FALSE;
 	lapb->N1	= LAPB_DEFAULT_N1;
 	lapb->N2	= LAPB_DEFAULT_N2;
 	lapb->mode	= LAPB_DEFAULT_SMODE;
@@ -95,8 +95,8 @@ int lapb_unregister(struct lapb_cs * lapb) {
 	if (!lapb)
 		goto out;
 
-	lapb_stop_t1timer(lapb);
-	lapb_stop_t2timer(lapb);
+	lapb_stop_t201timer(lapb);
+	lapb_stop_t202timer(lapb);
 
 	cb_free(&lapb->write_queue);
 	cb_free(&lapb->ack_queue);
@@ -128,8 +128,8 @@ int lapb_reset(struct lapb_cs * lapb, unsigned char init_state) {
 	if (!lapb)
 		goto out;
 
-	lapb_stop_t1timer(lapb);
-	lapb_stop_t2timer(lapb);
+	lapb_stop_t201timer(lapb);
+	lapb_stop_t202timer(lapb);
 	lapb_clear_queues(lapb);
 	/* Zero variables */
 	lapb->N2count = 0;
@@ -140,7 +140,7 @@ int lapb_reset(struct lapb_cs * lapb, unsigned char init_state) {
 	unsigned char old_state = lapb->state;
 	lapb->state   = init_state;
 	if ((lapb->mode & LAPB_DCE) && (init_state == LAPB_STATE_0))
-		lapb_start_t1timer(lapb);
+		lapb_start_t201timer(lapb);
 
 	lapb->callbacks->debug(lapb, 0, "[LAPB] S%d -> S%d", old_state, init_state);
 
@@ -195,7 +195,7 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 			lapb->callbacks->debug(lapb, 0, "[LAPB] S1 -> S2");
 			lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			lapb->state = LAPB_STATE_2;
-			lapb_start_t1timer(lapb);
+			lapb_start_t201timer(lapb);
 			rc = LAPB_NOTCONNECTED;
 			goto out;
 
@@ -208,8 +208,8 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 	lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 	lapb->state = LAPB_STATE_2;
 	lapb->N2count = 0;
-	lapb_start_t1timer(lapb);
-	lapb_stop_t2timer(lapb);
+	lapb_start_t201timer(lapb);
+	lapb_stop_t202timer(lapb);
 
 	lapb->callbacks->debug(lapb, 0, "[LAPB] S3 -> S2");
 

@@ -52,13 +52,13 @@ _uchar invert_uchar(_uchar value);
 
 
 /* lapb_timer.c */
-void lapb_start_t1timer(struct lapb_cs *lapb);
-void lapb_stop_t1timer(struct lapb_cs *lapb);
-void lapb_restart_t1timer(struct lapb_cs *lapb);
-int lapb_t1timer_running(struct lapb_cs *lapb);
-void lapb_start_t2timer(struct lapb_cs *lapb);
-void lapb_stop_t2timer(struct lapb_cs *lapb);
-int lapb_t2timer_running(struct lapb_cs *lapb);
+void lapb_start_t201timer(struct lapb_cs *lapb);
+void lapb_stop_t201timer(struct lapb_cs *lapb);
+void lapb_restart_t201timer(struct lapb_cs *lapb);
+int lapb_t201timer_running(struct lapb_cs *lapb);
+void lapb_start_t202timer(struct lapb_cs *lapb);
+void lapb_stop_t202timer(struct lapb_cs *lapb);
+int lapb_t202timer_running(struct lapb_cs *lapb);
 
 /* lapb_queue.c */
 void cb_init(struct circular_buffer * cb, size_t capacity, size_t sz);

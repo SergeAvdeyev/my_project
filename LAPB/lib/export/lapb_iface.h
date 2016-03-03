@@ -163,10 +163,10 @@ struct lapb_cs {
 	_uchar		condition;
 	_ushort		N2;
 	_ushort		N2count;
-	_ushort		T1, T2;		/* T1 and T2 intervals */
-	void *		T1_timer;
-	void *		T2_timer;
-	_uchar		T1_state, T2_state;
+	_ushort		T201, T202;		/* T201 and T202 intervals */
+	void *		T201_timer;
+	void *		T202_timer;
+	_uchar		T201_state, T202_state;
 
 	/* Internal control information */
 	_ushort		N1; /* Maximal I frame size */
@@ -245,8 +245,8 @@ extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, 
 //extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 
 /* lapb_timer.c */
-extern void lapb_t1timer_expiry(unsigned long int lapb_addr);
-extern void lapb_t2timer_expiry(unsigned long int lapb_addr);
+extern void lapb_t201timer_expiry(unsigned long int lapb_addr);
+extern void lapb_t202timer_expiry(unsigned long int lapb_addr);
 
 
 /*

@@ -12,72 +12,72 @@
 #include "lapb_int.h"
 
 
-void lapb_start_t1timer(struct lapb_cs *lapb) {
-	if (lapb->T1_state) return;
+void lapb_start_t201timer(struct lapb_cs *lapb) {
+	if (lapb->T201_state) return;
 
 	if (!lapb->callbacks->start_timer) return;
 
-	lapb->callbacks->start_timer(lapb->T1_timer);
-	lapb->T1_state = TRUE;
-	lapb->callbacks->debug(lapb, 0, "[LAPB] start_t1timer is called");
+	lapb->callbacks->start_timer(lapb->T201_timer);
+	lapb->T201_state = TRUE;
+	lapb->callbacks->debug(lapb, 0, "[LAPB] start_t201timer is called");
 }
 
-void lapb_stop_t1timer(struct lapb_cs *lapb) {
-	if (!lapb->T1_state) return;
+void lapb_stop_t201timer(struct lapb_cs *lapb) {
+	if (!lapb->T201_state) return;
 
 	if (!lapb->callbacks->stop_timer) return;
-	lapb->callbacks->stop_timer(lapb->T1_timer);
-	lapb->T1_state = FALSE;
+	lapb->callbacks->stop_timer(lapb->T201_timer);
+	lapb->T201_state = FALSE;
 	lapb->N2count = 0;
-	lapb->callbacks->debug(lapb, 0, "[LAPB] stop_t1timer is called");
+	lapb->callbacks->debug(lapb, 0, "[LAPB] stop_t201timer is called");
 }
 
-void lapb_restart_t1timer(struct lapb_cs *lapb) {
+void lapb_restart_t201timer(struct lapb_cs *lapb) {
 	//if ((lapb->T1_state) && (lapb->callbacks->stop_t1timer))
 	//	lapb->callbacks->stop_t1timer(lapb);
 	//lapb->T1_state = FALSE;
 	lapb->N2count = 0;
 
-	if ((!lapb->T1_state) && (lapb->callbacks->start_timer)) {
-		lapb->callbacks->start_timer(lapb->T1_timer);
-		lapb->T1_state = TRUE;
+	if ((!lapb->T201_state) && (lapb->callbacks->start_timer)) {
+		lapb->callbacks->start_timer(lapb->T201_timer);
+		lapb->T201_state = TRUE;
 	};
 }
 
-int lapb_t1timer_running(struct lapb_cs *lapb) {
-	return lapb->T1_state;
+int lapb_t201timer_running(struct lapb_cs *lapb) {
+	return lapb->T201_state;
 }
 
-void lapb_start_t2timer(struct lapb_cs *lapb) {
-	if (lapb->T2_state) return;
+void lapb_start_t202timer(struct lapb_cs *lapb) {
+	if (lapb->T202_state) return;
 
 	if (!lapb->callbacks->start_timer) return;
-	lapb->callbacks->start_timer(lapb->T2_timer);
-	lapb->T2_state = TRUE;
-	lapb->callbacks->debug(lapb, 0, "[LAPB] start_t2timer is called");
+	lapb->callbacks->start_timer(lapb->T202_timer);
+	lapb->T202_state = TRUE;
+	lapb->callbacks->debug(lapb, 0, "[LAPB] start_t202timer is called");
 }
 
-void lapb_stop_t2timer(struct lapb_cs *lapb) {
-	if (!lapb->T2_state) return;
+void lapb_stop_t202timer(struct lapb_cs *lapb) {
+	if (!lapb->T202_state) return;
 
 	if (!lapb->callbacks->stop_timer) return;
-	lapb->callbacks->stop_timer(lapb->T2_timer);
-	lapb->T2_state = FALSE;
-	lapb->callbacks->debug(lapb, 0, "[LAPB] stop_t2timer is called");
+	lapb->callbacks->stop_timer(lapb->T202_timer);
+	lapb->T202_state = FALSE;
+	lapb->callbacks->debug(lapb, 0, "[LAPB] stop_t202timer is called");
 }
 
-int lapb_t2timer_running(struct lapb_cs *lapb) {
-	return lapb->T2_state;
+int lapb_t202timer_running(struct lapb_cs *lapb) {
+	return lapb->T202_state;
 }
 
 
-void lapb_t2timer_expiry(unsigned long int lapb_addr) {
+void lapb_t202timer_expiry(unsigned long int lapb_addr) {
 	struct lapb_cs *lapb = (struct lapb_cs *)lapb_addr;
 	if (!lapb) return;
 
 	lock(lapb);
-	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d Timer_2 expired", lapb->state);
-	lapb_stop_t2timer(lapb);
+	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d Timer_202 expired", lapb->state);
+	lapb_stop_t202timer(lapb);
 	if (lapb->condition & LAPB_ACK_PENDING_CONDITION) {
 		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
 		lapb_timeout_response(lapb);
@@ -85,13 +85,13 @@ void lapb_t2timer_expiry(unsigned long int lapb_addr) {
 	unlock(lapb);
 }
 
-void lapb_t1timer_expiry(unsigned long int lapb_addr) {
+void lapb_t201timer_expiry(unsigned long int lapb_addr) {
 	struct lapb_cs *lapb = (struct lapb_cs *)lapb_addr;
 	if (!lapb) return;
 
 	lock(lapb);
 	lapb->N2count++;
-	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d Timer_1 expired(%d of %d)", lapb->state, lapb->N2count, lapb->N2);
+	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d Timer_201 expired(%d of %d)", lapb->state, lapb->N2count, lapb->N2);
 	switch (lapb->state) {
 		/*
 		 *	If we are a DCE, keep going DM .. DM .. DM
@@ -109,7 +109,7 @@ void lapb_t1timer_expiry(unsigned long int lapb_addr) {
 		 */
 		case LAPB_STATE_1:
 			if (lapb->N2count >= lapb->N2) {
-				lapb_stop_t1timer(lapb);
+				lapb_stop_t201timer(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
 			} else {
@@ -128,7 +128,7 @@ void lapb_t1timer_expiry(unsigned long int lapb_addr) {
 		 */
 		case LAPB_STATE_2:
 			if (lapb->N2count >= lapb->N2) {
-				lapb_stop_t1timer(lapb);
+				lapb_stop_t201timer(lapb);
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
@@ -144,7 +144,7 @@ void lapb_t1timer_expiry(unsigned long int lapb_addr) {
 		case LAPB_STATE_3:
 			lapb_requeue_frames(lapb);
 			if (lapb->N2count >= lapb->N2) {
-				lapb_stop_t1timer(lapb);
+				lapb_stop_t201timer(lapb);
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
 			} else {

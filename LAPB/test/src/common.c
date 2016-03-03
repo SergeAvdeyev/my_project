@@ -252,55 +252,8 @@ void print_commands_5() {
 }
 
 
-int lapb_not_ready(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
-	int while_flag;
-	int wait_stdin_result;;
-	char buffer[256];
-	int result = 0;
 
-	if (callbacks->is_connected()) {
-		if (!old_state) {
-			lapb_reset(lapb, LAPB_STATE_0);
-			printf("\nPhysical connection established\n\n");
-			old_state = TRUE;
-		};
-		return 1;
-	};
-	old_state = FALSE;
-	while_flag = TRUE;
-	print_commands_5();
-	while (while_flag) {
-		if (!callbacks->is_connected()) {
-			wait_stdin_result = wait_stdin(lapb, LAPB_STATE_0, TRUE);
-			if (wait_stdin_result <= 0) {
-				sleep_ms(100);
-				continue;
-			};
-		} else {
-			lapb_reset(lapb, LAPB_STATE_0);
-			printf("\nPhysical connection established\n\n");
-			result = 1;
-			break;
-		};
-		bzero(buffer, sizeof(buffer));
-		while (read(0, buffer, sizeof(buffer)) <= 1)
-			fprintf(stderr, ">");
-		printf("\n");
-		int action = atoi(buffer);
-		switch (action) {
-			case 0:
-				exit_flag = TRUE;
-				while_flag = FALSE;
-				break;
-			default:
-				printf("Command is not supported\n\n");
-				break;
-		};
-	};
-	return result;
-}
-
-void lapb_state_0(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+void lapb_state_0(struct lapb_cs *lapb) {
 	int wait_stdin_result;;
 	char buffer[256];
 	int lapb_res;
@@ -309,22 +262,14 @@ void lapb_state_0(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 	while_flag = TRUE;
 	print_commands_0(lapb);
 	while (while_flag) {
-		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_0, TRUE);
+		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_0, FALSE);
 		if (wait_stdin_result <= 0) {
-			if (!callbacks->is_connected()) {
-				printf("\nPhysical connection lost\n");
-				printf("Reconnecting\n\n");
+			if (lapb->state != LAPB_STATE_0) {
+				printf("\n\n");
 				break;
-			} else {
-				if (lapb->state != LAPB_STATE_0) {
-					printf("\n\n");
-					break;
-				};
-				sleep_ms(100);
-				continue;
 			};
-			//printf("\n\n");
-			//break;
+			sleep_ms(100);
+			continue;
 		};
 		bzero(buffer, sizeof(buffer));
 		while (read(0, buffer, sizeof(buffer)) <= 1)
@@ -351,7 +296,7 @@ void lapb_state_0(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 	};
 }
 
-void lapb_state_1(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+void lapb_state_1(struct lapb_cs *lapb) {
 	int while_flag;
 	int wait_stdin_result;
 	char buffer[256];
@@ -361,10 +306,6 @@ void lapb_state_1(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 		print_commands_1(lapb);
 		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_1, FALSE);
 		if (wait_stdin_result <= 0) {
-			if (!callbacks->is_connected()) {
-				printf("\nPhysical connection lost\n");
-				printf("Reconnecting");
-			};
 			printf("\n\n");
 			break;
 		};
@@ -389,7 +330,7 @@ void lapb_state_1(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 	};
 }
 
-void lapb_state_2(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+void lapb_state_2(struct lapb_cs *lapb) {
 	int while_flag;
 	int wait_stdin_result;
 	char buffer[256];
@@ -399,10 +340,6 @@ void lapb_state_2(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 		print_commands_2(lapb);
 		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_2, FALSE);
 		if (wait_stdin_result <= 0) {
-			if (!callbacks->is_connected()) {
-				printf("\nPhysical connection lost\n");
-				printf("Reconnecting");
-			};
 			printf("\n\n");
 			break;
 		};
@@ -427,7 +364,7 @@ void lapb_state_2(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 	};
 }
 
-void lapb_state_3(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+void lapb_state_3(struct lapb_cs *lapb) {
 	int while_flag;
 	int wait_stdin_result;
 	char buffer[256];
@@ -440,10 +377,6 @@ void lapb_state_3(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 		fprintf(stderr, ">");
 		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_3, FALSE);
 		if (wait_stdin_result <= 0) {
-			if (!callbacks->is_connected()) {
-				printf("\nPhysical connection lost\n");
-				printf("Reconnecting");
-			};
 			printf("\n\n");
 			break;
 		};
@@ -516,25 +449,23 @@ void lapb_state_3(struct lapb_cs *lapb, const struct main_callbacks * callbacks)
 	};
 }
 
-void main_loop(struct lapb_cs *lapb, const struct main_callbacks * callbacks) {
+void main_loop(struct lapb_cs *lapb) {
 
 	error_type = 0; /* No errors */
 	error_counter = 1;
 	while (!exit_flag) {
-		if (!lapb_not_ready(lapb, callbacks))
-			continue;
 		switch (lapb->state) {
 			case LAPB_STATE_0:
-				lapb_state_0(lapb, callbacks);
+				lapb_state_0(lapb);
 				break;
 			case LAPB_STATE_1:
-				lapb_state_1(lapb, callbacks);
+				lapb_state_1(lapb);
 				break;
 			case LAPB_STATE_2:
-				lapb_state_2(lapb, callbacks);
+				lapb_state_2(lapb);
 				break;
 			case LAPB_STATE_3:
-				lapb_state_3(lapb, callbacks);
+				lapb_state_3(lapb);
 				break;
 		};
 	};
