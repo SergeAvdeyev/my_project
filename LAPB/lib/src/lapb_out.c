@@ -23,7 +23,7 @@ void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_
 	int		frame_size = data_size;
 
 
-	if (lapb->mode & LAPB_EXTENDED) {
+	if (is_extended(lapb)) {
 		frame = cb_push(data, 3);
 		frame_size += 3;
 
@@ -61,7 +61,7 @@ void lapb_kick(struct lapb_cs *lapb) {
 	char * buffer;
 	int buffer_size;
 
-	modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
+	modulus = is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
 	start = !cb_peek(&lapb->ack_queue) ? lapb->va : lapb->vs;
 	end   = (lapb->va + lapb->window) % modulus;
 
@@ -101,8 +101,8 @@ void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int 
 
 	ptr = data;
 
-	if (lapb->mode & LAPB_MLP) {
-		if (lapb->mode & LAPB_DCE) {
+	if (!is_slp(lapb)) {
+		if (is_dce(lapb)) {
 			if (type == LAPB_COMMAND)
 				*ptr = LAPB_ADDR_C;
 			if (type == LAPB_RESPONSE)
@@ -114,7 +114,7 @@ void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int 
 				*ptr = LAPB_ADDR_C;
 		};
 	} else {
-		if (lapb->mode & LAPB_DCE) {
+		if (is_dce(lapb)) {
 			if (type == LAPB_COMMAND)
 				*ptr = LAPB_ADDR_A;
 			if (type == LAPB_RESPONSE)
@@ -128,7 +128,7 @@ void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int 
 	};
 
 #if LAPB_DEBUG >= 2
-	if (lapb->mode & LAPB_EXTENDED)
+	if (is_extended(lapb))
 		lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
 	else {
 		if (((_uchar)data[1] & 0x01) == 0)
@@ -150,7 +150,7 @@ void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int 
 void lapb_establish_data_link(struct lapb_cs *lapb) {
 	lapb->condition = 0x00;
 
-	if (lapb->mode & LAPB_EXTENDED) {
+	if (is_extended(lapb)) {
 		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX SABME(1)", lapb->state);
 		lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 	} else {
@@ -158,7 +158,7 @@ void lapb_establish_data_link(struct lapb_cs *lapb) {
 		lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 	};
 
-	//if ((lapb->mode & LAPB_DCE) == LAPB_DCE)
+	//if (is_dce(lapb))
 		lapb_start_t201timer(lapb);
 }
 

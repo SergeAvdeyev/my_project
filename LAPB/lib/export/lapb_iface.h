@@ -90,10 +90,10 @@ enum {
 #define	LAPB_DEFAULT_EMODE		(LAPB_EXTENDED | LAPB_SLP | LAPB_DTE)
 #define	LAPB_DEFAULT_EWINDOW	127		/* Window=127 for extended modulo */
 
-#define	LAPB_DEFAULT_T1			5000	/* T1=5s    */
-#define	LAPB_DEFAULT_T2			1000	/* T2=1s    */
-#define	LAPB_DEFAULT_N2			20		/* N2=20    */
-#define	LAPB_DEFAULT_N1			135		/* Default I frame maximal size */
+#define	LAPB_DEFAULT_T201		5000	/* T1=5s    */
+#define	LAPB_DEFAULT_T202		1000	/* T2=1s    */
+#define	LAPB_DEFAULT_N2			20		/* N2=20 times */
+#define	LAPB_DEFAULT_N1			135		/* Default I frame maximal size 135 bytes */
 
 
 
@@ -160,6 +160,7 @@ struct lapb_params {
 	_ushort		N1;					/* See struct lapb_cs */
 	_uchar		mode;				/* See struct lapb_cs */
 	_uchar		low_order_bits;		/* See struct lapb_cs */
+	_uchar		auto_connecting;	/* See struct lapb_cs */
 };
 
 /*
@@ -198,6 +199,7 @@ struct lapb_cs {
 	_uchar	low_order_bits;		/* If TRUE - use low-order bit first orientation for addresses,
 								 * commands, responses and sequence numbers
 								*/
+	_uchar	auto_connecting;	/* If TRUE - Automatic send SABM(E) if we are DTE, state=0 and receive DM from DCE */
 };
 
 
@@ -228,13 +230,9 @@ struct lapb_callbacks {
 
 
 /* lapb_iface.c */
-//extern int lapb_register(struct lapb_callbacks *callbacks,
-//						 _uchar modulo,
-//						 _uchar protocol,
-//						 _uchar equipment,
-//						 struct lapb_cs ** lapb);
 extern int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params, struct lapb_cs ** lapb);
 extern int lapb_unregister(struct lapb_cs * lapb);
+extern int lapb_set_params(struct lapb_cs * lapb, struct lapb_params *params);
 extern char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size);
 extern int lapb_reset(struct lapb_cs * lapb, _uchar init_state);
 extern int lapb_connect_request(struct lapb_cs *lapb);

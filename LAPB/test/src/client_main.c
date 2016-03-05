@@ -24,7 +24,7 @@ int block_size = 0;
 */
 
 void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
-	(void)lapb;
+	if (!is_client_connected()) return;
 	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
 	char buffer[1024];
@@ -47,6 +47,7 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
 	buffer[data_size + 4] = 0x7E; /* Close flag */
 	buffer[data_size + 5] = 0x7E; /* Close flag */
+
 	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
 	if (n < 0)
 		lapb_debug(lapb, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
@@ -268,28 +269,25 @@ label_2:
 
 	callbacks.debug = lapb_debug;
 
-	/* Define some LAPB values */
+	/* Define LAPB values */
 	struct lapb_params params;
-	params.T201_interval = 1000;	/* 1s */
-	params.T202_interval = 100;	/* 0.5s */
-	params.N2 = 10;				/* Try 10 times */
 	params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
-	//params.low_order_bits = TRUE;
+	params.window = LAPB_DEFAULT_SWINDOW;
+	params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
+	params.T201_interval = 1000;	/* 1s */
+	params.T202_interval = 100;		/* 0.1s */
+	params.N2 = 10;					/* T201 timer will repeat for 10 times */
+	params.low_order_bits = FALSE;
+	params.auto_connecting = TRUE;
 
-	//lapb_res = lapb_register(&callbacks, lapb_modulo, LAPB_SLP, lapb_equipment_type, &lapb_client);
 	lapb_res = lapb_register(&callbacks, &params, &lapb_client);
 	if (lapb_res != LAPB_OK) {
 		printf("lapb_register return %d\n", lapb_res);
 		exit(EXIT_FAILURE);
 	};
-	//lapb_client->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
-	/* Redefine some default values */
-	lapb_client->T201_interval = 1000;	/* 1s */
-	lapb_client->T202_interval = 100;	/* 0.5s */
-	lapb_client->N2 = 10;	/* Try 10 times */
 
 	/* Start endless loop */
-	printf("Run Main loop\n");
+	printf("Run Main loop\n\n");
 	main_loop(lapb_client);
 
 	printf("Main loop ended\n");

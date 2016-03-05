@@ -45,9 +45,8 @@ void hex_dump(char * data, int data_size) {
 
 /* Called by LAPB to transmit data via physical connection */
 void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
-	(void)lapb;
 	if (!is_server_accepted()) return;
-	//lapb_debug(NULL, 0, "[LAPB] data_transmit is called");
+	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
 	char buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
@@ -71,7 +70,7 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	buffer[data_size + 5] = 0x7E; /* Close flag */
 	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
 	if (n < 0)
-		lapb_debug(NULL, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
+		lapb_debug(lapb, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
@@ -353,7 +352,18 @@ label_2:
 
 	callbacks.debug = lapb_debug;
 
-	lapb_res = lapb_register(&callbacks, lapb_modulo, LAPB_SLP, lapb_equipment_type, &lapb_server);
+	/* Define LAPB values */
+	struct lapb_params params;
+	params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
+	params.window = LAPB_DEFAULT_SWINDOW;
+	params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
+	params.T201_interval = 1000;	/* 1s */
+	params.T202_interval = 100;		/* 0.1s */
+	params.N2 = 10;					/* T201 timer will repeat for 10 times */
+	params.low_order_bits = FALSE;
+	params.auto_connecting = TRUE;
+
+	lapb_res = lapb_register(&callbacks, &params, &lapb_server);
 	if (lapb_res != LAPB_OK) {
 		printf("lapb_register return %d\n", lapb_res);
 		exit(EXIT_FAILURE);
@@ -367,7 +377,7 @@ label_2:
 	//lapb_server->low_order_bits = TRUE;
 
 	/* Start endless loop */
-	printf("Run Main loop\n");
+	printf("Run Main loop\n\n");
 	main_loop(lapb_server);
 
 	printf("Main loop ended\n");
@@ -440,7 +450,7 @@ int manual_process() {
 	bzero(&callbacks, sizeof(struct lapb_callbacks));
 	callbacks.transmit_data = transmit_data;
 	callbacks.debug = lapb_debug;
-	lapb_res = lapb_register(&callbacks, LAPB_SMODULUS, LAPB_SLP, LAPB_DCE, &lapb_server);
+	lapb_res = lapb_register(&callbacks, NULL, &lapb_server);
 	if (lapb_res != LAPB_OK) {
 		printf("lapb_register return %d\n", lapb_res);
 		exit(EXIT_FAILURE);

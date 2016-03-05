@@ -97,7 +97,7 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 		 *	If we are a DCE, keep going DM .. DM .. DM
 		 */
 		case LAPB_STATE_0:
-			if (lapb->mode & LAPB_DCE) {
+			if (is_dce(lapb)) {
 				lapb->N2count = 0;
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX DM(0)");
 				lapb_send_control(lapb, LAPB_DM, LAPB_POLLOFF, LAPB_RESPONSE);
@@ -113,7 +113,7 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
 			} else {
-				if (lapb->mode & LAPB_EXTENDED) {
+				if (is_extended(lapb)) {
 					lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX SABME(1)");
 					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 				} else {

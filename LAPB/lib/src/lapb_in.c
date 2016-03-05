@@ -19,7 +19,7 @@ void lapb_state0_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 	switch (frame->type) {
 		case LAPB_SABM:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S0 RX SABM(%d)", frame->pf);
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 			} else {
@@ -38,7 +38,7 @@ void lapb_state0_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 
 		case LAPB_SABME:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S0 RX SABME(%d)", frame->pf);
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				lapb_stop_t201timer(lapb);
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
@@ -74,7 +74,7 @@ void lapb_state1_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 	switch (frame->type) {
 		case LAPB_SABM:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 RX SABM(%d)", frame->pf);
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				/* Unrecognized mode */
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
@@ -95,7 +95,7 @@ void lapb_state1_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 
 		case LAPB_SABME:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 RX SABME(%d)", frame->pf);
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				/* Collision state, send UA and switch to state_3 */
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
@@ -201,12 +201,12 @@ void lapb_state2_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
  */
 void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size, struct lapb_frame *frame) {
 	//int queued = 0;
-	int modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
+	int modulus = is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
 	switch (frame->type) {
 		case LAPB_SABM:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX SABM(%d)", frame->pf);
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 				lapb_requeue_frames(lapb);
@@ -227,7 +227,7 @@ void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size, struc
 
 		case LAPB_SABME:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX SABME(%d)", frame->pf);
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_stop_t201timer(lapb);
@@ -333,7 +333,7 @@ void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size, struc
 
 			if (frame->ns == lapb->vr) {
 				int cn;
-				if (lapb->mode & LAPB_EXTENDED)
+				if (is_extended(lapb))
 					cn = lapb_data_indication(lapb, data + 3, data_size - 3);
 				else
 					cn = lapb_data_indication(lapb, data + 2, data_size - 2);
@@ -385,14 +385,14 @@ void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size, struc
 			lapb->condition = LAPB_FRMR_CONDITION;
 			lapb_stop_t201timer(lapb);
 			_ushort nr_tmp;
-			if (lapb->mode & LAPB_EXTENDED)
+			if (is_extended(lapb))
 				nr_tmp = frame->control[1] >> 5;
 			else
 				nr_tmp = (_uchar)(data[3] >> 5) & 0x07;
 			lapb_frames_acked(lapb, nr_tmp);
 			lapb_requeue_frames(lapb);
 
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX SABME(1)");
 				lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 			} else {
@@ -413,7 +413,7 @@ void lapb_state3_machine(struct lapb_cs *lapb, char * data, int data_size, struc
 				/* Reset data link */
 				lapb->condition = LAPB_FRMR_CONDITION;
 				lapb_requeue_frames(lapb);
-				if (lapb->mode & LAPB_EXTENDED) {
+				if (is_extended(lapb)) {
 					lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX SABME(1)");
 					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 				} else {
@@ -445,7 +445,7 @@ void lapb_state4_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 		/* Command */
 		case LAPB_SABM:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S4 RX SABM(%d)", frame->pf);
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S4 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 				lapb_requeue_frames(lapb);
@@ -468,7 +468,7 @@ void lapb_state4_machine(struct lapb_cs *lapb, struct lapb_frame *frame) {
 		/* Command */
 		case LAPB_SABME:
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S4 RX SABME(%d)", frame->pf);
-			if (lapb->mode & LAPB_EXTENDED) {
+			if (is_extended(lapb)) {
 				lapb->callbacks->debug(lapb, 1, "[LAPB] S4 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_restart_t201timer(lapb);

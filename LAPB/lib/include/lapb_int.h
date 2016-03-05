@@ -49,6 +49,9 @@ void lapb_send_control(struct lapb_cs *lapb, int, int, int);
 void lapb_transmit_frmr(struct lapb_cs *lapb);
 void fill_inv_table();
 _uchar invert_uchar(_uchar value);
+int is_dce(struct lapb_cs *lapb);
+int is_extended(struct lapb_cs *lapb);
+int is_slp(struct lapb_cs *lapb);
 
 
 /* lapb_timer.c */

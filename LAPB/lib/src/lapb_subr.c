@@ -68,6 +68,20 @@ char * lapb_buf_to_str(char * data, int data_size) {
 	return str_buf;
 }
 
+/*  */
+int is_dce(struct lapb_cs *lapb) {
+	return (lapb->mode & LAPB_DCE);
+}
+
+/*   */
+int is_extended(struct lapb_cs *lapb) {
+	return (lapb->mode & LAPB_EXTENDED);
+}
+
+int is_slp(struct lapb_cs *lapb) {
+	return !(lapb->mode & LAPB_MLP);
+}
+
 /*
  *	This routine delete all the queues of frames.
  */
@@ -82,7 +96,7 @@ void lapb_clear_queues(struct lapb_cs *lapb) {
  * SDL diagram.
  */
 int lapb_frames_acked(struct lapb_cs *lapb, unsigned short nr) {
-	int modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
+	int modulus = is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
 	/*
 	 * Remove all the ack-ed frames from the ack queue.
@@ -115,7 +129,7 @@ int lapb_validate_nr(struct lapb_cs *lapb, unsigned short nr) {
 	unsigned short vc = lapb->va;
 	int modulus;
 
-	modulus = (lapb->mode & LAPB_EXTENDED) ? LAPB_EMODULUS : LAPB_SMODULUS;
+	modulus = is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
 	while (vc != lapb->vs) {
 		if (nr == vc)
@@ -144,8 +158,8 @@ int lapb_decode(struct lapb_cs * lapb, char * data, int data_size, 	struct lapb_
 	if (lapb->low_order_bits)
 		data[0] = invert_uchar(data[0]);
 
-	if (lapb->mode & LAPB_MLP) {
-		if (lapb->mode & LAPB_DCE) {
+	if (!is_slp(lapb)) {
+		if (is_dce(lapb)) {
 			if (data[0] == LAPB_ADDR_D)
 				frame->cr = LAPB_COMMAND;
 			else if (data[0] == LAPB_ADDR_C)
@@ -157,7 +171,7 @@ int lapb_decode(struct lapb_cs * lapb, char * data, int data_size, 	struct lapb_
 				frame->cr = LAPB_RESPONSE;
 		};
 	} else {
-		if (lapb->mode & LAPB_DCE) {
+		if (is_dce(lapb)) {
 			if (data[0] == LAPB_ADDR_B)
 				frame->cr = LAPB_COMMAND;
 			else if (data[0] == LAPB_ADDR_A)
@@ -171,7 +185,7 @@ int lapb_decode(struct lapb_cs * lapb, char * data, int data_size, 	struct lapb_
 	};
 
 
-	if (lapb->mode & LAPB_EXTENDED) {
+	if (is_extended(lapb)) {
 		if (lapb->low_order_bits)
 			data[1] = invert_uchar(data[1]);
 		if (!(data[1] & LAPB_S)) {
@@ -256,7 +270,7 @@ void lapb_send_control(struct lapb_cs *lapb, int frametype, int poll_bit, int ty
 
 	bzero(frame, 3);
 
-	if (lapb->mode & LAPB_EXTENDED) {
+	if (is_extended(lapb)) {
 		if ((frametype & LAPB_U) == LAPB_U) {
 			frame[1]  = frametype;
 			frame[1] |= poll_bit ? LAPB_SPF : 0;
@@ -295,7 +309,7 @@ void lapb_transmit_frmr(struct lapb_cs *lapb) {
 	char frame[7];
 	int frame_size;
 
-	if (lapb->mode & LAPB_EXTENDED) {
+	if (is_extended(lapb)) {
 		frame_size = 7;
 		frame[1] = LAPB_FRMR;
 		frame[2] = lapb->frmr_data.control[0];
