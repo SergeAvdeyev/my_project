@@ -153,12 +153,12 @@ struct lapb_frame {
 };
 
 struct lapb_params {
-	_ushort		N2;					/* See struct lapb_cs */
+	_uchar		mode;				/* See struct lapb_cs. Applies only in LAPB_STATE_0 */
+	_uchar		window;				/* See struct lapb_cs. Applies only in LAPB_STATE_0 */
+	_ushort		N1;					/* See struct lapb_cs */
 	_ushort		T201_interval;		/* See struct lapb_cs */
 	_ushort		T202_interval;		/* See struct lapb_cs */
-	_uchar		window;				/* See struct lapb_cs */
-	_ushort		N1;					/* See struct lapb_cs */
-	_uchar		mode;				/* See struct lapb_cs */
+	_ushort		N2;					/* See struct lapb_cs */
 	_uchar		low_order_bits;		/* See struct lapb_cs */
 	_uchar		auto_connecting;	/* See struct lapb_cs */
 };
@@ -169,37 +169,19 @@ struct lapb_params {
 struct lapb_cs {
 	/* Link status fields */
 	_uchar		mode;	/* Bit mask for STANDARD-EXTENDED|SLP-MLP|DTE-DCE */
-	_uchar		state;
-	_ushort		vs, vr, va;
-	_uchar		condition;
-	_ushort		N2;
-	_ushort		N2count;
+	_uchar		window;
+	_ushort		N1;					/* Maximal I frame size */
 	_ushort		T201_interval;		/* Timer T201 interval */
 	_ushort		T202_interval;		/* Timer T202 interval */
-	void *		T201_timer_ptr;		/* Pointer to timer T201 object */
-	void *		T202_timer_ptr;		/* Pointer to timer T202 object */
-	_uchar		T201_state, T202_state;
+	_ushort		N2;
+	_uchar		low_order_bits;		/* If TRUE - use low-order bit first orientation for addresses,
+									 * commands, responses and sequence numbers */
+	_uchar		auto_connecting;	/* If TRUE - Automatic send SABM(E) if we are DTE, state=0 and receive DM from DCE
+									 * Note: Resets after calling lapb_disconnect_request() */
 
-	/* Internal control information */
-	_ushort		N1;					/* Maximal I frame size */
-
-	struct circular_buffer	write_queue;
-	struct circular_buffer	ack_queue;
-
-	_uchar		window;
 	const struct lapb_callbacks *callbacks;
-
-	/* FRMR control information */
-	struct lapb_frame	frmr_data;
-	_uchar				frmr_type;
-
-#if INTERNAL_SYNC
-	pthread_mutex_t		_mutex;
-#endif
-	_uchar	low_order_bits;		/* If TRUE - use low-order bit first orientation for addresses,
-								 * commands, responses and sequence numbers
-								*/
-	_uchar	auto_connecting;	/* If TRUE - Automatic send SABM(E) if we are DTE, state=0 and receive DM from DCE */
+	/* Internal control information */
+	void * internal_struct;
 };
 
 
@@ -232,12 +214,14 @@ struct lapb_callbacks {
 /* lapb_iface.c */
 extern int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params, struct lapb_cs ** lapb);
 extern int lapb_unregister(struct lapb_cs * lapb);
-extern int lapb_set_params(struct lapb_cs * lapb, struct lapb_params *params);
+extern int lapb_get_params(struct lapb_cs * lapb, struct lapb_params * params);
+extern int lapb_set_params(struct lapb_cs * lapb, struct lapb_params * params);
 extern char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size);
 extern int lapb_reset(struct lapb_cs * lapb, _uchar init_state);
 extern int lapb_connect_request(struct lapb_cs *lapb);
 extern int lapb_disconnect_request(struct lapb_cs *lapb);
 extern int lapb_data_request(struct lapb_cs *lapb, char * data, int data_size);
+extern int lapb_get_state(struct lapb_cs *lapb);
 
 /* Executing by physical leyer (when new incoming data received) */
 extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, _ushort fcs);

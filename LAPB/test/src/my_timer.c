@@ -170,10 +170,9 @@ void * timer_thread_function(void *ptr) {
 				continue;
 			if (timer_dec(timer, struct_ptr->interval) > 0)
 				continue;
-				timer->timer_expiry(timer->lapb_ptr);
+			timer->timer_expiry(timer->lapb_ptr);
 		};
 	};
-
 
 	timer_thread_stopped();
 	printf("Timer thread is terminated\n");

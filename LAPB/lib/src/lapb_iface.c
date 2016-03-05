@@ -22,16 +22,19 @@ struct lapb_cs *lapb_create_cs(void) {
 	if (!lapb)
 		goto out;
 
-	/* Zero variables */
-	lapb->N2count = 0;
-	lapb->va = 0;
-	lapb->vr = 0;
-	lapb->vs = 0;
-	lapb->condition = 0;
+	struct lapb_cs_internal * lapb_int = malloc(sizeof(struct lapb_cs_internal));
+	lapb->internal_struct = lapb_int;
 
-	lapb->T201_state = FALSE;
-	lapb->T202_state = FALSE;
-	lapb->state	= LAPB_STATE_0;
+	/* Zero variables */
+	lapb_int->N2count = 0;
+	lapb_int->va = 0;
+	lapb_int->vr = 0;
+	lapb_int->vs = 0;
+	lapb_int->condition = 0;
+
+	lapb_int->T201_state = FALSE;
+	lapb_int->T202_state = FALSE;
+	lapb_int->state	= LAPB_STATE_0;
 out:
 	return lapb;
 }
@@ -50,13 +53,15 @@ int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params,
 	if (!*lapb)
 		goto out;
 
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(*lapb);
+
 	if (!callbacks->debug)
 		callbacks->debug = lapb_default_debug;
 	(*lapb)->callbacks = callbacks;
 
 #if INTERNAL_SYNC
 	/* Init mutex for sinchronization */
-	pthread_mutex_init(&((*lapb)->_mutex), NULL);
+	pthread_mutex_init(&(lapb_int->_mutex), NULL);
 #endif
 
 	if (params)
@@ -73,23 +78,23 @@ int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params,
 	};
 
 	/* Create write and ack queues */
-	if (is_extended(*lapb)) {
-		cb_init(&(*lapb)->write_queue, LAPB_EMODULUS, (*lapb)->N1);
-		cb_init(&(*lapb)->ack_queue, LAPB_EMODULUS, (*lapb)->N1);
+	if (lapb_is_extended(*lapb)) {
+		cb_init(&lapb_int->write_queue, LAPB_EMODULUS, (*lapb)->N1);
+		cb_init(&lapb_int->ack_queue, LAPB_EMODULUS, (*lapb)->N1);
 	} else {
-		cb_init(&(*lapb)->write_queue, LAPB_SMODULUS, (*lapb)->N1);
-		cb_init(&(*lapb)->ack_queue, LAPB_SMODULUS, (*lapb)->N1);
+		cb_init(&lapb_int->write_queue, LAPB_SMODULUS, (*lapb)->N1);
+		cb_init(&lapb_int->ack_queue, LAPB_SMODULUS, (*lapb)->N1);
 	};
 
 	/* Create timers T201, T202 */
 	if ((*lapb)->callbacks->add_timer) {
-		(*lapb)->T201_timer_ptr = (*lapb)->callbacks->add_timer((*lapb)->T201_interval, *lapb, lapb_t201timer_expiry);
-		(*lapb)->T202_timer_ptr = (*lapb)->callbacks->add_timer((*lapb)->T202_interval, *lapb, lapb_t202timer_expiry);
+		lapb_int->T201_timer_ptr = (*lapb)->callbacks->add_timer((*lapb)->T201_interval, *lapb, lapb_t201timer_expiry);
+		lapb_int->T202_timer_ptr = (*lapb)->callbacks->add_timer((*lapb)->T202_interval, *lapb, lapb_t202timer_expiry);
 	};
 
 	/* Fill invert table */
 	fill_inv_table();
-	if (is_dce(*lapb))
+	if (lapb_is_dce(*lapb))
 		lapb_start_t201timer((*lapb));
 
 	rc = LAPB_OK;
@@ -103,48 +108,40 @@ int lapb_unregister(struct lapb_cs * lapb) {
 	if (!lapb)
 		goto out;
 
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
 	lapb_stop_t201timer(lapb);
 	lapb_stop_t202timer(lapb);
 
-	cb_free(&lapb->write_queue);
-	cb_free(&lapb->ack_queue);
+	cb_free(&lapb_int->write_queue);
+	cb_free(&lapb_int->ack_queue);
 
+	free(lapb->internal_struct);
 	free(lapb);
 	rc = LAPB_OK;
 out:
 	return rc;
 }
 
-//int lapb_getparms(struct net_device *dev, struct lapb_parms_struct *parms) {
-//	int rc = LAPB_BADTOKEN;
-//	struct lapb_cb *lapb = lapb_devtostruct(dev);
+int lapb_get_params(struct lapb_cs * lapb, struct lapb_params * params) {
+	int rc = LAPB_BADTOKEN;
 
-//	if (!lapb)
-//		goto out;
+	if (!lapb)
+		goto out;
 
-//	parms->t1      = lapb->t1 / HZ;
-//	parms->t2      = lapb->t2 / HZ;
-//	parms->n2      = lapb->n2;
-//	parms->n2count = lapb->n2count;
-//	parms->state   = lapb->state;
-//	parms->window  = lapb->window;
-//	parms->mode    = lapb->mode;
+	params->N2				= lapb->N2;
+	params->T201_interval	= lapb->T201_interval;
+	params->T202_interval	= lapb->T202_interval;
+	params->window			= lapb->window;
+	params->N1				= lapb->N1;
+	params->mode			= lapb->mode;
+	params->low_order_bits	= lapb->low_order_bits;
+	params->auto_connecting	= lapb->auto_connecting;
 
-//	if (!timer_pending(&lapb->t1timer))
-//		parms->t1timer = 0;
-//	else
-//		parms->t1timer = (lapb->t1timer.expires - jiffies) / HZ;
-
-//	if (!timer_pending(&lapb->t2timer))
-//		parms->t2timer = 0;
-//	else
-//		parms->t2timer = (lapb->t2timer.expires - jiffies) / HZ;
-
-//	lapb_put(lapb);
-//	rc = LAPB_OK;
-//out:
-//	return rc;
-//}
+	rc = LAPB_OK;
+out:
+	return rc;
+}
 
 int lapb_set_params(struct lapb_cs * lapb, struct lapb_params *params) {
 	int rc = LAPB_BADTOKEN;
@@ -171,7 +168,9 @@ int lapb_set_params(struct lapb_cs * lapb, struct lapb_params *params) {
 			goto out;
 	};
 
-	if (lapb->state == LAPB_STATE_0) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
+	if (lapb_int->state == LAPB_STATE_0) {
 		lapb->mode    = params->mode;
 		lapb->window  = params->window;
 	};
@@ -189,17 +188,22 @@ out:
 	return rc;
 }
 
+int lapb_get_state(struct lapb_cs *lapb) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+	return lapb_int->state;
+}
 
 char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size) {
-	char *result = NULL;
-
 	if (!lapb) return NULL;
 
+	char *result = NULL;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
 	//lock(lapb);
-	if (cb_peek(&lapb->ack_queue))
-		result = cb_dequeue(&lapb->ack_queue, buffer_size);
-	else if (cb_peek(&lapb->write_queue))
-		result = cb_dequeue(&lapb->write_queue, buffer_size);
+	if (cb_peek(&lapb_int->ack_queue))
+		result = cb_dequeue(&lapb_int->ack_queue, buffer_size);
+	else if (cb_peek(&lapb_int->write_queue))
+		result = cb_dequeue(&lapb_int->write_queue, buffer_size);
 
 	//unlock(lapb);
 	return result;
@@ -211,18 +215,20 @@ int lapb_reset(struct lapb_cs * lapb, unsigned char init_state) {
 	if (!lapb)
 		goto out;
 
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
 	lapb_stop_t201timer(lapb);
 	lapb_stop_t202timer(lapb);
 	lapb_clear_queues(lapb);
 	/* Zero variables */
-	lapb->N2count = 0;
-	lapb->va = 0;
-	lapb->vr = 0;
-	lapb->vs = 0;
-	lapb->condition = 0x00;
-	unsigned char old_state = lapb->state;
-	lapb->state   = init_state;
-	if ((is_dce(lapb)) && (init_state == LAPB_STATE_0))
+	lapb_int->N2count = 0;
+	lapb_int->va = 0;
+	lapb_int->vr = 0;
+	lapb_int->vs = 0;
+	lapb_int->condition = 0x00;
+	unsigned char old_state = lapb_int->state;
+	lapb_int->state   = init_state;
+	if ((lapb_is_dce(lapb)) && (init_state == LAPB_STATE_0))
 		lapb_start_t201timer(lapb);
 
 	lapb->callbacks->debug(lapb, 0, "[LAPB] S%d -> S%d", old_state, init_state);
@@ -241,17 +247,20 @@ int lapb_connect_request(struct lapb_cs *lapb) {
 	if (!lapb)
 		goto out;
 
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
 	rc = LAPB_OK;
-	if (lapb->state == LAPB_STATE_1)
+	if (lapb_int->state == LAPB_STATE_1)
 		goto out;
 
 	rc = LAPB_CONNECTED;
 	//if (lapb->state == LAPB_STATE_3 || lapb->state == LAPB_STATE_4)
-	if (lapb->state == LAPB_STATE_3)
+	if (lapb_int->state == LAPB_STATE_3)
 		goto out;
 
 	lapb_establish_data_link(lapb);
-	lapb->state = LAPB_STATE_1;
+	lapb_int->state = LAPB_STATE_1;
+	lapb->auto_connecting = TRUE;
 
 	lapb->callbacks->debug(lapb, 0, "[LAPB] S0 -> S1");
 
@@ -268,7 +277,9 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 	if (!lapb)
 		goto out;
 
-	switch (lapb->state) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
+	switch (lapb_int->state) {
 		case LAPB_STATE_0:
 			rc = LAPB_NOTCONNECTED;
 			goto out;
@@ -277,7 +288,7 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX DISC(1)");
 			lapb->callbacks->debug(lapb, 0, "[LAPB] S1 -> S2");
 			lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
-			lapb->state = LAPB_STATE_2;
+			lapb_int->state = LAPB_STATE_2;
 			lapb_start_t201timer(lapb);
 			rc = LAPB_NOTCONNECTED;
 			goto out;
@@ -289,10 +300,11 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 
 	lapb->callbacks->debug(lapb, 1, "[LAPB] S3 DISC(1)");
 	lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
-	lapb->state = LAPB_STATE_2;
-	lapb->N2count = 0;
+	lapb_int->state = LAPB_STATE_2;
+	lapb_int->N2count = 0;
 	lapb_start_t201timer(lapb);
 	lapb_stop_t202timer(lapb);
+	lapb->auto_connecting = FALSE;
 
 	lapb->callbacks->debug(lapb, 0, "[LAPB] S3 -> S2");
 
@@ -309,29 +321,31 @@ int lapb_data_request(struct lapb_cs *lapb, char *data, int data_size) {
 	if (!lapb)
 		goto out;
 
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
 	rc = LAPB_NOTCONNECTED;
-	//if (lapb->state != LAPB_STATE_3 && lapb->state != LAPB_STATE_4)
-	if (lapb->state != LAPB_STATE_3)
+	if (lapb_int->state != LAPB_STATE_3 && lapb_int->state != LAPB_STATE_4)
+	//if (lapb_int->state != LAPB_STATE_3)
 		goto out;
 
 
 	rc = LAPB_BUSY;
-	if (lapb->condition == LAPB_FRMR_CONDITION)
+	if (lapb_int->condition == LAPB_FRMR_CONDITION)
 		goto out;
 	/* check the filling of the window */
 	int actual_window_size;
-	if (lapb->vs >= lapb->va)
-		actual_window_size = lapb->vs - lapb->va;
+	if (lapb_int->vs >= lapb_int->va)
+		actual_window_size = lapb_int->vs - lapb_int->va;
 	else {
-		if (is_extended(lapb))
-			actual_window_size = lapb->vs + LAPB_EMODULUS - lapb->va;
+		if (lapb_is_extended(lapb))
+			actual_window_size = lapb_int->vs + LAPB_EMODULUS - lapb_int->va;
 		else
-			actual_window_size = lapb->vs + LAPB_SMODULUS - lapb->va;
+			actual_window_size = lapb_int->vs + LAPB_SMODULUS - lapb_int->va;
 	};
 	if (actual_window_size >= lapb->window)
 		goto out;
 
-	cb_queue_tail(&lapb->write_queue, data, data_size);
+	cb_queue_tail(&lapb_int->write_queue, data, data_size);
 //	if (!cb_queue_tail(&lapb->write_queue, data, data_size))
 //		goto out;
 	lapb_kick(lapb);

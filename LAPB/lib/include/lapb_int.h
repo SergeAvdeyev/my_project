@@ -15,6 +15,27 @@
 
 #include "lapb_iface.h"
 
+/* Private lapb properties */
+struct lapb_cs_internal {
+	_uchar		state;
+	_ushort		vs, vr, va;
+	_uchar		condition;
+
+	void *		T201_timer_ptr;		/* Pointer to timer T201 object */
+	void *		T202_timer_ptr;		/* Pointer to timer T202 object */
+	_ushort		N2count;
+	_uchar		T201_state, T202_state;
+
+	/* FRMR control information */
+	struct lapb_frame	frmr_data;
+	_uchar				frmr_type;
+
+	struct circular_buffer	write_queue;
+	struct circular_buffer	ack_queue;
+#if INTERNAL_SYNC
+	pthread_mutex_t		_mutex;
+#endif
+};
 
 /* lapb_iface.c */
 void lapb_connect_confirmation(struct lapb_cs *lapb, int);
@@ -49,9 +70,11 @@ void lapb_send_control(struct lapb_cs *lapb, int, int, int);
 void lapb_transmit_frmr(struct lapb_cs *lapb);
 void fill_inv_table();
 _uchar invert_uchar(_uchar value);
-int is_dce(struct lapb_cs *lapb);
-int is_extended(struct lapb_cs *lapb);
-int is_slp(struct lapb_cs *lapb);
+int lapb_is_dce(struct lapb_cs *lapb);
+int lapb_is_extended(struct lapb_cs *lapb);
+int lapb_is_slp(struct lapb_cs *lapb);
+/* Convert void *lapb_cs::internal_struct to lapb_cs_internal */
+struct lapb_cs_internal * lapb_get_internal(struct lapb_cs *lapb);
 
 
 /* lapb_timer.c */

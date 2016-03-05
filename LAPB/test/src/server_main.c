@@ -83,36 +83,38 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
  *
 */
 void manual_received(char * data, int data_size) {
-	int i;
-	struct lapb_frame frame;
-	if (man_decode(lapb_server, data, data_size, &frame) == 0) {
-		if (frame.type == LAPB_I) {
-			printf("I(%d) S%d R%d '%s'", frame.pf, frame.ns, frame.nr, buf_to_str(&data[2], data_size -2));
-			lapb_server->vr = frame.ns + 1;
-		} else {
-			for (i = 0; i < data_size; i++)
-				printf(" %02X", (_uchar)data[i]);
-			switch (frame.type) {
-				case LAPB_SABM:
-					printf(" - SABM(%d)", frame.pf);
-					break;
-				case LAPB_SABME:
-					printf(" - SABME(%d)", frame.pf);
-					break;
-				case LAPB_DISC:
-					printf(" - DISC(%d)", frame.pf);
-					break;
-				case LAPB_UA:
-					printf(" - UA(%d)", frame.pf);
-					break;
-				case LAPB_DM:
-					printf(" - DM(%d)", frame.pf);
-					break;
-				default:
-					break;
-			};
-		};
-	};
+	(void)data;
+	(void)data_size;
+//	int i;
+//	struct lapb_frame frame;
+//	if (man_decode(lapb_server, data, data_size, &frame) == 0) {
+//		if (frame.type == LAPB_I) {
+//			printf("I(%d) S%d R%d '%s'", frame.pf, frame.ns, frame.nr, buf_to_str(&data[2], data_size -2));
+//			lapb_server->vr = frame.ns + 1;
+//		} else {
+//			for (i = 0; i < data_size; i++)
+//				printf(" %02X", (_uchar)data[i]);
+//			switch (frame.type) {
+//				case LAPB_SABM:
+//					printf(" - SABM(%d)", frame.pf);
+//					break;
+//				case LAPB_SABME:
+//					printf(" - SABME(%d)", frame.pf);
+//					break;
+//				case LAPB_DISC:
+//					printf(" - DISC(%d)", frame.pf);
+//					break;
+//				case LAPB_UA:
+//					printf(" - UA(%d)", frame.pf);
+//					break;
+//				case LAPB_DM:
+//					printf(" - DM(%d)", frame.pf);
+//					break;
+//				default:
+//					break;
+//			};
+//		};
+//	};
 
 }
 

@@ -21,16 +21,17 @@ void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_
 
 	char *	frame;
 	int		frame_size = data_size;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 
-	if (is_extended(lapb)) {
+	if (lapb_is_extended(lapb)) {
 		frame = cb_push(data, 3);
 		frame_size += 3;
 
 		frame[1] = LAPB_I;
-		frame[1] |= lapb->vs << 1;
+		frame[1] |= lapb_int->vs << 1;
 		frame[2] = poll_bit ? LAPB_EPF : 0;
-		frame[2] |= lapb->vr << 1;
+		frame[2] |= lapb_int->vr << 1;
 
 		if (lapb->low_order_bits) {
 			frame[1] = invert_uchar(frame[1]);
@@ -42,14 +43,14 @@ void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_
 
 		frame[1] = LAPB_I;
 		frame[1] |= poll_bit ? LAPB_SPF : 0;
-		frame[1] |= lapb->vr << 5;
-		frame[1] |= lapb->vs << 1;
+		frame[1] |= lapb_int->vr << 5;
+		frame[1] |= lapb_int->vs << 1;
 
 		if (lapb->low_order_bits)
 			frame[1] = invert_uchar(frame[1]);
 	};
 
-	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX I(%d) S%d R%d", lapb->state, poll_bit, lapb->vs, lapb->vr);
+	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX I(%d) S%d R%d", lapb_int->state, poll_bit, lapb_int->vs, lapb_int->vr);
 
 
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
@@ -60,19 +61,20 @@ void lapb_kick(struct lapb_cs *lapb) {
 	unsigned short modulus, start, end;
 	char * buffer;
 	int buffer_size;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	modulus = is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
-	start = !cb_peek(&lapb->ack_queue) ? lapb->va : lapb->vs;
-	end   = (lapb->va + lapb->window) % modulus;
+	modulus = lapb_is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
+	start = !cb_peek(&lapb_int->ack_queue) ? lapb_int->va : lapb_int->vs;
+	end   = (lapb_int->va + lapb->window) % modulus;
 
-	if (!(lapb->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
-		start != end && cb_peek(&lapb->write_queue)) {
-		lapb->vs = start;
+	if (!(lapb_int->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
+		start != end && cb_peek(&lapb_int->write_queue)) {
+		lapb_int->vs = start;
 
 		/*
 		 * Dequeue the frame and copy it.
 		 */
-		buffer = cb_dequeue(&lapb->write_queue, &buffer_size);
+		buffer = cb_dequeue(&lapb_int->write_queue, &buffer_size);
 
 		do {
 			/*
@@ -80,16 +82,16 @@ void lapb_kick(struct lapb_cs *lapb) {
 			 */
 			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLOFF);
 
-			lapb->vs = (lapb->vs + 1) % modulus;
+			lapb_int->vs = (lapb_int->vs + 1) % modulus;
 
 			/*
 			 * Requeue the original data frame.
 			 */
-			cb_queue_tail(&lapb->ack_queue, buffer, buffer_size);
+			cb_queue_tail(&lapb_int->ack_queue, buffer, buffer_size);
 
-		} while (lapb->vs != end && (buffer = cb_dequeue(&lapb->write_queue, &buffer_size)) != NULL);
+		} while (lapb_int->vs != end && (buffer = cb_dequeue(&lapb_int->write_queue, &buffer_size)) != NULL);
 
-		lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
+		lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
 		lapb_start_t201timer(lapb);
 		lapb_stop_t202timer(lapb);
@@ -98,11 +100,12 @@ void lapb_kick(struct lapb_cs *lapb) {
 
 void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int type) {
 	char *ptr;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 	ptr = data;
 
-	if (!is_slp(lapb)) {
-		if (is_dce(lapb)) {
+	if (!lapb_is_slp(lapb)) {
+		if (lapb_is_dce(lapb)) {
 			if (type == LAPB_COMMAND)
 				*ptr = LAPB_ADDR_C;
 			if (type == LAPB_RESPONSE)
@@ -114,7 +117,7 @@ void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int 
 				*ptr = LAPB_ADDR_C;
 		};
 	} else {
-		if (is_dce(lapb)) {
+		if (lapb_is_dce(lapb)) {
 			if (type == LAPB_COMMAND)
 				*ptr = LAPB_ADDR_A;
 			if (type == LAPB_RESPONSE)
@@ -128,16 +131,20 @@ void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int 
 	};
 
 #if LAPB_DEBUG >= 2
-	if (is_extended(lapb))
-		lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
+	if (lapb_is_extended(lapb))
+		lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %02X",
+							   lapb_int->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
 	else {
 		if (((_uchar)data[1] & 0x01) == 0)
-			lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %s", lapb->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
+			lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %s",
+								   lapb_int->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
 		else {
 			if (data_size == 2)
-				lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1]);
+				lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X",
+									   lapb_int->state, (_uchar)data[0], (_uchar)data[1]);
 			else if (data_size == 3)
-				lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %02X", lapb->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
+				lapb->callbacks->debug(lapb, 2, "[LAPB] S%d TX %02X %02X %02X",
+									   lapb_int->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
 		};
 	};
 #endif
@@ -148,13 +155,15 @@ void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int 
 }
 
 void lapb_establish_data_link(struct lapb_cs *lapb) {
-	lapb->condition = 0x00;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	if (is_extended(lapb)) {
-		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX SABME(1)", lapb->state);
+	lapb_int->condition = 0x00;
+
+	if (lapb_is_extended(lapb)) {
+		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX SABME(1)", lapb_int->state);
 		lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 	} else {
-		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX SABM(1)", lapb->state);
+		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX SABM(1)", lapb_int->state);
 		lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 	};
 
@@ -163,20 +172,19 @@ void lapb_establish_data_link(struct lapb_cs *lapb) {
 }
 
 void lapb_enquiry_response(struct lapb_cs *lapb) {
-	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX RR(1) R%d", lapb->state, lapb->vr);
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
+	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX RR(1) R%d", lapb_int->state, lapb_int->vr);
 	lapb_send_control(lapb, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
-
-	lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
+	lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 }
 
 void lapb_timeout_response(struct lapb_cs *lapb) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX RR(0) R%d", lapb->state, lapb->vr);
-
+	lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX RR(0) R%d", lapb_int->state, lapb_int->vr);
 	lapb_send_control(lapb, LAPB_RR, LAPB_POLLOFF, LAPB_RESPONSE);
-
-	lapb->condition &= ~LAPB_ACK_PENDING_CONDITION;
+	lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 }
 
 void lapb_check_iframes_acked(struct lapb_cs *lapb, unsigned short nr) {

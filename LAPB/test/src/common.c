@@ -93,11 +93,12 @@ void disconnect_indication(struct lapb_cs * lapb, int reason) {
 	int buffer_size;
 
 	lapb_debug(NULL, 0, "[X25_CB] disconnect_indication event is called(%s)", lapb_error_str(reason));
-	if (lapb->write_queue.count) {
+	buffer = lapb_dequeue(lapb, &buffer_size);
+	if (buffer) {
 		printf("\nUnacked data:\n");
-		while ((buffer = lapb_dequeue(lapb, &buffer_size)) != NULL) {
+		printf("%s\n", buf_to_str(buffer, buffer_size));
+		while ((buffer = lapb_dequeue(lapb, &buffer_size)) != NULL)
 			printf("%s\n", buf_to_str(buffer, buffer_size));
-		};
 	};
 }
 
@@ -186,7 +187,7 @@ int wait_stdin(struct lapb_cs * lapb, unsigned char break_condition, int run_onc
 		sr = select(fileno(stdin) + 1, &read_set, NULL, NULL, &timeout);
 		if ((sr > 0) || (run_once))
 			break;
-		if ((lapb) && (lapb->state != break_condition))
+		if ((lapb) && (lapb_get_state(lapb) != break_condition))
 			break;
 	};
 	return sr;
@@ -264,7 +265,7 @@ void lapb_state_0(struct lapb_cs *lapb) {
 	while (while_flag) {
 		wait_stdin_result = wait_stdin(lapb, LAPB_STATE_0, FALSE);
 		if (wait_stdin_result <= 0) {
-			if (lapb->state != LAPB_STATE_0) {
+			if (lapb_get_state(lapb) != LAPB_STATE_0) {
 				printf("\n\n");
 				break;
 			};
@@ -454,7 +455,7 @@ void main_loop(struct lapb_cs *lapb) {
 	error_type = 0; /* No errors */
 	error_counter = 1;
 	while (!exit_flag) {
-		switch (lapb->state) {
+		switch (lapb_get_state(lapb)) {
 			case LAPB_STATE_0:
 				lapb_state_0(lapb);
 				break;
