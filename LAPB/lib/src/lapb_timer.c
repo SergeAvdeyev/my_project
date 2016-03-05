@@ -17,7 +17,7 @@ void lapb_start_t201timer(struct lapb_cs *lapb) {
 
 	if (!lapb->callbacks->start_timer) return;
 
-	lapb->callbacks->start_timer(lapb->T201_timer);
+	lapb->callbacks->start_timer(lapb->T201_timer_ptr);
 	lapb->T201_state = TRUE;
 	lapb->callbacks->debug(lapb, 0, "[LAPB] start_t201timer is called");
 }
@@ -26,7 +26,7 @@ void lapb_stop_t201timer(struct lapb_cs *lapb) {
 	if (!lapb->T201_state) return;
 
 	if (!lapb->callbacks->stop_timer) return;
-	lapb->callbacks->stop_timer(lapb->T201_timer);
+	lapb->callbacks->stop_timer(lapb->T201_timer_ptr);
 	lapb->T201_state = FALSE;
 	lapb->N2count = 0;
 	lapb->callbacks->debug(lapb, 0, "[LAPB] stop_t201timer is called");
@@ -39,7 +39,7 @@ void lapb_restart_t201timer(struct lapb_cs *lapb) {
 	lapb->N2count = 0;
 
 	if ((!lapb->T201_state) && (lapb->callbacks->start_timer)) {
-		lapb->callbacks->start_timer(lapb->T201_timer);
+		lapb->callbacks->start_timer(lapb->T201_timer_ptr);
 		lapb->T201_state = TRUE;
 	};
 }
@@ -52,7 +52,7 @@ void lapb_start_t202timer(struct lapb_cs *lapb) {
 	if (lapb->T202_state) return;
 
 	if (!lapb->callbacks->start_timer) return;
-	lapb->callbacks->start_timer(lapb->T202_timer);
+	lapb->callbacks->start_timer(lapb->T202_timer_ptr);
 	lapb->T202_state = TRUE;
 	lapb->callbacks->debug(lapb, 0, "[LAPB] start_t202timer is called");
 }
@@ -61,7 +61,7 @@ void lapb_stop_t202timer(struct lapb_cs *lapb) {
 	if (!lapb->T202_state) return;
 
 	if (!lapb->callbacks->stop_timer) return;
-	lapb->callbacks->stop_timer(lapb->T202_timer);
+	lapb->callbacks->stop_timer(lapb->T202_timer_ptr);
 	lapb->T202_state = FALSE;
 	lapb->callbacks->debug(lapb, 0, "[LAPB] stop_t202timer is called");
 }
@@ -71,8 +71,8 @@ int lapb_t202timer_running(struct lapb_cs *lapb) {
 }
 
 
-void lapb_t202timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cs *lapb = (struct lapb_cs *)lapb_addr;
+void lapb_t202timer_expiry(void * lapb_ptr) {
+	struct lapb_cs *lapb = lapb_ptr;
 	if (!lapb) return;
 
 	lock(lapb);
@@ -85,8 +85,8 @@ void lapb_t202timer_expiry(unsigned long int lapb_addr) {
 	unlock(lapb);
 }
 
-void lapb_t201timer_expiry(unsigned long int lapb_addr) {
-	struct lapb_cs *lapb = (struct lapb_cs *)lapb_addr;
+void lapb_t201timer_expiry(void * lapb_ptr) {
+	struct lapb_cs *lapb = lapb_ptr;
 	if (!lapb) return;
 
 	lock(lapb);

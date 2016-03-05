@@ -8,6 +8,10 @@ int timer_thread_exit_flag = FALSE;
 int timer_thread_state = FALSE;
 
 // Private prototipes
+
+struct timer_descr * timers_list[10];
+_uchar	timers_count = 0;
+
 void _timer_mutex_init();
 void _timer_mutex_lock();
 void _timer_mutex_unlock();
@@ -36,11 +40,32 @@ void terminate_timer_thread() {
 
 
 
+void * timer_add(int interval, void * lapb_ptr, void *timer_expiry) {
+	if (timers_count >= sizeof(timers_list)/sizeof(void *)) return NULL;
+	if (!timer_expiry) return NULL;
+
+	struct timer_descr * timer_tmp;
+
+	timer_tmp = malloc(sizeof(struct timer_descr));
+	timer_tmp->interval = interval;
+	timer_tmp->active = FALSE;
+	timer_tmp->interval_tmp = 0;
+	timer_tmp->lapb_ptr = lapb_ptr;
+	timer_tmp->timer_expiry = timer_expiry;
+	timers_list[timers_count] = timer_tmp;
+	timers_count++;
+
+	return timer_tmp;
+}
+
+void timer_del(void *timer) {
+	(void)timer;
+}
 
 void timer_start(void * timer) {
 	_timer_mutex_lock();
 	struct timer_descr * timer_tmp = (struct timer_descr *)timer;
-	timer_tmp->interval_tmp = timer_tmp->interval; //t1_interval;
+	timer_tmp->interval_tmp = timer_tmp->interval;
 	timer_tmp->active = TRUE;
 	_timer_mutex_unlock();
 }
@@ -139,15 +164,13 @@ void * timer_thread_function(void *ptr) {
 		ts2.tv_sec = 0;
 		ts2.tv_nsec = 0;
 		nanosleep(&ts, &ts2);
-		for (i = 0; i < 10; i++) {
-			timer = struct_ptr->timers_list[i];
-			if (!timer) continue;
-			if (get_timer_state(timer)) {
-				if (timer_dec(timer, struct_ptr->interval) <= 0) {
-					if (timer->timer_expiry)
-						timer->timer_expiry(struct_ptr->lapb_addr);
-				};
-			};
+		for (i = 0; i < timers_count; i++) {
+			timer = timers_list[i];
+			if (!get_timer_state(timer))
+				continue;
+			if (timer_dec(timer, struct_ptr->interval) > 0)
+				continue;
+				timer->timer_expiry(timer->lapb_ptr);
 		};
 	};
 

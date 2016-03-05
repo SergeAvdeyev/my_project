@@ -321,6 +321,22 @@ label_2:
 	if (!AutomaticMode)
 		return manual_process();
 
+	/* Create timer */
+	timer_struct = malloc(sizeof(struct timer_thread_struct));
+	timer_struct->interval = 10; /* milliseconds */
+	//bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
+	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
+	if (ret) {
+		lapb_debug(NULL, 0, "Error - pthread_create() return code: %d\n", ret);
+		closelog();
+		exit(EXIT_FAILURE);
+	};
+	printf("Timer thread created(code %d)\n", ret);
+	while (!is_timer_thread_started())
+		sleep_ms(200);
+	printf("Timer started\n\n");
+
+
 	/* LAPB init */
 	bzero(&callbacks, sizeof(struct lapb_callbacks));
 	callbacks.connect_confirmation = connect_confirmation;
@@ -330,6 +346,8 @@ label_2:
 	callbacks.data_indication = data_indication;
 	callbacks.transmit_data = transmit_data;
 
+	callbacks.add_timer = timer_add;
+	callbacks.del_timer = timer_del;
 	callbacks.start_timer = timer_start;
 	callbacks.stop_timer = timer_stop;
 
@@ -343,38 +361,13 @@ label_2:
 	//lapb_server->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 
 	/* Redefine some default values */
-	lapb_server->T201 = 1000; /* 1s */
-	lapb_server->T202 = 100;  /* 0.5s */
+	lapb_server->T201_interval = 1000; /* 1s */
+	lapb_server->T202_interval = 100;  /* 0.5s */
 	lapb_server->N2 = 10;	/* Try 10 times */
 	//lapb_server->low_order_bits = TRUE;
 
-	/* Create timer */
-	timer_struct = malloc(sizeof(struct timer_thread_struct));
-	timer_struct->interval = 10; /* milliseconds */
-	timer_struct->lapb_addr = (unsigned long int)lapb_server;
-	bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
-	timer_struct->timers_list[0] = malloc(sizeof(struct timer_descr));
-	timer_struct->timers_list[0]->interval = lapb_server->T201;
-	timer_struct->timers_list[0]->active = FALSE;
-	timer_struct->timers_list[0]->timer_expiry = lapb_t201timer_expiry;
-	timer_struct->timers_list[1] = malloc(sizeof(struct timer_descr));
-	timer_struct->timers_list[1]->interval = lapb_server->T202;
-	timer_struct->timers_list[1]->active = FALSE;
-	timer_struct->timers_list[1]->timer_expiry = lapb_t202timer_expiry;
-	lapb_server->T201_timer = timer_struct->timers_list[0];
-	lapb_server->T202_timer = timer_struct->timers_list[1];
-
-	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
-	if (ret) {
-		lapb_debug(NULL, 0, "Error - pthread_create() return code: %d\n", ret);
-		closelog();
-		exit(EXIT_FAILURE);
-	};
-	printf("Timer thread created(code %d)\n", ret);
-	while (!is_timer_thread_started())
-		sleep_ms(200);
-	printf("Timer started\n\n");
-
+	/* Start endless loop */
+	printf("Run Main loop\n");
 	main_loop(lapb_server);
 
 	printf("Main loop ended\n");

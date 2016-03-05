@@ -28,8 +28,8 @@ struct lapb_cs *lapb_create_cs(void) {
 	lapb->vr = 0;
 	lapb->vs = 0;
 	lapb->condition = 0;
-	lapb->T201	= LAPB_DEFAULT_T1;
-	lapb->T202	= LAPB_DEFAULT_T2;
+	lapb->T201_interval	= LAPB_DEFAULT_T1;
+	lapb->T202_interval	= LAPB_DEFAULT_T2;
 	lapb->T201_state = FALSE;
 	lapb->T202_state = FALSE;
 	lapb->N1	= LAPB_DEFAULT_N1;
@@ -48,11 +48,12 @@ void lapb_default_debug(struct lapb_cs *lapb, int level, const char * format, ..
 	(void)format;
 }
 
-int lapb_register(struct lapb_callbacks *callbacks,
-						 _uchar modulo,
-						 _uchar protocol,
-						 _uchar equipment,
-						 struct lapb_cs ** lapb) {
+//int lapb_register(struct lapb_callbacks *callbacks,
+//						 _uchar modulo,
+//						 _uchar protocol,
+//						 _uchar equipment,
+//						 struct lapb_cs ** lapb) {
+int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params, struct lapb_cs ** lapb) {
 	int rc = LAPB_BADTOKEN;
 
 	*lapb = lapb_create_cs();
@@ -69,15 +70,28 @@ int lapb_register(struct lapb_callbacks *callbacks,
 	pthread_mutex_init(&((*lapb)->_mutex), NULL);
 #endif
 
-	(*lapb)->mode = modulo | protocol | equipment;
+	if (params) {
+		(*lapb)->mode = params->mode;
+		(*lapb)->window = params->window;
+		(*lapb)->N1 = params->N1;
+		(*lapb)->N2 = params->N2;
+		(*lapb)->window = params->N1;
+		(*lapb)->window = params->N1;
+	} else
+		(*lapb)->mode = LAPB_DEFAULT_SMODE;
 	/* Create write and ack queues */
-	if (modulo == LAPB_STANDARD) {
-		cb_init(&(*lapb)->write_queue, LAPB_SMODULUS, LAPB_DEFAULT_N1);
-		cb_init(&(*lapb)->ack_queue, LAPB_SMODULUS, LAPB_DEFAULT_N1);
-	} else {
+	if ((*lapb)->mode & LAPB_EXTENDED) {
 		(*lapb)->window = LAPB_DEFAULT_EWINDOW;
 		cb_init(&(*lapb)->write_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
 		cb_init(&(*lapb)->ack_queue, LAPB_EMODULUS, LAPB_DEFAULT_N1);
+	} else {
+		cb_init(&(*lapb)->write_queue, LAPB_SMODULUS, LAPB_DEFAULT_N1);
+		cb_init(&(*lapb)->ack_queue, LAPB_SMODULUS, LAPB_DEFAULT_N1);
+
+	/* Create timers T201, T202 */
+	if ((*lapb)->callbacks->add_timer) {
+		(*lapb)->T201_timer_ptr = (*lapb)->callbacks->add_timer((*lapb)->T201_interval, *lapb, lapb_t201timer_expiry);
+		(*lapb)->T202_timer_ptr = (*lapb)->callbacks->add_timer((*lapb)->T202_interval, *lapb, lapb_t202timer_expiry);
 	};
 
 	/* Fill invert table */

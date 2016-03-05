@@ -124,7 +124,7 @@ enum {
 #define TRUE  1
 #define FALSE 0
 
-
+#define UNSIGNED_TYPES
 typedef unsigned char	_uchar;
 typedef unsigned short	_ushort;
 typedef unsigned int	_uint;
@@ -152,6 +152,16 @@ struct lapb_frame {
 	_uchar		control[2];	/* Original control data*/
 };
 
+struct lapb_params {
+	_ushort		N2;					/* See struct lapb_cs */
+	_ushort		T201_interval;		/* See struct lapb_cs */
+	_ushort		T202_interval;		/* See struct lapb_cs */
+	_uchar		window;				/* See struct lapb_cs */
+	_ushort		N1;					/* See struct lapb_cs */
+	_uchar		mode;				/* See struct lapb_cs */
+	_uchar		low_order_bits;		/* See struct lapb_cs */
+};
+
 /*
  *	The per LAPB connection control structure.
  */
@@ -163,13 +173,14 @@ struct lapb_cs {
 	_uchar		condition;
 	_ushort		N2;
 	_ushort		N2count;
-	_ushort		T201, T202;		/* T201 and T202 intervals */
-	void *		T201_timer;
-	void *		T202_timer;
+	_ushort		T201_interval;		/* Timer T201 interval */
+	_ushort		T202_interval;		/* Timer T202 interval */
+	void *		T201_timer_ptr;		/* Pointer to timer T201 object */
+	void *		T202_timer_ptr;		/* Pointer to timer T202 object */
 	_uchar		T201_state, T202_state;
 
 	/* Internal control information */
-	_ushort		N1; /* Maximal I frame size */
+	_ushort		N1;					/* Maximal I frame size */
 
 	struct circular_buffer	write_queue;
 	struct circular_buffer	ack_queue;
@@ -184,7 +195,9 @@ struct lapb_cs {
 #if INTERNAL_SYNC
 	pthread_mutex_t		_mutex;
 #endif
-	int	low_order_bits; /* If 1 - use low-order bit first orientation for addresses, commands, responses and sequence numbers */
+	_uchar	low_order_bits;		/* If TRUE - use low-order bit first orientation for addresses,
+								 * commands, responses and sequence numbers
+								*/
 };
 
 
@@ -205,31 +218,22 @@ struct lapb_callbacks {
 	int  (*data_indication)(struct lapb_cs * lapb, char * data, int data_size);	/* Data from the remote system has been received. */
 	void (*transmit_data)(struct lapb_cs * lapb, char *data, int data_size);
 
+	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
+	void (*del_timer)(void * timer);
 	void (*start_timer)(void * timer);
 	void (*stop_timer)(void * timer);
 
 	void (*debug)(struct lapb_cs *lapb, int level, const char * format, ...);
 };
 
-struct lapb_parms_struct {
-	_uint T1;
-	_uint t1timer;
-	_uint T2;
-	_uint t2timer;
-	_uint N1;
-	_uint N2;
-	_uint N2count;
-	_uint window;
-	_uint state;
-	_uint mode;
-};
 
 /* lapb_iface.c */
-extern int lapb_register(struct lapb_callbacks *callbacks,
-						 _uchar modulo,
-						 _uchar protocol,
-						 _uchar equipment,
-						 struct lapb_cs ** lapb);
+//extern int lapb_register(struct lapb_callbacks *callbacks,
+//						 _uchar modulo,
+//						 _uchar protocol,
+//						 _uchar equipment,
+//						 struct lapb_cs ** lapb);
+extern int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params, struct lapb_cs ** lapb);
 extern int lapb_unregister(struct lapb_cs * lapb);
 extern char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size);
 extern int lapb_reset(struct lapb_cs * lapb, _uchar init_state);
@@ -245,8 +249,8 @@ extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, 
 //extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 
 /* lapb_timer.c */
-extern void lapb_t201timer_expiry(unsigned long int lapb_addr);
-extern void lapb_t202timer_expiry(unsigned long int lapb_addr);
+extern void lapb_t201timer_expiry(void * lapb_ptr);
+extern void lapb_t202timer_expiry(void * lapb_ptr);
 
 
 /*
