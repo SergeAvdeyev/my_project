@@ -1,174 +1,191 @@
 /*
- *	X.25 Packet Layer release 002
+ *	LAPB release 001
  *
- *	This is ALPHA test software. This code may break your machine,
- *	randomly fail to work with new releases, misbehave and/or generally
- *	screw up. It might even work.
+ *  By Serge.V.Avdeyev
  *
- *	This code REQUIRES 2.1.15 or higher
+ *  2016-02-01: Start Coding
  *
- *	This module:
- *		This module is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  *
- *	History
- *	X.25 001	Jonathan Naylor	Started coding.
- *	X.25 002	Jonathan Naylor	New timer architecture.
- *					Centralised disconnection processing.
  */
 
-#include <linux/errno.h>
-#include <linux/jiffies.h>
-#include <linux/timer.h>
-#include <net/sock.h>
-#include <net/tcp_states.h>
-#include <net/x25.h>
 
-static void x25_heartbeat_expiry(unsigned long);
-static void x25_timer_expiry(unsigned long);
+#include "x25_int.h"
 
-void x25_init_timers(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
 
-	setup_timer(&x25->timer, x25_timer_expiry, (unsigned long)sk);
+void lapb_start_t201timer(struct lapb_cs *lapb) {
+	if (!lapb->callbacks->start_timer) return;
 
-	/* initialized by sock_init_data */
-	sk->sk_timer.data     = (unsigned long)sk;
-	sk->sk_timer.function = &x25_heartbeat_expiry;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
+	if (lapb_int->T201_state) return;
+
+	lapb->callbacks->start_timer(lapb_int->T201_timer_ptr);
+	lapb_int->T201_state = TRUE;
+	lapb->callbacks->debug(0, "[LAPB] start_t201timer is called");
 }
 
-void x25_start_heartbeat(struct sock *sk)
-{
-	mod_timer(&sk->sk_timer, jiffies + 5 * HZ);
+void lapb_stop_t201timer(struct lapb_cs *lapb) {
+	if (!lapb->callbacks->stop_timer) return;
+
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
+	if (!lapb_int->T201_state) return;
+
+	lapb->callbacks->stop_timer(lapb_int->T201_timer_ptr);
+	lapb_int->T201_state = FALSE;
+	lapb_int->RC = 0;
+	lapb->callbacks->debug(0, "[LAPB] stop_t201timer is called");
 }
 
-void x25_stop_heartbeat(struct sock *sk)
-{
-	del_timer(&sk->sk_timer);
+void lapb_restart_t201timer(struct lapb_cs *lapb) {
+	if (!lapb->callbacks->start_timer) return;
+
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
+	//if ((lapb->T1_state) && (lapb->callbacks->stop_t1timer))
+	//	lapb->callbacks->stop_t1timer(lapb);
+	//lapb->T1_state = FALSE;
+	lapb_int->RC = 0;
+
+	if (!lapb_int->T201_state) {
+		lapb->callbacks->start_timer(lapb_int->T201_timer_ptr);
+		lapb_int->T201_state = TRUE;
+	};
 }
 
-void x25_start_t2timer(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
-
-	mod_timer(&x25->timer, jiffies + x25->t2);
+int lapb_t201timer_running(struct lapb_cs *lapb) {
+	return lapb_get_internal(lapb)->T201_state;
 }
 
-void x25_start_t21timer(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
+void lapb_start_t202timer(struct lapb_cs *lapb) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	mod_timer(&x25->timer, jiffies + x25->t21);
+	if (lapb_int->T202_state) return;
+
+	if (!lapb->callbacks->start_timer) return;
+	lapb->callbacks->start_timer(lapb_get_internal(lapb)->T202_timer_ptr);
+	lapb_int->T202_state = TRUE;
+	lapb->callbacks->debug(0, "[LAPB] start_t202timer is called");
 }
 
-void x25_start_t22timer(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
+void lapb_stop_t202timer(struct lapb_cs *lapb) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	mod_timer(&x25->timer, jiffies + x25->t22);
+	if (!lapb_int->T202_state) return;
+
+	if (!lapb->callbacks->stop_timer) return;
+	lapb->callbacks->stop_timer(lapb_get_internal(lapb)->T202_timer_ptr);
+	lapb_int->T202_state = FALSE;
+	lapb->callbacks->debug(0, "[LAPB] stop_t202timer is called");
 }
 
-void x25_start_t23timer(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
-
-	mod_timer(&x25->timer, jiffies + x25->t23);
+int lapb_t202timer_running(struct lapb_cs *lapb) {
+	return lapb_get_internal(lapb)->T202_state;
 }
 
-void x25_stop_timer(struct sock *sk)
-{
-	del_timer(&x25_sk(sk)->timer);
+
+void lapb_t202timer_expiry(void * lapb_ptr) {
+	struct lapb_cs *lapb = lapb_ptr;
+	if (!lapb) return;
+
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
+	lock(lapb);
+	lapb->callbacks->debug(1, "[LAPB] S%d Timer_202 expired", lapb_int->state);
+	if (lapb_int->condition & LAPB_ACK_PENDING_CONDITION) {
+		lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
+		lapb_timeout_response(lapb);
+		lapb_stop_t202timer(lapb);
+	};
+	unlock(lapb);
 }
 
-unsigned long x25_display_timer(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
+void lapb_t201timer_expiry(void * lapb_ptr) {
+	struct lapb_cs *lapb = lapb_ptr;
+	if (!lapb) return;
 
-	if (!timer_pending(&x25->timer))
-		return 0;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	return x25->timer.expires - jiffies;
-}
-
-static void x25_heartbeat_expiry(unsigned long param)
-{
-	struct sock *sk = (struct sock *)param;
-
-	bh_lock_sock(sk);
-	if (sock_owned_by_user(sk)) /* can currently only occur in state 3 */
-		goto restart_heartbeat;
-
-	switch (x25_sk(sk)->state) {
-
-		case X25_STATE_0:
-			/*
-			 * Magic here: If we listen() and a new link dies
-			 * before it is accepted() it isn't 'dead' so doesn't
-			 * get removed.
-			 */
-			if (sock_flag(sk, SOCK_DESTROY) ||
-			    (sk->sk_state == TCP_LISTEN &&
-			     sock_flag(sk, SOCK_DEAD))) {
-				bh_unlock_sock(sk);
-				x25_destroy_socket_from_timer(sk);
-				return;
-			}
+	lock(lapb);
+	lapb_int->RC++;
+	lapb->callbacks->debug(1, "[LAPB] S%d Timer_201 expired(%d of %d)",
+						   lapb_int->state, lapb_int->RC, lapb->N201);
+	switch (lapb_int->state) {
+		/*
+		 *	If we are a DCE, keep going DM .. DM .. DM
+		 */
+		case LAPB_STATE_0:
+			if (lapb_is_dce(lapb)) {
+				lapb_int->RC = 0;
+				lapb->callbacks->debug(1, "[LAPB] S0 TX DM(0)");
+				lapb_send_control(lapb, LAPB_DM, LAPB_POLLOFF, LAPB_RESPONSE);
+			};
 			break;
 
-		case X25_STATE_3:
-			/*
-			 * Check for the state of the receive buffer.
-			 */
-			x25_check_rbuf(sk);
-			break;
-	}
-restart_heartbeat:
-	x25_start_heartbeat(sk);
-	bh_unlock_sock(sk);
-}
-
-/*
- *	Timer has expired, it may have been T2, T21, T22, or T23. We can tell
- *	by the state machine state.
- */
-static inline void x25_do_timer_expiry(struct sock * sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
-
-	switch (x25->state) {
-
-		case X25_STATE_3:	/* T2 */
-			if (x25->condition & X25_COND_ACK_PENDING) {
-				x25->condition &= ~X25_COND_ACK_PENDING;
-				x25_enquiry_response(sk);
-			}
+		/*
+		 *	Awaiting connection state, send SABM(E), up to N2 times.
+		 */
+		case LAPB_STATE_1:
+			if (lapb_int->RC >= lapb->N201) {
+				lapb_stop_t201timer(lapb);
+				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
+				lapb_reset(lapb, LAPB_STATE_0);
+			} else {
+				if (lapb_is_extended(lapb)) {
+					lapb->callbacks->debug(1, "[LAPB] S1 TX SABME(1)");
+					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
+				} else {
+					lapb->callbacks->debug(1, "[LAPB] S1 TX SABM(1)");
+					lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
+				};
+			};
 			break;
 
-		case X25_STATE_1:	/* T21 */
-		case X25_STATE_4:	/* T22 */
-			x25_write_internal(sk, X25_CLEAR_REQUEST);
-			x25->state = X25_STATE_2;
-			x25_start_t23timer(sk);
+		/*
+		 *	Awaiting disconnection state, send DISC, up to N2 times.
+		 */
+		case LAPB_STATE_2:
+			if (lapb_int->RC >= lapb->N201) {
+				lapb_stop_t201timer(lapb);
+				lapb_requeue_frames(lapb);
+				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
+				lapb_reset(lapb, LAPB_STATE_0);
+			} else {
+				lapb->callbacks->debug(1, "[LAPB] S2 TX DISC(1)");
+				lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
+			};
 			break;
 
-		case X25_STATE_2:	/* T23 */
-			x25_disconnect(sk, ETIMEDOUT, 0, 0);
+		/*
+		 *	Data transfer state, restransmit I frames, up to N2 times.
+		 */
+		case LAPB_STATE_3:
+			lapb_requeue_frames(lapb);
+			if (lapb_int->RC >= lapb->N201) {
+				lapb_stop_t201timer(lapb);
+				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
+				lapb_reset(lapb, LAPB_STATE_0);
+			} else {
+				if (lapb_int->condition & LAPB_FRMR_CONDITION)
+					lapb_transmit_frmr(lapb);
+				else
+					lapb_kick(lapb);
+			};
 			break;
-	}
-}
 
-static void x25_timer_expiry(unsigned long param)
-{
-	struct sock *sk = (struct sock *)param;
-
-	bh_lock_sock(sk);
-	if (sock_owned_by_user(sk)) { /* can currently only occur in state 3 */
-		if (x25_sk(sk)->state == X25_STATE_3)
-			x25_start_t2timer(sk);
-	} else
-		x25_do_timer_expiry(sk);
-	bh_unlock_sock(sk);
+		/*
+		 *	Frame reject state, restransmit FRMR frames, up to N2 times.
+		 */
+//		case LAPB_STATE_4:
+//			if (lapb->N2count >= lapb->N2) {
+//				lapb_stop_t1timer(lapb);
+//				lapb_requeue_frames(lapb);
+//				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
+//				lapb_reset(lapb, LAPB_STATE_0);
+//			} else {
+//				lapb_transmit_frmr(lapb);
+//			};
+//			break;
+	};
+	unlock(lapb);
 }

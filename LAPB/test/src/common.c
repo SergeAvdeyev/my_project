@@ -3,10 +3,10 @@
 #include "common.h"
 #include "logger.h"
 
-char str_buf[1024];
-int break_flag = FALSE;
-int out_counter;
+//char str_buf[1024];
 int old_state = FALSE;
+int out_counter;
+int break_flag = FALSE;
 
 /* Signals handler */
 void signal_callback_handler(int signum) {
@@ -50,17 +50,27 @@ void setup_signals_handler() {
 
 
 
-char * buf_to_str(char * data, int data_size) {
+//char * buf_to_str(char * data, int data_size) {
 
-	bzero(str_buf, 1024);
-	if (data_size < 1023) /* 1 byte for null-terminating */
-		memcpy(str_buf, data, data_size);
-	return str_buf;
+//	bzero(str_buf, 1024);
+//	if (data_size < 1023) /* 1 byte for null-terminating */
+//		memcpy(str_buf, data, data_size);
+//	return str_buf;
+//}
+
+
+
+void lapb_debug(int level, const char * format, ...) {
+	if (level < LAPB_DEBUG) {
+		char buf[256];
+		va_list argList;
+
+		va_start(argList, format);
+		vsnprintf(buf, 256, format, argList);
+		va_end(argList);
+		logger_enqueue(buf, strlen(buf) + 1);
+	};
 }
-
-
-
-
 
 
 /*
@@ -70,21 +80,21 @@ char * buf_to_str(char * data, int data_size) {
 /* Called by LAPB to inform X25 that Connect Request is confirmed */
 void connect_confirmation(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
-	lapb_debug(NULL, 0, "[X25_CB] connect_confirmation event is called(%s)", lapb_error_str(reason));
+	lapb_debug(0, "[X25_CB] connect_confirmation event is called(%s)", lapb_error_str(reason));
 	out_counter = 0;
 }
 
 /* Called by LAPB to inform X25 that connection was initiated by the remote system */
 void connect_indication(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
-	lapb_debug(NULL, 0, "[X25_CB] connect_indication event is called(%s)", lapb_error_str(reason));
+	lapb_debug(0, "[X25_CB] connect_indication event is called(%s)", lapb_error_str(reason));
 	out_counter = 0;
 }
 
 /* Called by LAPB to inform X25 that Disconnect Request is confirmed */
 void disconnect_confirmation(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
-	lapb_debug(NULL, 0, "[X25_CB] disconnect_confirmation event is called(%s)", lapb_error_str(reason));
+	lapb_debug(0, "[X25_CB] disconnect_confirmation event is called(%s)", lapb_error_str(reason));
 }
 
 /* Called by LAPB to inform X25 that connection was terminated by the remote system */
@@ -92,7 +102,7 @@ void disconnect_indication(struct lapb_cs * lapb, int reason) {
 	char * buffer;
 	int buffer_size;
 
-	lapb_debug(NULL, 0, "[X25_CB] disconnect_indication event is called(%s)", lapb_error_str(reason));
+	lapb_debug(0, "[X25_CB] disconnect_indication event is called(%s)", lapb_error_str(reason));
 	buffer = lapb_dequeue(lapb, &buffer_size);
 	if (buffer) {
 		printf("\nUnacked data:\n");
@@ -109,24 +119,6 @@ int data_indication(struct lapb_cs * lapb, char * data, int data_size) {
 	printf("%s\n", buf_to_str(data, data_size));
 	return 0;
 }
-
-
-/* Called by LAPB to write debug info */
-void lapb_debug(struct lapb_cs *lapb, int level, const char * format, ...) {
-	(void)lapb;
-	if (level < LAPB_DEBUG) {
-		char buf[256];
-		va_list argList;
-
-		va_start(argList, format);
-		vsnprintf(buf, 256, format, argList);
-		va_end(argList);
-		logger_enqueue(buf, strlen(buf) + 1);
-	};
-}
-
-
-
 
 
 char * lapb_error_str(int error) {
@@ -157,6 +149,10 @@ char * lapb_error_str(int error) {
 	};
 }
 
+
+
+
+
 int sleep_ms(int milliseconds) {
 	int result = 0;
 
@@ -172,6 +168,10 @@ int sleep_ms(int milliseconds) {
 
 	return result;
 }
+
+
+
+
 
 int wait_stdin(struct lapb_cs * lapb, unsigned char break_condition, int run_once) {
 	fd_set			read_set;
@@ -472,3 +472,8 @@ void main_loop(struct lapb_cs *lapb) {
 	};
 
 }
+
+
+
+
+

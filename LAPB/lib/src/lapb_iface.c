@@ -17,16 +17,16 @@
 struct lapb_cs *lapb_create_cs(void) {
 	struct lapb_cs *lapb;
 
-	lapb = malloc(sizeof(struct lapb_cs));
+	lapb = mem_get(sizeof(struct lapb_cs));
 
 	if (!lapb)
 		goto out;
 
-	struct lapb_cs_internal * lapb_int = malloc(sizeof(struct lapb_cs_internal));
+	struct lapb_cs_internal * lapb_int = mem_get(sizeof(struct lapb_cs_internal));
 	lapb->internal_struct = lapb_int;
 
 	/* Zero variables */
-	lapb_int->N2count = 0;
+	lapb_int->RC = 0;
 	lapb_int->va = 0;
 	lapb_int->vr = 0;
 	lapb_int->vs = 0;
@@ -39,11 +39,11 @@ out:
 	return lapb;
 }
 
-void lapb_default_debug(struct lapb_cs *lapb, int level, const char * format, ...) {
-	(void)lapb;
+void lapb_default_debug(int level, const char * format, ...) {
 	(void)level;
 	(void)format;
 }
+
 
 int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params, struct lapb_cs ** lapb) {
 	int rc = LAPB_BADTOKEN;
@@ -70,7 +70,7 @@ int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params,
 		(*lapb)->mode	= LAPB_DEFAULT_SMODE;
 		(*lapb)->window	= LAPB_DEFAULT_SWINDOW;
 		(*lapb)->N1		= LAPB_DEFAULT_N1;
-		(*lapb)->N2		= LAPB_DEFAULT_N2;
+		(*lapb)->N201	= LAPB_DEFAULT_N202;
 		(*lapb)->T201_interval = LAPB_DEFAULT_T201;
 		(*lapb)->T202_interval = LAPB_DEFAULT_T202;
 		(*lapb)->low_order_bits = FALSE;
@@ -116,8 +116,8 @@ int lapb_unregister(struct lapb_cs * lapb) {
 	cb_free(&lapb_int->write_queue);
 	cb_free(&lapb_int->ack_queue);
 
-	free(lapb->internal_struct);
-	free(lapb);
+	mem_free(lapb->internal_struct);
+	mem_free(lapb);
 	rc = LAPB_OK;
 out:
 	return rc;
@@ -129,7 +129,7 @@ int lapb_get_params(struct lapb_cs * lapb, struct lapb_params * params) {
 	if (!lapb)
 		goto out;
 
-	params->N2				= lapb->N2;
+	params->N201			= lapb->N201;
 	params->T201_interval	= lapb->T201_interval;
 	params->T202_interval	= lapb->T202_interval;
 	params->window			= lapb->window;
@@ -156,7 +156,7 @@ int lapb_set_params(struct lapb_cs * lapb, struct lapb_params *params) {
 	if (params->T202_interval < 10 ||
 		params->T202_interval > 20000) /* Value must be between 10ms and 20s */
 		goto out;
-	if (params->N2 < 1 || params->N2 > 20) /* Value must be between 1 and 20 retries */
+	if (params->N201 < 1 || params->N201 > 20) /* Value must be between 1 and 20 retries */
 		goto out;
 	if (params->N1 < 10 || params->N1 > 2048) /* Value must be between 10 and 2048 bytes */
 		goto out;
@@ -179,7 +179,7 @@ int lapb_set_params(struct lapb_cs * lapb, struct lapb_params *params) {
 	lapb->T202_interval = params->T202_interval;
 
 	lapb->N1 = params->N1;
-	lapb->N2 = params->N2;
+	lapb->N201 = params->N201;
 	lapb->low_order_bits = params->low_order_bits;
 	lapb->auto_connecting = params->auto_connecting;
 
@@ -221,7 +221,7 @@ int lapb_reset(struct lapb_cs * lapb, unsigned char init_state) {
 	lapb_stop_t202timer(lapb);
 	lapb_clear_queues(lapb);
 	/* Zero variables */
-	lapb_int->N2count = 0;
+	lapb_int->RC = 0;
 	lapb_int->va = 0;
 	lapb_int->vr = 0;
 	lapb_int->vs = 0;
@@ -231,7 +231,7 @@ int lapb_reset(struct lapb_cs * lapb, unsigned char init_state) {
 	if ((lapb_is_dce(lapb)) && (init_state == LAPB_STATE_0))
 		lapb_start_t201timer(lapb);
 
-	lapb->callbacks->debug(lapb, 0, "[LAPB] S%d -> S%d", old_state, init_state);
+	lapb->callbacks->debug(0, "[LAPB] S%d -> S%d", old_state, init_state);
 
 	rc = LAPB_OK;
 out:
@@ -262,7 +262,7 @@ int lapb_connect_request(struct lapb_cs *lapb) {
 	lapb_int->state = LAPB_STATE_1;
 	lapb->auto_connecting = TRUE;
 
-	lapb->callbacks->debug(lapb, 0, "[LAPB] S0 -> S1");
+	lapb->callbacks->debug(0, "[LAPB] S0 -> S1");
 
 	rc = LAPB_OK;
 out:
@@ -285,8 +285,8 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 			goto out;
 
 		case LAPB_STATE_1:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX DISC(1)");
-			lapb->callbacks->debug(lapb, 0, "[LAPB] S1 -> S2");
+			lapb->callbacks->debug(1, "[LAPB] S1 TX DISC(1)");
+			lapb->callbacks->debug(0, "[LAPB] S1 -> S2");
 			lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			lapb_int->state = LAPB_STATE_2;
 			lapb_start_t201timer(lapb);
@@ -298,15 +298,15 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 			goto out;
 	};
 
-	lapb->callbacks->debug(lapb, 1, "[LAPB] S3 DISC(1)");
+	lapb->callbacks->debug(1, "[LAPB] S3 DISC(1)");
 	lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 	lapb_int->state = LAPB_STATE_2;
-	lapb_int->N2count = 0;
+	lapb_int->RC = 0;
 	lapb_start_t201timer(lapb);
 	lapb_stop_t202timer(lapb);
 	lapb->auto_connecting = FALSE;
 
-	lapb->callbacks->debug(lapb, 0, "[LAPB] S3 -> S2");
+	lapb->callbacks->debug(0, "[LAPB] S3 -> S2");
 
 	rc = LAPB_OK;
 out:

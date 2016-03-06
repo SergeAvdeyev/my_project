@@ -13,7 +13,7 @@
 
 
 void cb_init(struct circular_buffer *cb, size_t capacity, size_t sz) {
-	cb->buffer = malloc(capacity * (sz + 8)); /* 4 bytes for data_size, 4 bytes reserved (for push operations), 2 bytes for FCS */
+	cb->buffer = lapb_mem_get(capacity * (sz + 8)); /* 4 bytes for data_size, 4 bytes reserved (for push operations), 2 bytes for FCS */
 
 	cb->buffer_end = cb->buffer + capacity * (sz + 8);
 	cb->capacity = capacity;
@@ -25,7 +25,7 @@ void cb_init(struct circular_buffer *cb, size_t capacity, size_t sz) {
 
 void cb_free(struct circular_buffer *cb) {
 	if (!cb->buffer) return;
-	free(cb->buffer);
+	lapb_mem_free(cb->buffer);
 	cb->buffer = NULL;
 	// clear out other fields too, just to be safe
 }
@@ -47,7 +47,7 @@ int cb_queue_head(struct circular_buffer *cb, const char *data, int data_size) {
 	else
 		cb->head = cb->head - cb->sz - 8;
 	*(int *)(cb->head) = data_size;
-	memcpy(cb->head + 8, data, data_size);
+	lapb_mem_copy(cb->head + 8, data, data_size);
 
 	cb->count++;
 	return 1;
@@ -59,7 +59,7 @@ int cb_queue_tail(struct circular_buffer *cb, const char *data, int data_size) {
 		return 0;
 
 	*(int *)(cb->tail) = data_size;
-	memcpy(cb->tail + 8, data, data_size);
+	lapb_mem_copy(cb->tail + 8, data, data_size);
 
 	cb->tail = cb->tail + cb->sz + 8;
 	if (cb->tail == cb->buffer_end)

@@ -20,61 +20,61 @@ void lapb_state0_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 
 	switch (frame->type) {
 		case LAPB_SABM:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S0 RX SABM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S0 RX SABM(%d)", frame->pf);
 			if (lapb_is_extended(lapb)) {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX DM(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S0 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 			} else {
 				lapb_stop_t201timer(lapb);
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S0 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_int->state     = LAPB_STATE_3;
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
-				lapb->callbacks->debug(lapb, 0, "[LAPB] S0 -> S3");
+				lapb->callbacks->debug(0, "[LAPB] S0 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
 			};
 			break;
 
 		case LAPB_SABME:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S0 RX SABME(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S0 RX SABME(%d)", frame->pf);
 			if (lapb_is_extended(lapb)) {
 				lapb_stop_t201timer(lapb);
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S0 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_int->state     = LAPB_STATE_3;
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
-				lapb->callbacks->debug(lapb, 0, "[LAPB] S0 -> S3");
+				lapb->callbacks->debug(0, "[LAPB] S0 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
 			} else {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX DM(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S0 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 			};
 			break;
 
 		case LAPB_DM:
 			if (!lapb->auto_connecting) break;
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S0 RX DM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S0 RX DM(%d)", frame->pf);
 			lapb_int->condition = 0x00;
 			if (lapb_is_extended(lapb)) {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX SABME(1)");
+				lapb->callbacks->debug(1, "[LAPB] S0 TX SABME(1)");
 				lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 			} else {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX SABM(1)");
+				lapb->callbacks->debug(1, "[LAPB] S0 TX SABM(1)");
 				lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 			};
 			lapb_int->state = LAPB_STATE_1;
-			lapb->callbacks->debug(lapb, 0, "[LAPB] S0 -> S1");
+			lapb->callbacks->debug(0, "[LAPB] S0 -> S1");
 			break;
 
 //		case LAPB_DISC:
-//			lapb->callbacks->debug(lapb, 1, "[LAPB] S0 RX DISC(%d)", frame->pf);
-//			lapb->callbacks->debug(lapb, 1, "[LAPB] S0 TX UA(%d)", frame->pf);
+//			lapb_debug(lapb, 1, "[LAPB] S0 RX DISC(%d)", frame->pf);
+//			lapb_debug(lapb, 1, "[LAPB] S0 TX UA(%d)", frame->pf);
 //			lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 //			break;
 
@@ -92,14 +92,14 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 
 	switch (frame->type) {
 		case LAPB_SABM:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 RX SABM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S1 RX SABM(%d)", frame->pf);
 			if (lapb_is_extended(lapb)) {
 				/* Unrecognized mode */
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX DM(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S1 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 			} else {
 				/* Collision state, send UA and switch to state_3 */
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S1 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_stop_t201timer(lapb);
 				lapb_int->state     = LAPB_STATE_3;
@@ -107,16 +107,16 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
-				lapb->callbacks->debug(lapb, 0, "[LAPB] S1 -> S3");
+				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
 				lapb_connect_confirmation(lapb, LAPB_OK);
 			};
 			break;
 
 		case LAPB_SABME:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 RX SABME(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S1 RX SABME(%d)", frame->pf);
 			if (lapb_is_extended(lapb)) {
 				/* Collision state, send UA and switch to state_3 */
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S1 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_stop_t201timer(lapb);
 				lapb_int->state     = LAPB_STATE_3;
@@ -124,18 +124,18 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
-				lapb->callbacks->debug(lapb, 0, "[LAPB] S1 -> S3");
+				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
 				lapb_connect_confirmation(lapb, LAPB_OK);
 			} else {
 				/* Unrecognized mode */
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX DM(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S1 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 			};
 			break;
 
 //		case LAPB_DISC:
-//			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 RX DISC(%d)", frame->pf);
-//			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 TX DM(%d)", frame->pf);
+//			lapb->callbacks->debug(1, "[LAPB] S1 RX DISC(%d)", frame->pf);
+//			lapb->callbacks->debug(1, "[LAPB] S1 TX DM(%d)", frame->pf);
 //			lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 //			lapb_requeue_frames(lapb);
 //			lapb_disconnect_indication(lapb, LAPB_REFUSED);
@@ -143,7 +143,7 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 //			break;
 
 		case LAPB_UA:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 RX UA(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S1 RX UA(%d)", frame->pf);
 			if (frame->pf) {
 				lapb_stop_t201timer(lapb);
 				lapb_int->state     = LAPB_STATE_3;
@@ -152,13 +152,13 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
 
-				lapb->callbacks->debug(lapb, 0, "[LAPB] S1 -> S3");
+				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
 				lapb_connect_confirmation(lapb, LAPB_OK);
 			};
 			break;
 
 		case LAPB_DM:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S1 RX DM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S1 RX DM(%d)", frame->pf);
 			if (frame->pf) {
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_REFUSED);
@@ -178,27 +178,27 @@ void lapb_state2_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 	switch (frame->type) {
 //		case LAPB_SABM:
 //		case LAPB_SABME:
-//			lapb->callbacks->debug(lapb, 1, "[LAPB] S2 RX {SABM,SABME}(%d)", frame->pf);
-//			lapb->callbacks->debug(lapb, 1, "[LAPB] S2 TX DM(%d)", frame->pf);
+//			lapb->callbacks->debug(1, "[LAPB] S2 RX {SABM,SABME}(%d)", frame->pf);
+//			lapb->callbacks->debug(1, "[LAPB] S2 TX DM(%d)", frame->pf);
 //			lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 //			lapb_reset(lapb, LAPB_STATE_0);
 //			break;
 
 		case LAPB_DISC:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S2 RX DISC(%d)", frame->pf);
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S2 TX UA(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S2 RX DISC(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S2 TX UA(%d)", frame->pf);
 			lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 			break;
 
 		case LAPB_UA:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S2 RX UA(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S2 RX UA(%d)", frame->pf);
 			lapb_requeue_frames(lapb);
 			lapb_disconnect_confirmation(lapb, LAPB_OK);
 			lapb_reset(lapb, LAPB_STATE_0);
 			break;
 
 		case LAPB_DM:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S2 RX DM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S2 RX DM(%d)", frame->pf);
 			lapb_requeue_frames(lapb);
 			lapb_disconnect_confirmation(lapb, LAPB_NOTCONNECTED);
 			lapb_reset(lapb, LAPB_STATE_0);
@@ -208,8 +208,8 @@ void lapb_state2_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 //		case LAPB_REJ:
 //		case LAPB_RNR:
 //		case LAPB_RR:
-//			lapb->callbacks->debug(lapb, 1, "[LAPB] S2 RX {I,REJ,RNR,RR}(%d)", frame->pf);
-//			lapb->callbacks->debug(lapb, 1, "[LAPB] S2 TX DM(%d)", frame->pf);
+//			lapb->callbacks->debug(1, "[LAPB] S2 RX {I,REJ,RNR,RR}(%d)", frame->pf);
+//			lapb->callbacks->debug(1, "[LAPB] S2 TX DM(%d)", frame->pf);
 //			if (frame->pf)
 //				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 //			break;
@@ -228,15 +228,15 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 
 	switch (frame->type) {
 		case LAPB_SABM:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX SABM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX SABM(%d)", frame->pf);
 			if (lapb_is_extended(lapb)) {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX DM(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S3 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_OK);
 				lapb_reset(lapb, LAPB_STATE_0);
 			} else {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S3 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_stop_t201timer(lapb);
 				lapb_int->condition = 0x00;
@@ -249,9 +249,9 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 			break;
 
 		case LAPB_SABME:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX SABME(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX SABME(%d)", frame->pf);
 			if (lapb_is_extended(lapb)) {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S3 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_stop_t201timer(lapb);
 				lapb_int->condition = 0x00;
@@ -261,7 +261,7 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_requeue_frames(lapb);
 				lapb_start_t201timer(lapb); /* to kick data */
 			} else {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX DM(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S3 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_OK);
@@ -270,8 +270,8 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 			break;
 
 		case LAPB_DISC:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX DISC(%d)", frame->pf);
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX UA(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX DISC(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S3 TX UA(%d)", frame->pf);
 			lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 			lapb_requeue_frames(lapb);
 			lapb_disconnect_indication(lapb, LAPB_OK);
@@ -279,14 +279,14 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 			break;
 
 		case LAPB_DM:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX DM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX DM(%d)", frame->pf);
 			lapb_requeue_frames(lapb);
 			lapb_disconnect_indication(lapb, LAPB_NOTCONNECTED);
 			lapb_reset(lapb, LAPB_STATE_0);
 			break;
 
 		case LAPB_RNR:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX RNR(%d) R%d", frame->pf, frame->nr);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX RNR(%d) R%d", frame->pf, frame->nr);
 			lapb_int->condition |= LAPB_PEER_RX_BUSY_CONDITION;
 			lapb_check_need_response(lapb, frame->cr, frame->pf);
 			if (lapb_validate_nr(lapb, frame->nr)) {
@@ -296,13 +296,15 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->frmr_type = LAPB_FRMR_Z;
 				lapb_transmit_frmr(lapb);
 				lapb_int->condition = LAPB_FRMR_CONDITION;
+				lapb_int->state     = LAPB_STATE_4;
+				lapb_int->RC = 0;
 				lapb_start_t201timer(lapb);
 				lapb_stop_t202timer(lapb);
 			};
 			break;
 
 		case LAPB_RR:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX RR(%d) R%d", frame->pf, frame->nr);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX RR(%d) R%d", frame->pf, frame->nr);
 			lapb_int->condition &= ~LAPB_PEER_RX_BUSY_CONDITION;
 			lapb_check_need_response(lapb, frame->cr, frame->pf);
 			if (lapb_validate_nr(lapb, frame->nr)) {
@@ -312,14 +314,15 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->frmr_type = LAPB_FRMR_Z;
 				lapb_transmit_frmr(lapb);
 				lapb_int->condition = LAPB_FRMR_CONDITION;
-				lapb_int->N2count = 0;
+				lapb_int->state     = LAPB_STATE_4;
+				lapb_int->RC = 0;
 				lapb_start_t201timer(lapb);
 				lapb_stop_t202timer(lapb);
 			};
 			break;
 
 		case LAPB_REJ:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX REJ(%d) R%d", frame->pf, frame->nr);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX REJ(%d) R%d", frame->pf, frame->nr);
 			lapb_int->condition &= ~LAPB_PEER_RX_BUSY_CONDITION;
 			lapb_check_need_response(lapb, frame->cr, frame->pf);
 			if (lapb_validate_nr(lapb, frame->nr)) {
@@ -331,7 +334,8 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->frmr_type = LAPB_FRMR_Z;
 				lapb_transmit_frmr(lapb);
 				lapb_int->condition = LAPB_FRMR_CONDITION;
-				lapb_int->N2count = 0;
+				lapb_int->state     = LAPB_STATE_4;
+				lapb_int->RC = 0;
 				lapb_start_t201timer(lapb);
 				lapb_stop_t202timer(lapb);
 			};
@@ -340,12 +344,14 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 		case LAPB_I:
 			if (lapb_int->condition & LAPB_FRMR_CONDITION)
 				break;
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX I(%d) S%d R%d", frame->pf, frame->ns, frame->nr);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX I(%d) S%d R%d", frame->pf, frame->ns, frame->nr);
 			if (!lapb_validate_nr(lapb, frame->nr)) {
 				lapb_int->frmr_data = *frame;
 				lapb_int->frmr_type = LAPB_FRMR_Z;
 				lapb_transmit_frmr(lapb);
 				lapb_int->condition = LAPB_FRMR_CONDITION;
+				lapb_int->state     = LAPB_STATE_4;
+				lapb_int->RC = 0;
 				lapb_start_t201timer(lapb);
 				break;
 			};
@@ -368,7 +374,7 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				 * a frame lost on the wire.
 				 */
 				if (cn != 0) {
-					lapb->callbacks->debug(lapb, 1, "[LAPB] S3 Upper layer has dropped the frame");
+					lapb->callbacks->debug(1, "[LAPB] S3 Upper layer has dropped the frame");
 					break;
 				};
 				lapb_int->vr = (lapb_int->vr + 1) % modulus;
@@ -388,7 +394,7 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 					if (frame->pf)
 						lapb_enquiry_response(lapb);
 				} else {
-					lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX REJ(%d) R%d", frame->pf, lapb_int->vr);
+					lapb->callbacks->debug(1, "[LAPB] S3 TX REJ(%d) R%d", frame->pf, lapb_int->vr);
 					lapb_int->condition |= LAPB_REJECT_CONDITION;
 					lapb_send_control(lapb, LAPB_REJ, frame->pf, LAPB_RESPONSE);
 					lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
@@ -397,11 +403,11 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 			break;
 
 		case LAPB_FRMR:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX FRMR(%d) %02X %02X %02X %02X %02X",
+			lapb->callbacks->debug(1, "[LAPB] S3 RX FRMR(%d) %02X %02X %02X %02X %02X",
 									frame->pf, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2], (_uchar)data[3], (_uchar)data[4]);
 			if (lapb_int->condition & LAPB_FRMR_CONDITION) {
 				/* FRMR Collision */
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S3 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				break;
 			};
@@ -416,16 +422,16 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 			lapb_requeue_frames(lapb);
 
 			if (lapb_is_extended(lapb)) {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX SABME(1)");
+				lapb->callbacks->debug(1, "[LAPB] S3 TX SABME(1)");
 				lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 			} else {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX SABM(1)");
+				lapb->callbacks->debug(1, "[LAPB] S3 TX SABM(1)");
 				lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 			};
 			break;
 
 		case LAPB_UA:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX UA(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX UA(%d)", frame->pf);
 			if (lapb_int->condition & LAPB_FRMR_CONDITION) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
@@ -437,21 +443,22 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->condition = LAPB_FRMR_CONDITION;
 				lapb_requeue_frames(lapb);
 				if (lapb_is_extended(lapb)) {
-					lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX SABME(1)");
+					lapb->callbacks->debug(1, "[LAPB] S3 TX SABME(1)");
 					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 				} else {
-					lapb->callbacks->debug(lapb, 1, "[LAPB] S3 TX SABM(1)");
+					lapb->callbacks->debug(1, "[LAPB] S3 TX SABM(1)");
 					lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 				};
 			};
 			break;
 
 		case LAPB_ILLEGAL:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S3 RX ILLEGAL(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S3 RX ILLEGAL(%d)", frame->pf);
 			lapb_int->frmr_data = *frame;
 			lapb_int->frmr_type = LAPB_FRMR_W;
 			lapb_transmit_frmr(lapb);
 			lapb_int->condition = LAPB_FRMR_CONDITION;
+			lapb_int->state     = LAPB_STATE_4;
 			lapb_start_t201timer(lapb);
 			lapb_stop_t202timer(lapb);
 			break;
@@ -469,15 +476,15 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 	switch (frame->type) {
 		/* Command */
 		case LAPB_SABM:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S4 RX SABM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S4 RX SABM(%d)", frame->pf);
 			if (lapb_is_extended(lapb)) {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S4 TX DM(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S4 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_REFUSED);
 				lapb_reset(lapb, LAPB_STATE_0);
 			} else {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S4 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S4 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_restart_t201timer(lapb);
 				lapb_int->state     = LAPB_STATE_3;
@@ -485,16 +492,16 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
-				lapb->callbacks->debug(lapb, 0, "[LAPB] S4 -> S3");
+				lapb->callbacks->debug(0, "[LAPB] S4 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
 			};
 			break;
 
 		/* Command */
 		case LAPB_SABME:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S4 RX SABME(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S4 RX SABME(%d)", frame->pf);
 			if (lapb_is_extended(lapb)) {
-				lapb->callbacks->debug(lapb, 1, "[LAPB] S4 TX UA(%d)", frame->pf);
+				lapb->callbacks->debug(1, "[LAPB] S4 TX UA(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 				lapb_restart_t201timer(lapb);
 				lapb_int->state     = LAPB_STATE_3;
@@ -502,10 +509,10 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
-				lapb->callbacks->debug(lapb, 0, "[LAPB] S4 -> S3");
+				lapb->callbacks->debug(0, "[LAPB] S4 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
 			} else {
-				lapb->callbacks->debug(lapb, 1,  "[LAPB] S4 TX DM(%d)", frame->pf);
+				lapb->callbacks->debug(1,  "[LAPB] S4 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);
 				lapb_requeue_frames(lapb);
 				lapb_disconnect_indication(lapb, LAPB_REFUSED);
@@ -515,8 +522,8 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 
 		/* Command */
 		case LAPB_DISC:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S4 RX DISC(%d)", frame->pf);
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S4 TX UA(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S4 RX DISC(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S4 TX UA(%d)", frame->pf);
 			lapb_send_control(lapb, LAPB_UA, frame->pf, LAPB_RESPONSE);
 			lapb_requeue_frames(lapb);
 			lapb_disconnect_indication(lapb, LAPB_OK);
@@ -525,7 +532,7 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 
 		/* Response */
 		case LAPB_DM:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S4 RX DM(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S4 RX DM(%d)", frame->pf);
 			lapb_requeue_frames(lapb);
 			lapb_disconnect_indication(lapb, LAPB_NOTCONNECTED);
 			lapb_reset(lapb, LAPB_STATE_0);
@@ -533,7 +540,7 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 
 		/* Response */
 		case LAPB_FRMR:
-			lapb->callbacks->debug(lapb, 1, "[LAPB] S4 RX FRMR(%d)", frame->pf);
+			lapb->callbacks->debug(1, "[LAPB] S4 RX FRMR(%d)", frame->pf);
 			break;
 	};
 }

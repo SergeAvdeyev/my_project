@@ -40,9 +40,9 @@ void terminate_timer_thread() {
 
 
 
-void * timer_add(int interval, void * owner, void *timer_expiry_sub) {
+void * timer_add(int interval, void * lapb_ptr, void *timer_expiry) {
 	if (timers_count >= sizeof(timers_list)/sizeof(void *)) return NULL;
-	if (!timer_expiry_sub) return NULL;
+	if (!timer_expiry) return NULL;
 
 	struct timer_descr * timer_tmp;
 
@@ -50,8 +50,8 @@ void * timer_add(int interval, void * owner, void *timer_expiry_sub) {
 	timer_tmp->interval = interval;
 	timer_tmp->active = FALSE;
 	timer_tmp->interval_tmp = 0;
-	timer_tmp->owner = owner;
-	timer_tmp->timer_expiry_sub = timer_expiry_sub;
+	timer_tmp->lapb_ptr = lapb_ptr;
+	timer_tmp->timer_expiry = timer_expiry;
 	timers_list[timers_count] = timer_tmp;
 	timers_count++;
 
@@ -170,7 +170,7 @@ void * timer_thread_function(void *ptr) {
 				continue;
 			if (timer_dec(timer, struct_ptr->interval) > 0)
 				continue;
-			timer->timer_expiry_sub(timer->owner);
+			timer->timer_expiry(timer->lapb_ptr);
 		};
 	};
 

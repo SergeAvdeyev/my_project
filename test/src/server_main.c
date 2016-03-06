@@ -45,9 +45,8 @@ void hex_dump(char * data, int data_size) {
 
 /* Called by LAPB to transmit data via physical connection */
 void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
-	(void)lapb;
 	if (!is_server_accepted()) return;
-	//debug(lapb, 0, "[LAPB] data_transmit is called");
+	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
 	char buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
@@ -71,7 +70,7 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	buffer[data_size + 5] = 0x7E; /* Close flag */
 	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
 	if (n < 0)
-		lapb_debug(0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
+		lapb_debug(lapb, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
@@ -148,7 +147,7 @@ void new_data_received(char * data, int data_size) {
 						in_buffer[block_size] = data[i];
 						block_size++;
 					} else {
-						lapb_debug(0, "[PHYS_CB] data error");
+						lapb_debug(NULL, 0, "[PHYS_CB] data error");
 						break;
 					};
 				}
@@ -251,7 +250,7 @@ int main (int argc, char *argv[]) {
 		sleep_ms(200);
 	printf("Logger started\n\n");
 
-	lapb_debug(0, "Program started by User %d", getuid ());
+	lapb_debug(NULL, 0, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
 	setup_signals_handler();
@@ -329,7 +328,7 @@ label_2:
 	//bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
 	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
 	if (ret) {
-		lapb_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		lapb_debug(NULL, 0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};

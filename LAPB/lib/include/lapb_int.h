@@ -11,9 +11,9 @@
 #ifndef LAPB_INT_H
 #define LAPB_INT_H
 
-#include <stdio.h>
-
 #include "lapb_iface.h"
+#include "queue.h"
+#include "subr.h"
 
 /* Private lapb properties */
 struct lapb_cs_internal {
@@ -23,7 +23,7 @@ struct lapb_cs_internal {
 
 	void *		T201_timer_ptr;		/* Pointer to timer T201 object */
 	void *		T202_timer_ptr;		/* Pointer to timer T202 object */
-	_ushort		N2count;
+	_ushort		RC;					/* Retry counter */
 	_uchar		T201_state, T202_state;
 
 	/* FRMR control information */
@@ -60,7 +60,7 @@ void lapb_check_need_response(struct lapb_cs *lapb, int, int);
 /* lapb_subr.c */
 void lock(struct lapb_cs *lapb);
 void unlock(struct lapb_cs *lapb);
-char * lapb_buf_to_str(char * data, int data_size);
+//char * lapb_buf_to_str(char * data, int data_size);
 void lapb_clear_queues(struct lapb_cs *lapb);
 int lapb_frames_acked(struct lapb_cs *lapb, unsigned short nr);
 void lapb_requeue_frames(struct lapb_cs *lapb);
@@ -75,6 +75,12 @@ int lapb_is_extended(struct lapb_cs *lapb);
 int lapb_is_slp(struct lapb_cs *lapb);
 /* Convert void *lapb_cs::internal_struct to lapb_cs_internal */
 struct lapb_cs_internal * lapb_get_internal(struct lapb_cs *lapb);
+
+///* Redefine 'malloc' and 'free' */
+//void * lapb_mem_get(_ulong size);
+//void lapb_mem_free(void *ptr);
+//void * lapb_mem_copy(void *dest, const void *src, _ulong n);
+//void lapb_mem_zero(void *src, _ulong n);
 
 
 /* lapb_timer.c */

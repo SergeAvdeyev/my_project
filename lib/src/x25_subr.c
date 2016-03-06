@@ -1,390 +1,412 @@
 /*
- *	X.25 Packet Layer release 002
+ *	LAPB release 001
  *
- *	This is ALPHA test software. This code may break your machine,
- *	randomly fail to work with new releases, misbehave and/or generally
- *	screw up. It might even work.
+ *  By Serge.V.Avdeyev
  *
- *	This code REQUIRES 2.1.15 or higher
+ *  2016-02-01: Start Coding
  *
- *	This module:
- *		This module is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  *
- *	History
- *	X.25 001	Jonathan Naylor	  Started coding.
- *	X.25 002	Jonathan Naylor	  Centralised disconnection processing.
- *	mar/20/00	Daniela Squassoni Disabling/enabling of facilities
- *					  negotiation.
- *	jun/24/01	Arnaldo C. Melo	  use skb_queue_purge, cleanups
- *	apr/04/15	Shaun Pereira		Fast select with no
- *						restriction on response.
  */
 
-#define pr_fmt(fmt) "X25: " fmt
 
-#include <linux/slab.h>
-#include <linux/kernel.h>
-#include <linux/string.h>
-#include <linux/skbuff.h>
-#include <net/sock.h>
-#include <net/tcp_states.h>
-#include <net/x25.h>
+#include "x25_int.h"
 
-/*
- *	This routine purges all of the queues of frames.
- */
-void x25_clear_queues(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
 
-	skb_queue_purge(&sk->sk_write_queue);
-	skb_queue_purge(&x25->ack_queue);
-	skb_queue_purge(&x25->interrupt_in_queue);
-	skb_queue_purge(&x25->interrupt_out_queue);
-	skb_queue_purge(&x25->fragment_queue);
+char str_buf[1024];
+_uchar uchar_inv_table[256];
+
+void lock(struct lapb_cs *lapb) {
+#if !INTERNAL_SYNC
+	(void)lapb;
+#else
+	if (!lapb) return;
+
+	pthread_mutex_lock(&(lapb_get_internal(lapb)->_mutex));
+#endif
 }
 
+void unlock(struct lapb_cs *lapb) {
+#if !INTERNAL_SYNC
+	(void)lapb;
+#else
+	if (!lapb) return;
+	pthread_mutex_unlock(&(lapb_get_internal(lapb)->_mutex));
+#endif
+}
+
+void fill_inv_table() {
+	_uchar i = 0;
+	_uchar tmp;
+	while (1) {
+		tmp =  (i & 0x01) << 7;
+		tmp += (i & 0x80) >> 7;
+
+		tmp += (i & 0x02) << 5;
+		tmp += (i & 0x40) >> 5;
+
+		tmp += (i & 0x04) << 3;
+		tmp += (i & 0x20) >> 3;
+
+		tmp += (i & 0x08) << 1;
+		tmp += (i & 0x10) >> 1;
+
+		uchar_inv_table[i] = tmp;
+		if (i == 255) break;
+		i++;
+	};
+}
+
+_uchar invert_uchar(_uchar value) {
+	return uchar_inv_table[value];
+}
+
+char * lapb_buf_to_str(char * data, int data_size) {
+	str_buf[0] = '\0';
+	if (data_size < 1024) {/* 1 byte for null-terminating */
+		lapb_mem_copy(str_buf, data, data_size);
+		str_buf[data_size] = '\0';
+	};
+	return str_buf;
+}
+
+void * lapb_mem_get(_ulong size) {
+#ifdef __GNUC__
+	return malloc(size);
+#else
+	size = 0;
+	return (void *)size;
+#endif
+}
+
+void lapb_mem_free(void * ptr) {
+#ifdef __GNUC__
+	free(ptr);
+#else
+	*(int *)ptr = 0;
+#endif
+}
+
+void * lapb_mem_copy(void *dest, const void *src, _ulong n) {
+#ifdef __GNUC__
+	return memcpy(dest, src, n);
+#else
+	_ulong i = 0;
+	while (i < n) {
+		*(char *)dest = *(char *)src;
+		i++;
+	};
+	return dest;
+#endif
+}
+
+void lapb_mem_zero(void *src, _ulong n) {
+#ifdef __GNUC__
+	bzero(src, n);
+#else
+	_ulong i = 0;
+	while (i < n) {
+		*(char *)src = 0;
+		i++;
+	};
+#endif
+}
+
+/*  */
+int lapb_is_dce(struct lapb_cs *lapb) {
+	return (lapb->mode & LAPB_DCE);
+}
+
+/*   */
+int lapb_is_extended(struct lapb_cs *lapb) {
+	return (lapb->mode & LAPB_EXTENDED);
+}
+
+int lapb_is_slp(struct lapb_cs *lapb) {
+	return !(lapb->mode & LAPB_MLP);
+}
+
+struct x25_cs_internal * lapb_get_internal(struct lapb_cs *lapb) {
+	return (struct x25_cs_internal *)lapb->internal_struct;
+}
+
+/*
+ *	This routine delete all the queues of frames.
+ */
+void lapb_clear_queues(struct lapb_cs *lapb) {
+	cb_clear(&lapb_get_internal(lapb)->write_queue);
+	cb_clear(&lapb_get_internal(lapb)->ack_queue);
+}
 
 /*
  * This routine purges the input queue of those frames that have been
  * acknowledged. This replaces the boxes labelled "V(a) <- N(r)" on the
  * SDL diagram.
-*/
-void x25_frames_acked(struct sock *sk, unsigned short nr)
-{
-	struct sk_buff *skb;
-	struct x25_sock *x25 = x25_sk(sk);
-	int modulus = x25->neighbour->extended ? X25_EMODULUS : X25_SMODULUS;
+ */
+int lapb_frames_acked(struct lapb_cs *lapb, unsigned short nr) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+	int modulus = lapb_is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
 	/*
 	 * Remove all the ack-ed frames from the ack queue.
 	 */
-	if (x25->va != nr)
-		while (skb_peek(&x25->ack_queue) && x25->va != nr) {
-			skb = skb_dequeue(&x25->ack_queue);
-			kfree_skb(skb);
-			x25->va = (x25->va + 1) % modulus;
-		}
+	while (cb_peek(&lapb_int->ack_queue) && lapb_int->va != nr) {
+		cb_dequeue(&lapb_int->ack_queue, NULL);
+		lapb_int->va = (lapb_int->va + 1) % modulus;
+	};
+	return lapb_int->va == lapb_int->vs;
 }
 
-void x25_requeue_frames(struct sock *sk)
-{
-	struct sk_buff *skb, *skb_prev = NULL;
+/*
+ * Requeue all the un-ack-ed frames on the output queue to be picked
+ * up by lapb_kick called from the timer. This arrangement handles the
+ * possibility of an empty output queue.
+ */
+void lapb_requeue_frames(struct lapb_cs *lapb) {
+	char *buffer;
+	int buffer_size;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	/*
-	 * Requeue all the un-ack-ed frames on the output queue to be picked
-	 * up by x25_kick. This arrangement handles the possibility of an empty
-	 * output queue.
-	 */
-	while ((skb = skb_dequeue(&x25_sk(sk)->ack_queue)) != NULL) {
-		if (!skb_prev)
-			skb_queue_head(&sk->sk_write_queue, skb);
-		else
-			skb_append(skb_prev, skb, &sk->sk_write_queue);
-		skb_prev = skb;
-	}
+	while ((buffer = cb_dequeue_tail(&lapb_int->ack_queue, &buffer_size)) != NULL)
+		cb_queue_head(&lapb_int->write_queue, buffer, buffer_size);
 }
 
 /*
  *	Validate that the value of nr is between va and vs. Return true or
  *	false for testing.
  */
-int x25_validate_nr(struct sock *sk, unsigned short nr)
-{
-	struct x25_sock *x25 = x25_sk(sk);
-	unsigned short vc = x25->va;
-	int modulus = x25->neighbour->extended ? X25_EMODULUS : X25_SMODULUS;
+int lapb_validate_nr(struct lapb_cs *lapb, unsigned short nr) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+	unsigned short vc = lapb_int->va;
+	int modulus;
 
-	while (vc != x25->vs) {
+	modulus = lapb_is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
+
+	while (vc != lapb_int->vs) {
 		if (nr == vc)
 			return 1;
 		vc = (vc + 1) % modulus;
-	}
+	};
 
-	return nr == x25->vs ? 1 : 0;
+	return nr == lapb_int->vs;
 }
 
 /*
- *  This routine is called when the packet layer internally generates a
- *  control frame.
+ *	This routine is the centralised routine for parsing the control
+ *	information for the different frame formats.
  */
-void x25_write_internal(struct sock *sk, int frametype)
-{
-	struct x25_sock *x25 = x25_sk(sk);
-	struct sk_buff *skb;
-	unsigned char  *dptr;
-	unsigned char  facilities[X25_MAX_FAC_LEN];
-	unsigned char  addresses[1 + X25_ADDR_LEN];
-	unsigned char  lci1, lci2;
-	/*
-	 *	Default safe frame size.
-	 */
-	int len = X25_MAX_L2_LEN + X25_EXT_MIN_LEN;
+int lapb_decode(struct lapb_cs * lapb, char * data, int data_size, 	struct lapb_frame * frame) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	/*
-	 *	Adjust frame size.
+	frame->type = LAPB_ILLEGAL;
+
+	/* We always need to look at 2 bytes, sometimes we need
+	 * to look at 3 and those cases are handled below.
 	 */
-	switch (frametype) {
-	case X25_CALL_REQUEST:
-		len += 1 + X25_ADDR_LEN + X25_MAX_FAC_LEN + X25_MAX_CUD_LEN;
-		break;
-	case X25_CALL_ACCEPTED: /* fast sel with no restr on resp */
-		if (x25->facilities.reverse & 0x80) {
-			len += 1 + X25_MAX_FAC_LEN + X25_MAX_CUD_LEN;
+	if (data_size < 2)
+		return -1;
+
+	/* Address firs (1 byte) */
+	if (lapb->low_order_bits)
+		data[0] = invert_uchar(data[0]);
+
+	if (!lapb_is_slp(lapb)) {
+		if (lapb_is_dce(lapb)) {
+			if (data[0] == LAPB_ADDR_D)
+				frame->cr = LAPB_COMMAND;
+			else if (data[0] == LAPB_ADDR_C)
+				frame->cr = LAPB_RESPONSE;
 		} else {
-			len += 1 + X25_MAX_FAC_LEN;
-		}
-		break;
-	case X25_CLEAR_REQUEST:
-	case X25_RESET_REQUEST:
-		len += 2;
-		break;
-	case X25_RR:
-	case X25_RNR:
-	case X25_REJ:
-	case X25_CLEAR_CONFIRMATION:
-	case X25_INTERRUPT_CONFIRMATION:
-	case X25_RESET_CONFIRMATION:
-		break;
-	default:
-		pr_err("invalid frame type %02X\n", frametype);
-		return;
-	}
-
-	if ((skb = alloc_skb(len, GFP_ATOMIC)) == NULL)
-		return;
-
-	/*
-	 *	Space for Ethernet and 802.2 LLC headers.
-	 */
-	skb_reserve(skb, X25_MAX_L2_LEN);
-
-	/*
-	 *	Make space for the GFI and LCI, and fill them in.
-	 */
-	dptr = skb_put(skb, 2);
-
-	lci1 = (x25->lci >> 8) & 0x0F;
-	lci2 = (x25->lci >> 0) & 0xFF;
-
-	if (x25->neighbour->extended) {
-		*dptr++ = lci1 | X25_GFI_EXTSEQ;
-		*dptr++ = lci2;
+			if (data[0] == LAPB_ADDR_C)
+				frame->cr = LAPB_COMMAND;
+			else if (data[0] == LAPB_ADDR_D)
+				frame->cr = LAPB_RESPONSE;
+		};
 	} else {
-		*dptr++ = lci1 | X25_GFI_STDSEQ;
-		*dptr++ = lci2;
-	}
+		if (lapb_is_dce(lapb)) {
+			if (data[0] == LAPB_ADDR_B)
+				frame->cr = LAPB_COMMAND;
+			else if (data[0] == LAPB_ADDR_A)
+				frame->cr = LAPB_RESPONSE;
+		} else {
+			if (data[0] == LAPB_ADDR_A)
+				frame->cr = LAPB_COMMAND;
+			else if (data[0] == LAPB_ADDR_B)
+				frame->cr = LAPB_RESPONSE;
+		};
+	};
 
-	/*
-	 *	Now fill in the frame type specific information.
-	 */
-	switch (frametype) {
 
-		case X25_CALL_REQUEST:
-			dptr    = skb_put(skb, 1);
-			*dptr++ = X25_CALL_REQUEST;
-			len     = x25_addr_aton(addresses, &x25->dest_addr,
-						&x25->source_addr);
-			dptr    = skb_put(skb, len);
-			memcpy(dptr, addresses, len);
-			len     = x25_create_facilities(facilities,
-					&x25->facilities,
-					&x25->dte_facilities,
-					x25->neighbour->global_facil_mask);
-			dptr    = skb_put(skb, len);
-			memcpy(dptr, facilities, len);
-			dptr = skb_put(skb, x25->calluserdata.cudlength);
-			memcpy(dptr, x25->calluserdata.cuddata,
-			       x25->calluserdata.cudlength);
-			x25->calluserdata.cudlength = 0;
-			break;
+	if (lapb_is_extended(lapb)) {
+		if (lapb->low_order_bits)
+			data[1] = invert_uchar(data[1]);
+		if (!(data[1] & LAPB_S)) {
+			/*
+			 * I frame - carries NR/NS/PF
+			 */
+			if (lapb->low_order_bits)
+				data[2] = invert_uchar(data[2]);
 
-		case X25_CALL_ACCEPTED:
-			dptr    = skb_put(skb, 2);
-			*dptr++ = X25_CALL_ACCEPTED;
-			*dptr++ = 0x00;		/* Address lengths */
-			len     = x25_create_facilities(facilities,
-							&x25->facilities,
-							&x25->dte_facilities,
-							x25->vc_facil_mask);
-			dptr    = skb_put(skb, len);
-			memcpy(dptr, facilities, len);
+			frame->type       = LAPB_I;
+			frame->ns         = (data[1] >> 1) & 0x7F;
+			frame->nr         = (data[2] >> 1) & 0x7F;
+			frame->pf         = data[2] & LAPB_EPF;
+			frame->control[0] = data[1];
+			frame->control[1] = data[2];
+		} else if ((data[1] & LAPB_U) == 1) {
+			/*
+			 * S frame - take out PF/NR
+			 */
+			if (lapb->low_order_bits)
+				data[2] = invert_uchar(data[2]);
 
-			/* fast select with no restriction on response
-				allows call user data. Userland must
-				ensure it is ours and not theirs */
-			if(x25->facilities.reverse & 0x80) {
-				dptr = skb_put(skb,
-					x25->calluserdata.cudlength);
-				memcpy(dptr, x25->calluserdata.cuddata,
-				       x25->calluserdata.cudlength);
-			}
-			x25->calluserdata.cudlength = 0;
-			break;
+			frame->type       = data[1] & 0x0F;
+			frame->nr         = (data[2] >> 1) & 0x7F;
+			frame->pf         = data[2] & LAPB_EPF;
+			frame->control[0] = data[1];
+			frame->control[1] = data[2];
+		} else if ((data[1] & LAPB_U) == 3) {
+			/*
+			 * U frame - take out PF
+			 */
+			frame->type       = data[1] & ~LAPB_SPF;
+			frame->pf         = data[1] & LAPB_SPF;
+			frame->control[0] = data[1];
+			frame->control[1] = 0x00;
+		};
+	} else {
+		if (lapb->low_order_bits)
+			data[1] = invert_uchar(data[1]);
 
-		case X25_CLEAR_REQUEST:
-			dptr    = skb_put(skb, 3);
-			*dptr++ = frametype;
-			*dptr++ = x25->causediag.cause;
-			*dptr++ = x25->causediag.diagnostic;
-			break;
+		if (!(data[1] & LAPB_S)) {
+			/*
+			 * I frame - carries NR/NS/PF
+			 */
+			lapb->callbacks->debug(2, "[LAPB] S%d RX %02X %02X %s",
+								   lapb_int->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
+			frame->type = LAPB_I;
+			frame->ns   = (data[1] >> 1) & 0x07;
+			frame->nr   = (data[1] >> 5) & 0x07;
+			frame->pf   = data[1] & LAPB_SPF;
+		} else if ((data[1] & LAPB_U) == 1) {
+			/*
+			 * S frame - take out PF/NR
+			 */
+			frame->type = data[1] & 0x0F;
+			frame->nr   = (data[1] >> 5) & 0x07;
+			frame->pf   = data[1] & LAPB_SPF;
+		} else if ((data[1] & LAPB_U) == 3) {
+			/*
+			 * U frame - take out PF
+			 */
+			frame->type = (_uchar)data[1] & ~LAPB_SPF;
+			frame->pf   = data[1] & LAPB_SPF;
+		};
 
-		case X25_RESET_REQUEST:
-			dptr    = skb_put(skb, 3);
-			*dptr++ = frametype;
-			*dptr++ = 0x00;		/* XXX */
-			*dptr++ = 0x00;		/* XXX */
-			break;
+		frame->control[0] = data[1];
+	};
 
-		case X25_RR:
-		case X25_RNR:
-		case X25_REJ:
-			if (x25->neighbour->extended) {
-				dptr     = skb_put(skb, 2);
-				*dptr++  = frametype;
-				*dptr++  = (x25->vr << 1) & 0xFE;
-			} else {
-				dptr     = skb_put(skb, 1);
-				*dptr    = frametype;
-				*dptr++ |= (x25->vr << 5) & 0xE0;
-			}
-			break;
+	frame->pf = frame->pf >> 4;
 
-		case X25_CLEAR_CONFIRMATION:
-		case X25_INTERRUPT_CONFIRMATION:
-		case X25_RESET_CONFIRMATION:
-			dptr  = skb_put(skb, 1);
-			*dptr = frametype;
-			break;
-	}
-
-	x25_transmit_link(skb, x25->neighbour);
+	return 0;
 }
 
 /*
- *	Unpick the contents of the passed X.25 Packet Layer frame.
+ *	This routine is called when the HDLC layer internally  generates a
+ *	command or  response  for  the remote machine ( eg. RR, UA etc. ).
+ *	Only supervisory or unnumbered frames are processed, FRMRs are handled
+ *	by lapb_transmit_frmr below.
  */
-int x25_decode(struct sock *sk, struct sk_buff *skb, int *ns, int *nr, int *q,
-	       int *d, int *m)
-{
-	struct x25_sock *x25 = x25_sk(sk);
-	unsigned char *frame;
+void lapb_send_control(struct lapb_cs *lapb, int frametype, int poll_bit, int type) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+	char frame[3]; /* Address[1]+Control[1/2]] */
+	int frame_size = 2;
 
-	if (!pskb_may_pull(skb, X25_STD_MIN_LEN))
-		return X25_ILLEGAL;
-	frame = skb->data;
+	//zero_mem(frame, 3);
 
-	*ns = *nr = *q = *d = *m = 0;
+	if (lapb_is_extended(lapb)) {
+		if ((frametype & LAPB_U) == LAPB_U) {
+			frame[1]  = frametype;
+			frame[1] |= poll_bit ? LAPB_SPF : 0;
 
-	switch (frame[2]) {
-	case X25_CALL_REQUEST:
-	case X25_CALL_ACCEPTED:
-	case X25_CLEAR_REQUEST:
-	case X25_CLEAR_CONFIRMATION:
-	case X25_INTERRUPT:
-	case X25_INTERRUPT_CONFIRMATION:
-	case X25_RESET_REQUEST:
-	case X25_RESET_CONFIRMATION:
-	case X25_RESTART_REQUEST:
-	case X25_RESTART_CONFIRMATION:
-	case X25_REGISTRATION_REQUEST:
-	case X25_REGISTRATION_CONFIRMATION:
-	case X25_DIAGNOSTIC:
-		return frame[2];
-	}
+			if (lapb->low_order_bits)
+				frame[1] = invert_uchar(frame[1]);
+		} else {
+			frame_size = 3;
+			frame[1]  = frametype;
+			frame[2]  = (lapb_int->vr << 1);
+			frame[2] |= poll_bit ? LAPB_EPF : 0;
 
-	if (x25->neighbour->extended) {
-		if (frame[2] == X25_RR  ||
-		    frame[2] == X25_RNR ||
-		    frame[2] == X25_REJ) {
-			if (!pskb_may_pull(skb, X25_EXT_MIN_LEN))
-				return X25_ILLEGAL;
-			frame = skb->data;
-
-			*nr = (frame[3] >> 1) & 0x7F;
-			return frame[2];
-		}
+			if (lapb->low_order_bits) {
+				frame[1] = invert_uchar(frame[1]);
+				frame[2] = invert_uchar(frame[2]);
+			};
+		};
 	} else {
-		if ((frame[2] & 0x1F) == X25_RR  ||
-		    (frame[2] & 0x1F) == X25_RNR ||
-		    (frame[2] & 0x1F) == X25_REJ) {
-			*nr = (frame[2] >> 5) & 0x07;
-			return frame[2] & 0x1F;
-		}
-	}
+		frame[1]  = frametype;
+		frame[1] |= poll_bit ? LAPB_SPF : 0;
+		if ((frametype & LAPB_U) == LAPB_S)	/* S frames carry NR */
+			frame[1] |= (lapb_int->vr << 5);
 
-	if (x25->neighbour->extended) {
-		if ((frame[2] & 0x01) == X25_DATA) {
-			if (!pskb_may_pull(skb, X25_EXT_MIN_LEN))
-				return X25_ILLEGAL;
-			frame = skb->data;
+		if (lapb->low_order_bits)
+			frame[1] = invert_uchar(frame[1]);
+	};
 
-			*q  = (frame[0] & X25_Q_BIT) == X25_Q_BIT;
-			*d  = (frame[0] & X25_D_BIT) == X25_D_BIT;
-			*m  = (frame[3] & X25_EXT_M_BIT) == X25_EXT_M_BIT;
-			*nr = (frame[3] >> 1) & 0x7F;
-			*ns = (frame[2] >> 1) & 0x7F;
-			return X25_DATA;
-		}
-	} else {
-		if ((frame[2] & 0x01) == X25_DATA) {
-			*q  = (frame[0] & X25_Q_BIT) == X25_Q_BIT;
-			*d  = (frame[0] & X25_D_BIT) == X25_D_BIT;
-			*m  = (frame[2] & X25_STD_M_BIT) == X25_STD_M_BIT;
-			*nr = (frame[2] >> 5) & 0x07;
-			*ns = (frame[2] >> 1) & 0x07;
-			return X25_DATA;
-		}
-	}
-
-	pr_debug("invalid PLP frame %02X %02X %02X\n",
-	       frame[0], frame[1], frame[2]);
-
-	return X25_ILLEGAL;
-}
-
-void x25_disconnect(struct sock *sk, int reason, unsigned char cause,
-		    unsigned char diagnostic)
-{
-	struct x25_sock *x25 = x25_sk(sk);
-
-	x25_clear_queues(sk);
-	x25_stop_timer(sk);
-
-	x25->lci   = 0;
-	x25->state = X25_STATE_0;
-
-	x25->causediag.cause      = cause;
-	x25->causediag.diagnostic = diagnostic;
-
-	sk->sk_state     = TCP_CLOSE;
-	sk->sk_err       = reason;
-	sk->sk_shutdown |= SEND_SHUTDOWN;
-
-	if (!sock_flag(sk, SOCK_DEAD)) {
-		sk->sk_state_change(sk);
-		sock_set_flag(sk, SOCK_DEAD);
-	}
+	lapb_transmit_buffer(lapb, frame, frame_size, type);
 }
 
 /*
- * Clear an own-rx-busy condition and tell the peer about this, provided
- * that there is a significant amount of free receive buffer space available.
+ *	This routine generates FRMRs based on information previously stored in
+ *	the LAPB control block.
  */
-void x25_check_rbuf(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
+void lapb_transmit_frmr(struct lapb_cs *lapb) {
+	char frame[7];
+	int frame_size;
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	if (atomic_read(&sk->sk_rmem_alloc) < (sk->sk_rcvbuf >> 1) &&
-	    (x25->condition & X25_COND_OWN_RX_BUSY)) {
-		x25->condition &= ~X25_COND_OWN_RX_BUSY;
-		x25->condition &= ~X25_COND_ACK_PENDING;
-		x25->vl         = x25->vr;
-		x25_write_internal(sk, X25_RR);
-		x25_stop_timer(sk);
-	}
+	if (lapb_is_extended(lapb)) {
+		frame_size = 7;
+		frame[1] = LAPB_FRMR;
+		frame[2] = lapb_int->frmr_data.control[0];
+		frame[3] = lapb_int->frmr_data.control[1];
+		frame[4] = (lapb_int->vs << 1) & 0xFE;
+		frame[5] = (lapb_int->vr << 1) & 0xFE;
+		if (lapb_int->frmr_data.cr == LAPB_RESPONSE)
+			frame[5] |= 0x01;
+		frame[6] = lapb_int->frmr_type;
+
+		lapb->callbacks->debug(1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X",
+							   lapb_int->state, (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4], (_uchar)frame[5], (_uchar)frame[6]);
+
+		if (lapb->low_order_bits) {
+			frame[1] = invert_uchar(frame[1]);
+			char tmp = invert_uchar(frame[2]);
+			frame[2] = invert_uchar(frame[3]);
+			frame[3] = tmp;
+			frame[4] = invert_uchar(frame[4]);
+			frame[5] = invert_uchar(frame[5]);
+			frame[6] = invert_uchar(frame[6]);
+		};
+	} else {
+		frame_size = 5;
+		frame[1] = LAPB_FRMR;
+		frame[2] = lapb_int->frmr_data.control[0];
+		frame[3] =  (lapb_int->vs << 1) & 0x0E;
+		frame[3] |= (lapb_int->vr << 5) & 0xE0;
+		if (lapb_int->frmr_data.cr == LAPB_RESPONSE)
+			frame[3] |= 0x10;
+		frame[4] = lapb_int->frmr_type;
+
+		lapb->callbacks->debug(1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X",
+							   lapb_int->state, (_uchar)frame[1], (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4]);
+
+		if (lapb->low_order_bits) {
+			/* Invert bytes */
+			frame[1] = invert_uchar(frame[1]);
+			frame[2] = invert_uchar(frame[2]);
+			frame[3] = invert_uchar(frame[3]);
+			frame[4] = invert_uchar(frame[4]);
+		};
+	};
+
+	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_RESPONSE);
 }
-

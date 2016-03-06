@@ -1,231 +1,217 @@
 /*
- *	X.25 Packet Layer release 002
+ *	LAPB release 001
  *
- *	This is ALPHA test software. This code may break your machine,
- *	randomly fail to work with new releases, misbehave and/or generally
- *	screw up. It might even work.
+ *  By Serge.V.Avdeyev
  *
- *	This code REQUIRES 2.1.15 or higher
+ *  2016-02-01: Start Coding
  *
- *	This module:
- *		This module is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
  *
- *	History
- *	X.25 001	Jonathan Naylor	Started coding.
- *	X.25 002	Jonathan Naylor	New timer architecture.
- *	2000-09-04	Henner Eisen	Prevented x25_output() skb leakage.
- *	2000-10-27	Henner Eisen	MSG_DONTWAIT for fragment allocation.
- *	2000-11-10	Henner Eisen	x25_send_iframe(): re-queued frames
- *					needed cleaned seq-number fields.
  */
 
-#include <linux/slab.h>
-#include <linux/socket.h>
-#include <linux/kernel.h>
-#include <linux/string.h>
-#include <linux/skbuff.h>
-#include <net/sock.h>
-#include <net/x25.h>
 
-static int x25_pacsize_to_bytes(unsigned int pacsize)
-{
-	int bytes = 1;
-
-	if (!pacsize)
-		return 128;
-
-	while (pacsize-- > 0)
-		bytes *= 2;
-
-	return bytes;
-}
+#include "x25_int.h"
 
 /*
- *	This is where all X.25 information frames pass.
- *
- *      Returns the amount of user data bytes sent on success
- *      or a negative error code on failure.
+ *  This procedure is passed a buffer descriptor for an iframe. It builds
+ *  the rest of the control part of the frame and then writes it out.
  */
-int x25_output(struct sock *sk, struct sk_buff *skb)
-{
-	struct sk_buff *skbn;
-	unsigned char header[X25_EXT_MIN_LEN];
-	int err, frontlen, len;
-	int sent=0, noblock = X25_SKB_CB(skb)->flags & MSG_DONTWAIT;
-	struct x25_sock *x25 = x25_sk(sk);
-	int header_len = x25->neighbour->extended ? X25_EXT_MIN_LEN :
-						    X25_STD_MIN_LEN;
-	int max_len = x25_pacsize_to_bytes(x25->facilities.pacsize_out);
+void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_bit) {
+	(void)lapb;
+	(void)data;
+	(void)data_size;
+	(void)poll_bit;
+//	if (!data)
+//		return;
 
-	if (skb->len - header_len > max_len) {
-		/* Save a copy of the Header */
-		skb_copy_from_linear_data(skb, header, header_len);
-		skb_pull(skb, header_len);
+//	char *	frame;
+//	int		frame_size = data_size;
+//	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-		frontlen = skb_headroom(skb);
 
-		while (skb->len > 0) {
-			release_sock(sk);
-			skbn = sock_alloc_send_skb(sk, frontlen + max_len,
-						   noblock, &err);
-			lock_sock(sk);
-			if (!skbn) {
-				if (err == -EWOULDBLOCK && noblock){
-					kfree_skb(skb);
-					return sent;
-				}
-				SOCK_DEBUG(sk, "x25_output: fragment alloc"
-					       " failed, err=%d, %d bytes "
-					       "sent\n", err, sent);
-				return err;
-			}
+//	if (lapb_is_extended(lapb)) {
+//		frame = cb_push(data, 3);
+//		frame_size += 3;
 
-			skb_reserve(skbn, frontlen);
+//		frame[1] = LAPB_I;
+//		frame[1] |= lapb_int->vs << 1;
+//		frame[2] = poll_bit ? LAPB_EPF : 0;
+//		frame[2] |= lapb_int->vr << 1;
 
-			len = max_len > skb->len ? skb->len : max_len;
+//		if (lapb->low_order_bits) {
+//			frame[1] = invert_uchar(frame[1]);
+//			frame[2] = invert_uchar(frame[2]);
+//		};
+//	} else {
+//		frame = cb_push(data, 2);
+//		frame_size += 2;
 
-			/* Copy the user data */
-			skb_copy_from_linear_data(skb, skb_put(skbn, len), len);
-			skb_pull(skb, len);
+//		frame[1] = LAPB_I;
+//		frame[1] |= poll_bit ? LAPB_SPF : 0;
+//		frame[1] |= lapb_int->vr << 5;
+//		frame[1] |= lapb_int->vs << 1;
 
-			/* Duplicate the Header */
-			skb_push(skbn, header_len);
-			skb_copy_to_linear_data(skbn, header, header_len);
+//		if (lapb->low_order_bits)
+//			frame[1] = invert_uchar(frame[1]);
+//	};
 
-			if (skb->len > 0) {
-				if (x25->neighbour->extended)
-					skbn->data[3] |= X25_EXT_M_BIT;
-				else
-					skbn->data[2] |= X25_STD_M_BIT;
-			}
+//	lapb->callbacks->debug(1, "[LAPB] S%d TX I(%d) S%d R%d", lapb_int->state, poll_bit, lapb_int->vs, lapb_int->vr);
 
-			skb_queue_tail(&sk->sk_write_queue, skbn);
-			sent += len;
-		}
-
-		kfree_skb(skb);
-	} else {
-		skb_queue_tail(&sk->sk_write_queue, skb);
-		sent = skb->len - header_len;
-	}
-	return sent;
+//	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
 }
 
-/*
- *	This procedure is passed a buffer descriptor for an iframe. It builds
- *	the rest of the control part of the frame and then writes it out.
- */
-static void x25_send_iframe(struct sock *sk, struct sk_buff *skb)
-{
-	struct x25_sock *x25 = x25_sk(sk);
+void lapb_kick(struct lapb_cs *lapb) {
+	(void)lapb;
 
-	if (!skb)
-		return;
+//	unsigned short modulus, start, end;
+//	char * buffer;
+//	int buffer_size;
+//	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	if (x25->neighbour->extended) {
-		skb->data[2]  = (x25->vs << 1) & 0xFE;
-		skb->data[3] &= X25_EXT_M_BIT;
-		skb->data[3] |= (x25->vr << 1) & 0xFE;
-	} else {
-		skb->data[2] &= X25_STD_M_BIT;
-		skb->data[2] |= (x25->vs << 1) & 0x0E;
-		skb->data[2] |= (x25->vr << 5) & 0xE0;
-	}
+//	modulus = lapb_is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
+//	start = !cb_peek(&lapb_int->ack_queue) ? lapb_int->va : lapb_int->vs;
+//	end   = (lapb_int->va + lapb->window) % modulus;
 
-	x25_transmit_link(skb, x25->neighbour);
+//	if (!(lapb_int->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
+//		start != end && cb_peek(&lapb_int->write_queue)) {
+//		lapb_int->vs = start;
+
+//		/*
+//		 * Dequeue the frame and copy it.
+//		 */
+//		buffer = cb_dequeue(&lapb_int->write_queue, &buffer_size);
+
+//		do {
+//			/*
+//			 * Transmit the frame copy.
+//			 */
+//			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLOFF);
+
+//			lapb_int->vs = (lapb_int->vs + 1) % modulus;
+
+//			/*
+//			 * Requeue the original data frame.
+//			 */
+//			cb_queue_tail(&lapb_int->ack_queue, buffer, buffer_size);
+
+//		} while (lapb_int->vs != end && (buffer = cb_dequeue(&lapb_int->write_queue, &buffer_size)) != NULL);
+
+//		lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
+
+//		lapb_start_t201timer(lapb);
+//		lapb_stop_t202timer(lapb);
+//	};
 }
 
-void x25_kick(struct sock *sk)
-{
-	struct sk_buff *skb, *skbn;
-	unsigned short start, end;
-	int modulus;
-	struct x25_sock *x25 = x25_sk(sk);
+void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int type) {
+	(void)lapb;
+	(void)data;
+	(void)data_size;
+	(void)type;
+//	char *ptr;
+//	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	if (x25->state != X25_STATE_3)
-		return;
+//	ptr = data;
 
-	/*
-	 *	Transmit interrupt data.
-	 */
-	if (skb_peek(&x25->interrupt_out_queue) != NULL &&
-		!test_and_set_bit(X25_INTERRUPT_FLAG, &x25->flags)) {
+//	if (!lapb_is_slp(lapb)) {
+//		if (lapb_is_dce(lapb)) {
+//			if (type == LAPB_COMMAND)
+//				*ptr = LAPB_ADDR_C;
+//			if (type == LAPB_RESPONSE)
+//				*ptr = LAPB_ADDR_D;
+//		} else {
+//			if (type == LAPB_COMMAND)
+//				*ptr = LAPB_ADDR_D;
+//			if (type == LAPB_RESPONSE)
+//				*ptr = LAPB_ADDR_C;
+//		};
+//	} else {
+//		if (lapb_is_dce(lapb)) {
+//			if (type == LAPB_COMMAND)
+//				*ptr = LAPB_ADDR_A;
+//			if (type == LAPB_RESPONSE)
+//				*ptr = LAPB_ADDR_B;
+//		} else {
+//			if (type == LAPB_COMMAND)
+//				*ptr = LAPB_ADDR_B;
+//			if (type == LAPB_RESPONSE)
+//				*ptr = LAPB_ADDR_A;
+//		};
+//	};
 
-		skb = skb_dequeue(&x25->interrupt_out_queue);
-		x25_transmit_link(skb, x25->neighbour);
-	}
+//#if LAPB_DEBUG >= 2
+//	if (lapb_is_extended(lapb))
+//		lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %02X",
+//							   lapb_int->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
+//	else {
+//		if (((_uchar)data[1] & 0x01) == 0)
+//			lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %s",
+//								   lapb_int->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
+//		else {
+//			if (data_size == 2)
+//				lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X",
+//									   lapb_int->state, (_uchar)data[0], (_uchar)data[1]);
+//			else if (data_size == 3)
+//				lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %02X",
+//									   lapb_int->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
+//		};
+//	};
+//#endif
+//	if (lapb->low_order_bits)
+//		data[0] = invert_uchar(data[0]);
 
-	if (x25->condition & X25_COND_PEER_RX_BUSY)
-		return;
-
-	if (!skb_peek(&sk->sk_write_queue))
-		return;
-
-	modulus = x25->neighbour->extended ? X25_EMODULUS : X25_SMODULUS;
-
-	start   = skb_peek(&x25->ack_queue) ? x25->vs : x25->va;
-	end     = (x25->va + x25->facilities.winsize_out) % modulus;
-
-	if (start == end)
-		return;
-
-	x25->vs = start;
-
-	/*
-	 * Transmit data until either we're out of data to send or
-	 * the window is full.
-	 */
-
-	skb = skb_dequeue(&sk->sk_write_queue);
-
-	do {
-		if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
-			skb_queue_head(&sk->sk_write_queue, skb);
-			break;
-		}
-
-		skb_set_owner_w(skbn, sk);
-
-		/*
-		 * Transmit the frame copy.
-		 */
-		x25_send_iframe(sk, skbn);
-
-		x25->vs = (x25->vs + 1) % modulus;
-
-		/*
-		 * Requeue the original data frame.
-		 */
-		skb_queue_tail(&x25->ack_queue, skb);
-
-	} while (x25->vs != end &&
-		 (skb = skb_dequeue(&sk->sk_write_queue)) != NULL);
-
-	x25->vl         = x25->vr;
-	x25->condition &= ~X25_COND_ACK_PENDING;
-
-	x25_stop_timer(sk);
+//	lapb_data_transmit(lapb, data, data_size);
 }
 
-/*
- * The following routines are taken from page 170 of the 7th ARRL Computer
- * Networking Conference paper, as is the whole state machine.
- */
+void lapb_establish_data_link(struct lapb_cs *lapb) {
+	(void)lapb;
+//	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-void x25_enquiry_response(struct sock *sk)
-{
-	struct x25_sock *x25 = x25_sk(sk);
+//	lapb_int->condition = 0x00;
 
-	if (x25->condition & X25_COND_OWN_RX_BUSY)
-		x25_write_internal(sk, X25_RNR);
-	else
-		x25_write_internal(sk, X25_RR);
+//	if (lapb_is_extended(lapb)) {
+//		lapb->callbacks->debug(1, "[LAPB] S%d TX SABME(1)", lapb_int->state);
+//		lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
+//	} else {
+//		lapb->callbacks->debug(1, "[LAPB] S%d TX SABM(1)", lapb_int->state);
+//		lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
+//	};
 
-	x25->vl         = x25->vr;
-	x25->condition &= ~X25_COND_ACK_PENDING;
+//	//if (is_dce(lapb))
+//		lapb_start_t201timer(lapb);
+}
 
-	x25_stop_timer(sk);
+void lapb_enquiry_response(struct lapb_cs *lapb) {
+	(void)lapb;
+//	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
+//	lapb->callbacks->debug(1, "[LAPB] S%d TX RR(1) R%d", lapb_int->state, lapb_int->vr);
+//	lapb_send_control(lapb, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
+//	lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
+}
+
+void lapb_timeout_response(struct lapb_cs *lapb) {
+	(void)lapb;
+//	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+
+//	lapb->callbacks->debug(1, "[LAPB] S%d TX RR(0) R%d", lapb_int->state, lapb_int->vr);
+//	lapb_send_control(lapb, LAPB_RR, LAPB_POLLOFF, LAPB_RESPONSE);
+//	lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
+}
+
+void lapb_check_iframes_acked(struct lapb_cs *lapb, unsigned short nr) {
+	(void)lapb;
+	(void)nr;
+//	if (lapb_frames_acked(lapb, nr))
+//		lapb_stop_t201timer(lapb);
+//	else
+//		lapb_restart_t201timer(lapb);
+}
+
+void lapb_check_need_response(struct lapb_cs *lapb, int type, int pf) {
+	(void)lapb;
+	(void)type;
+	(void)pf;
+
+//	if ((type == LAPB_COMMAND) && pf)
+//		lapb_enquiry_response(lapb);
 }

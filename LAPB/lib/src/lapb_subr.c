@@ -12,7 +12,7 @@
 #include "lapb_int.h"
 
 
-char str_buf[1024];
+//char str_buf[1024];
 _uchar uchar_inv_table[256];
 
 void lock(struct lapb_cs *lapb) {
@@ -60,14 +60,56 @@ _uchar invert_uchar(_uchar value) {
 	return uchar_inv_table[value];
 }
 
-char * lapb_buf_to_str(char * data, int data_size) {
-	str_buf[0] = '\0';
-	if (data_size < 1024) {/* 1 byte for null-terminating */
-		memcpy(str_buf, data, data_size);
-		str_buf[data_size] = '\0';
-	};
-	return str_buf;
-}
+//char * lapb_buf_to_str(char * data, int data_size) {
+//	str_buf[0] = '\0';
+//	if (data_size < 1024) {/* 1 byte for null-terminating */
+//		lapb_mem_copy(str_buf, data, data_size);
+//		str_buf[data_size] = '\0';
+//	};
+//	return str_buf;
+//}
+
+//void * lapb_mem_get(_ulong size) {
+//#ifdef __GNUC__
+//	return malloc(size);
+//#else
+//	size = 0;
+//	return (void *)size;
+//#endif
+//}
+
+//void lapb_mem_free(void * ptr) {
+//#ifdef __GNUC__
+//	free(ptr);
+//#else
+//	*(int *)ptr = 0;
+//#endif
+//}
+
+//void * lapb_mem_copy(void *dest, const void *src, _ulong n) {
+//#ifdef __GNUC__
+//	return memcpy(dest, src, n);
+//#else
+//	_ulong i = 0;
+//	while (i < n) {
+//		*(char *)dest = *(char *)src;
+//		i++;
+//	};
+//	return dest;
+//#endif
+//}
+
+//void lapb_mem_zero(void *src, _ulong n) {
+//#ifdef __GNUC__
+//	bzero(src, n);
+//#else
+//	_ulong i = 0;
+//	while (i < n) {
+//		*(char *)src = 0;
+//		i++;
+//	};
+//#endif
+//}
 
 /*  */
 int lapb_is_dce(struct lapb_cs *lapb) {
@@ -239,8 +281,8 @@ int lapb_decode(struct lapb_cs * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * I frame - carries NR/NS/PF
 			 */
-			lapb->callbacks->debug(lapb, 2, "[LAPB] S%d RX %02X %02X %s",
-								   lapb_int->state, (_uchar)data[0], (_uchar)data[1], lapb_buf_to_str(&data[2], data_size - 2));
+			lapb->callbacks->debug(2, "[LAPB] S%d RX %02X %02X %s",
+								   lapb_int->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
 			frame->type = LAPB_I;
 			frame->ns   = (data[1] >> 1) & 0x07;
 			frame->nr   = (data[1] >> 5) & 0x07;
@@ -279,7 +321,7 @@ void lapb_send_control(struct lapb_cs *lapb, int frametype, int poll_bit, int ty
 	char frame[3]; /* Address[1]+Control[1/2]] */
 	int frame_size = 2;
 
-	bzero(frame, 3);
+	//zero_mem(frame, 3);
 
 	if (lapb_is_extended(lapb)) {
 		if ((frametype & LAPB_U) == LAPB_U) {
@@ -332,7 +374,7 @@ void lapb_transmit_frmr(struct lapb_cs *lapb) {
 			frame[5] |= 0x01;
 		frame[6] = lapb_int->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X",
+		lapb->callbacks->debug(1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X",
 							   lapb_int->state, (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4], (_uchar)frame[5], (_uchar)frame[6]);
 
 		if (lapb->low_order_bits) {
@@ -354,7 +396,7 @@ void lapb_transmit_frmr(struct lapb_cs *lapb) {
 			frame[3] |= 0x10;
 		frame[4] = lapb_int->frmr_type;
 
-		lapb->callbacks->debug(lapb, 1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X",
+		lapb->callbacks->debug(1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X",
 							   lapb_int->state, (_uchar)frame[1], (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4]);
 
 		if (lapb->low_order_bits) {

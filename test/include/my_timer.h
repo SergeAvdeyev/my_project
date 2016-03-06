@@ -17,8 +17,8 @@ struct timer_descr {
 	int interval;
 	int interval_tmp;
 	int active;
-	void * owner;
-	void (*timer_expiry_sub)(void * owner);
+	void * lapb_ptr;
+	void (*timer_expiry)(void * lapb_ptr);
 };
 
 
@@ -33,7 +33,7 @@ void *timer_thread_function(void * ptr);
 void terminate_timer_thread();
 int is_timer_thread_started();
 
-void * timer_add(int interval, void * owner, void (*timer_expiry_sub));
+void * timer_add(int interval, void * lapb_ptr, void (*timer_expiry));
 void timer_del(void * timer);
 void timer_start(void * timer);
 void timer_stop(void * timer);

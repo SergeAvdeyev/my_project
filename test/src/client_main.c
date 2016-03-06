@@ -1,7 +1,7 @@
 #include <signal.h>     /* for signal */
 
 
-#include "lapb_iface.h"
+#include "x25_iface.h"
 
 #include "tcp_client.h"
 #include "my_timer.h"
@@ -9,7 +9,7 @@
 
 #include "common.h"
 
-struct lapb_cs * lapb_client = NULL;
+struct x25_cs * x25_client = NULL;
 
 char in_buffer[4096];
 int data_block = FALSE;
@@ -23,7 +23,7 @@ int block_size = 0;
  *
 */
 
-void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
+void transmit_data(struct x25_cs * lapb, char *data, int data_size) {
 	(void)lapb;
 	if (!is_client_connected()) return;
 	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
@@ -51,7 +51,7 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 
 	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
 	if (n < 0)
-		lapb_debug(0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
+		x25_debug(0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
@@ -73,7 +73,7 @@ void new_data_received(char * data, int data_size) {
 					block_size -= 2; /* 2 bytes for FCS */
 					rcv_fcs = *(_ushort *)&in_buffer[block_size];
 					//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-					lapb_data_received(lapb_client, in_buffer, block_size, rcv_fcs);
+					x25_data_received(x25_client, in_buffer, block_size, rcv_fcs);
 				} else {
 					/* Open flag */
 					bzero(in_buffer, 1024);
@@ -87,7 +87,7 @@ void new_data_received(char * data, int data_size) {
 					in_buffer[block_size] = data[i];
 					block_size++;
 				} else {
-					lapb_debug(0, "[PHYS_CB] data error");
+					x25_debug(0, "[PHYS_CB] data error");
 					break;
 				};
 			}
@@ -106,10 +106,10 @@ void connection_lost() {
 	int buffer_size;
 
 	printf("\nUnacked data:\n");
-	while ((buffer = lapb_dequeue(lapb_client, &buffer_size)) != NULL)
+	while ((buffer = x25_dequeue(x25_client, &buffer_size)) != NULL)
 		printf("%s\n", buf_to_str(buffer, buffer_size));
 
-	lapb_reset(lapb_client, LAPB_STATE_0);
+	x25_reset(x25_client, LAPB_STATE_0);
 }
 
 
@@ -126,8 +126,8 @@ int main(int argc, char *argv[]) {
 	unsigned char lapb_equipment_type = LAPB_DTE;
 	unsigned char lapb_modulo = LAPB_STANDARD;
 
-	struct lapb_callbacks callbacks;
-	int lapb_res;
+	struct x25_callbacks callbacks;
+	int x25_res;
 
 	pthread_t client_thread;
 	struct tcp_client_struct * client_struct = NULL;
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
 		sleep_ms(200);
 	printf("Logger started\n\n");
 
-	lapb_debug(0, "Program started by User %d", getuid ());
+	x25_debug(0, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
 	setup_signals_handler();
@@ -228,7 +228,7 @@ label_2:
 
 	ret = pthread_create(&client_thread, NULL, client_function, (void*)client_struct);
 	if (ret) {
-		lapb_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		x25_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -244,7 +244,7 @@ label_2:
 	//bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
 	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
 	if (ret) {
-		lapb_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		x25_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -255,7 +255,7 @@ label_2:
 
 
 	/* LAPB init */
-	bzero(&callbacks, sizeof(struct lapb_callbacks));
+	bzero(&callbacks, sizeof(struct x25_callbacks));
 	callbacks.connect_confirmation = connect_confirmation;
 	callbacks.connect_indication = connect_indication;
 	callbacks.disconnect_confirmation = disconnect_confirmation;
@@ -268,10 +268,10 @@ label_2:
 	callbacks.start_timer = timer_start;
 	callbacks.stop_timer = timer_stop;
 
-	callbacks.debug = lapb_debug;
+	callbacks.debug = x25_debug;
 
 	/* Define LAPB values */
-	struct lapb_params params;
+	struct x25_params params;
 	params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 	params.window = LAPB_DEFAULT_SWINDOW;
 	params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
@@ -281,15 +281,15 @@ label_2:
 	params.low_order_bits = FALSE;
 	params.auto_connecting = TRUE;
 
-	lapb_res = lapb_register(&callbacks, &params, &lapb_client);
-	if (lapb_res != LAPB_OK) {
-		printf("lapb_register return %d\n", lapb_res);
+	x25_res = x25_register(&callbacks, &params, &x25_client);
+	if (x25_res != LAPB_OK) {
+		printf("lapb_register return %d\n", x25_res);
 		exit(EXIT_FAILURE);
 	};
 
 	/* Start endless loop */
 	printf("Run Main loop\n\n");
-	main_loop(lapb_client);
+	main_loop(x25_client);
 
 	printf("Main loop ended\n");
 
@@ -316,7 +316,7 @@ label_2:
 	if (timer_struct != NULL)
 		free(timer_struct);
 
-	lapb_unregister(lapb_client);
+	x25_unregister(x25_client);
 
 	terminate_logger();
 	while (is_logger_started())

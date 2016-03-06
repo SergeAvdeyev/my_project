@@ -8,22 +8,23 @@
  *
  */
 
-#ifndef LAPB_IFACE_H
-#define LAPB_IFACE_H
+#ifndef X25_IFACE_H
+#define X25_IFACE_H
 
 
 //#define USE_GNU_C_Library 0
 
-//#ifdef __GNUC__
-//#include <string.h>
-//#include <stdlib.h>
-//#endif
+#ifdef __GNUC__
+#include <string.h>
+#include <stdlib.h>
+#endif
 
 #define INTERNAL_SYNC 1 /* For including pthread.h and make library thread-safe */
 
 #if INTERNAL_SYNC
 #include <pthread.h>
 #endif
+
 
 #define	LAPB_ACK_PENDING_CONDITION	0x01
 #define	LAPB_REJECT_CONDITION		0x02
@@ -137,6 +138,7 @@ typedef unsigned int	_uint;
 typedef unsigned long	_ulong;
 #endif
 
+
 /*
  *	Information about the current frame.
  */
@@ -148,7 +150,7 @@ struct lapb_frame {
 	_uchar		control[2];	/* Original control data*/
 };
 
-struct lapb_params {
+struct x25_params {
 	_uchar		mode;				/* See struct lapb_cs. Applies only in LAPB_STATE_0 */
 	_uchar		window;				/* See struct lapb_cs. Applies only in LAPB_STATE_0 */
 	_ushort		N1;					/* See struct lapb_cs */
@@ -160,9 +162,9 @@ struct lapb_params {
 };
 
 /*
- *	The per LAPB connection control structure.
+ *	The per X.25 connection control structure.
  */
-struct lapb_cs {
+struct x25_cs {
 	/* Link status fields */
 	_uchar		mode;	/* Bit mask for STANDARD-EXTENDED|SLP-MLP|DTE-DCE */
 	_uchar		window;
@@ -182,46 +184,45 @@ struct lapb_cs {
 
 
 
-struct lapb_callbacks {
-	void (*connect_confirmation)(struct lapb_cs * lapb, int reason);	/* Connection to the remote system has been established, it
+struct x25_callbacks {
+	void (*connect_confirmation)(struct x25_cs * lapb, int reason);	/* Connection to the remote system has been established, it
 																		   was initiated by the local system due to the DL Connect
 																		   Request message. */
-	void (*connect_indication)(struct lapb_cs * lapb, int reason);		/* Connection to the remote system has been established, it
+	void (*connect_indication)(struct x25_cs * lapb, int reason);		/* Connection to the remote system has been established, it
 																		   was initiated by the remote system. */
-	void (*disconnect_confirmation)(struct lapb_cs * lapb, int reason);	/* Connection with the remote system has been terminated, it
+	void (*disconnect_confirmation)(struct x25_cs * lapb, int reason);	/* Connection with the remote system has been terminated, it
 																		   was terminated by the local system due to the DL
 																		   Disconnect Request message. */
-	void (*disconnect_indication)(struct lapb_cs * lapb, int reason);	/* Connection with the remote system has been terminated, it
+	void (*disconnect_indication)(struct x25_cs * lapb, int reason);	/* Connection with the remote system has been terminated, it
 																		   was terminated by the remote system, or the connection
 																		   initiation requested by the DL Connect Request message
 																		   has been refused by the remote system. */
-	int  (*data_indication)(struct lapb_cs * lapb, char * data, int data_size);	/* Data from the remote system has been received. */
-	void (*transmit_data)(struct lapb_cs * lapb, char *data, int data_size);
+	int  (*data_indication)(struct x25_cs * lapb, char * data, int data_size);	/* Data from the remote system has been received. */
+	void (*transmit_data)(struct x25_cs * lapb, char *data, int data_size);
 
 	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
 	void (*del_timer)(void * timer);
 	void (*start_timer)(void * timer);
 	void (*stop_timer)(void * timer);
 
-	//void (*debug)(struct lapb_cs *lapb, int level, const char * format, ...);
 	void (*debug)(int level, const char * format, ...);
 };
 
 
-/* lapb_iface.c */
-extern int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params, struct lapb_cs ** lapb);
-extern int lapb_unregister(struct lapb_cs * lapb);
-extern int lapb_get_params(struct lapb_cs * lapb, struct lapb_params * params);
-extern int lapb_set_params(struct lapb_cs * lapb, struct lapb_params * params);
-extern char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size);
-extern int lapb_reset(struct lapb_cs * lapb, _uchar init_state);
-extern int lapb_connect_request(struct lapb_cs *lapb);
-extern int lapb_disconnect_request(struct lapb_cs *lapb);
-extern int lapb_data_request(struct lapb_cs *lapb, char * data, int data_size);
-extern int lapb_get_state(struct lapb_cs *lapb);
+/* x25_iface.c */
+extern int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, struct x25_cs ** x25);
+extern int x25_unregister(struct x25_cs * x25);
+extern int x25_get_params(struct x25_cs * x25, struct x25_params * params);
+extern int x25_set_params(struct x25_cs * x25, struct x25_params * params);
+extern char * x25_dequeue(struct x25_cs * x25, int * buffer_size);
+extern int x25_reset(struct x25_cs * x25, _uchar init_state);
+extern int x25_connect_request(struct x25_cs *x25);
+extern int x25_disconnect_request(struct x25_cs *x25);
+extern int x25_data_request(struct x25_cs *x25, char * data, int data_size);
+extern int x25_get_state(struct x25_cs *x25);
 
 /* Executing by physical leyer (when new incoming data received) */
-extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, _ushort fcs);
+extern int x25_data_received(struct x25_cs *lapb, char * data, int data_size, _ushort fcs);
 
 
 ///* lapb_subr.c */
