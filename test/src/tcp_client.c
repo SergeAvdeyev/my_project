@@ -21,10 +21,6 @@ void _mutex_unlock();
 //
 ///////////////////////////////
 
-//void tcp_client_init() {
-//	_mutex_init();
-//}
-
 int tcp_client_socket() {
 	return client_socket;
 }
@@ -115,25 +111,6 @@ int get_client_exit_flag() {
 
 
 
-//int sleep_ms(int milliseconds) { // cross-platform sleep function
-//	int result = 0;
-
-//	struct timespec ts, ts2;
-//	ts.tv_sec = milliseconds / 1000;
-//	ts.tv_nsec = (milliseconds % 1000) * 1000000;
-//	ts2.tv_sec = 0;
-//	ts2.tv_nsec = 0;
-//	result = nanosleep(&ts, &ts2);
-//	if ((ts.tv_sec != ts2.tv_sec) || (ts.tv_nsec > ts2.tv_nsec))
-//		if (ts2.tv_nsec != -1)
-//			result = -1;
-
-//	return result;
-//}
-
-
-
-
 
 int create_client_socket() {
 	int	result = -1;
@@ -143,13 +120,13 @@ int create_client_socket() {
 
 	rc = ioctl(result, FIONBIO, (char *)&on);
 	if (rc < 0) {
-		lapb_debug(0, "ioctl() failed, %s", strerror(errno));
+		custom_debug(0, "ioctl() failed, %s", strerror(errno));
 		close(result);
 		return result;
 	};
 
 	if (result < 0) {
-		lapb_debug(0, "ERROR opening socket, %s", strerror(errno));
+		custom_debug(0, "ERROR opening socket, %s", strerror(errno));
 		return -1;
 	};
 
@@ -175,7 +152,7 @@ void * client_function(void *ptr) {
 
 	server = gethostbyname(((struct tcp_client_struct *)ptr)->server_address);
 	if (server == NULL) {
-		lapb_debug(0, "ERROR, no such host %s", ((struct tcp_client_struct *)ptr)->server_address);
+		custom_debug(0, "ERROR, no such host %s", ((struct tcp_client_struct *)ptr)->server_address);
 		*result = 0;
 		return result;
 	};
@@ -201,7 +178,7 @@ void * client_function(void *ptr) {
 		if (connect(client_socket, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
 			k--;
 			if (k <= 0) {
-				lapb_debug(0, "ERROR connecting, %s", strerror(errno));
+				custom_debug(0, "ERROR connecting, %s", strerror(errno));
 				k = 50;
 			};
 			sleep_ms(100);
@@ -224,8 +201,8 @@ void * client_function(void *ptr) {
 			if (get_client_exit_flag()) break;
 			/* Check to see if the select call failed.				*/
 			if (rc < 0) {
-				lapb_debug(0, "select() failed, %s", strerror(errno));
-				lapb_debug(0, "Connection will be closed");
+				custom_debug(0, "select() failed, %s", strerror(errno));
+				custom_debug(0, "Connection will be closed");
 				//close(client_socket);
 				break;
 			};
@@ -239,8 +216,8 @@ void * client_function(void *ptr) {
 				rc = recv(client_socket, buffer, sizeof(buffer), 0);
 				if (rc < 0) {
 					if (errno != EWOULDBLOCK) {
-						lapb_debug(0, "recv() failed, %s", strerror(errno));
-						lapb_debug(0, "Connection will be closed");
+						custom_debug(0, "recv() failed, %s", strerror(errno));
+						custom_debug(0, "Connection will be closed");
 						close(client_socket);
 						client_socket = -1;
 						if (((struct tcp_client_struct *)ptr)->connection_lost)
@@ -250,7 +227,7 @@ void * client_function(void *ptr) {
 					};
 				} else if (rc == 0) {
 					/* Connection has been closed by the client  */
-					lapb_debug(0, "Connection closed by server");
+					custom_debug(0, "Connection closed by server");
 					close(client_socket);
 					client_socket = -1;
 					client_disconnected();

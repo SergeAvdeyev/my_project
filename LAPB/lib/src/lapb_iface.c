@@ -243,20 +243,20 @@ out:
 int lapb_connect_request(struct lapb_cs *lapb) {
 	int rc = LAPB_BADTOKEN;
 
-	lock(lapb);
 	if (!lapb)
 		goto out;
+	lock(lapb);
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 	rc = LAPB_OK;
 	if (lapb_int->state == LAPB_STATE_1)
-		goto out;
+		goto unlock_out;
 
 	rc = LAPB_CONNECTED;
 	//if (lapb->state == LAPB_STATE_3 || lapb->state == LAPB_STATE_4)
 	if (lapb_int->state == LAPB_STATE_3)
-		goto out;
+		goto unlock_out;
 
 	lapb_establish_data_link(lapb);
 	lapb_int->state = LAPB_STATE_1;
@@ -265,8 +265,9 @@ int lapb_connect_request(struct lapb_cs *lapb) {
 	lapb->callbacks->debug(0, "[LAPB] S0 -> S1");
 
 	rc = LAPB_OK;
-out:
+unlock_out:
 	unlock(lapb);
+out:
 	return rc;
 }
 

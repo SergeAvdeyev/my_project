@@ -19,39 +19,14 @@ int block_size = 0;
 
 
 /*
- * LAPB callback functions for X.25
+ * callback functions for X.25
  *
 */
 
 void transmit_data(struct x25_cs * lapb, char *data, int data_size) {
 	(void)lapb;
-	if (!is_client_connected()) return;
-	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
-
-	char buffer[1024];
-	buffer[0] = 0x7E; /* Open flag */
-	buffer[1] = 0x7E; /* Open flag */
-	memcpy(&buffer[2], data, data_size);
-	if (error_type == 1) { /* Bad FCS (for I frames) */
-		int i_frame = ~(*(_uchar *)&buffer[3] & 0x01);
-		if (i_frame && (error_counter == 0))
-			*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
-		else
-			*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
-	} else if (error_type == 2) { /* Bad N(R) (for I or S frames) */
-		int if_nr_present = *(_uchar *)&buffer[3];
-		if_nr_present = if_nr_present & 0x03;
-		if ((if_nr_present != 0x03) && (error_counter == 0))
-			*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
-		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
-	} else
-		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
-	buffer[data_size + 4] = 0x7E; /* Close flag */
-	buffer[data_size + 5] = 0x7E; /* Close flag */
-
-	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
-	if (n < 0)
-		x25_debug(0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
+	(void)data;
+	(void)data_size;
 }
 
 
@@ -62,54 +37,25 @@ void transmit_data(struct x25_cs * lapb, char *data, int data_size) {
  *
 */
 void new_data_received(char * data, int data_size) {
+	(void)data;
 	int i = 0;
-	_ushort rcv_fcs;
+	//_ushort rcv_fcs;
 
 	while (i < data_size) {
-		if (data[i] == 0x7E) { /* Flag */
-			if (data[i + 1] == 0x7E) {
-				if (data_block) { /* Close flag */
-					data_block = FALSE;
-					block_size -= 2; /* 2 bytes for FCS */
-					rcv_fcs = *(_ushort *)&in_buffer[block_size];
-					//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-					x25_data_received(x25_client, in_buffer, block_size, rcv_fcs);
-				} else {
-					/* Open flag */
-					bzero(in_buffer, 1024);
-					block_size = 0;
-					data_block = TRUE;
-				};
-				i += 2;
-				continue;
-			} else {
-				if (data_block) {
-					in_buffer[block_size] = data[i];
-					block_size++;
-				} else {
-					x25_debug(0, "[PHYS_CB] data error");
-					break;
-				};
-			}
 
-			i++;
-		} else if (data_block) {
-			in_buffer[block_size] = data[i];
-			block_size++;
-			i++;
-		};
+		i++;
 	};
 }
 
 void connection_lost() {
-	char * buffer;
-	int buffer_size;
+//	char * buffer;
+//	int buffer_size;
 
 	printf("\nUnacked data:\n");
-	while ((buffer = x25_dequeue(x25_client, &buffer_size)) != NULL)
-		printf("%s\n", buf_to_str(buffer, buffer_size));
+//	while ((buffer = x25_dequeue(x25_client, &buffer_size)) != NULL)
+//		printf("%s\n", buf_to_str(buffer, buffer_size));
 
-	x25_reset(x25_client, LAPB_STATE_0);
+//	x25_reset(x25_client, LAPB_STATE_0);
 }
 
 
@@ -123,8 +69,8 @@ int main(int argc, char *argv[]) {
 
 	int dbg = FALSE;
 
-	unsigned char lapb_equipment_type = LAPB_DTE;
-	unsigned char lapb_modulo = LAPB_STANDARD;
+//	unsigned char lapb_equipment_type = LAPB_DTE;
+//	unsigned char lapb_modulo = LAPB_STANDARD;
 
 	struct x25_callbacks callbacks;
 	int x25_res;
@@ -139,7 +85,7 @@ int main(int argc, char *argv[]) {
 
 	printf("*******************************************\n");
 	printf("******                               ******\n");
-	printf("******  LAPB EMULATOR (client side)  ******\n");
+	printf("******  X25 EMULATOR (client side)  ******\n");
 	printf("******                               ******\n");
 	printf("*******************************************\n");
 
@@ -167,7 +113,7 @@ int main(int argc, char *argv[]) {
 		sleep_ms(200);
 	printf("Logger started\n\n");
 
-	x25_debug(0, "Program started by User %d", getuid ());
+	//x25_debug(0, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
 	setup_signals_handler();
@@ -176,19 +122,19 @@ int main(int argc, char *argv[]) {
 	if (dbg)
 		goto label_1;
 
-	/* Set up equipment type: DTE or DCE */
-	fprintf(stderr, "\nSelect equipment type:\n1. DTE\n2. DCE\n>");
-	while (read(0, buffer, sizeof(buffer)) <= 1)
-		fprintf(stderr, ">");
-	if (atoi(buffer) == 2)
-		lapb_equipment_type = LAPB_DCE;
+//	/* Set up equipment type: DTE or DCE */
+//	fprintf(stderr, "\nSelect equipment type:\n1. DTE\n2. DCE\n>");
+//	while (read(0, buffer, sizeof(buffer)) <= 1)
+//		fprintf(stderr, ">");
+//	if (atoi(buffer) == 2)
+//		lapb_equipment_type = LAPB_DCE;
 
-	/* Set up lapb modulo: STANDARD or EXTENDED */
-	fprintf(stderr, "\nSelect modulo value:\n1. STANDARD(8)\n2. EXTENDED(128)\n>");
-	while (read(0, buffer, sizeof(buffer)) <= 1)
-		fprintf(stderr, ">");
-	if (atoi(buffer) == 2)
-		lapb_modulo = LAPB_EXTENDED;
+//	/* Set up lapb modulo: STANDARD or EXTENDED */
+//	fprintf(stderr, "\nSelect modulo value:\n1. STANDARD(8)\n2. EXTENDED(128)\n>");
+//	while (read(0, buffer, sizeof(buffer)) <= 1)
+//		fprintf(stderr, ">");
+//	if (atoi(buffer) == 2)
+//		lapb_modulo = LAPB_EXTENDED;
 
 label_1:
 
@@ -228,7 +174,7 @@ label_2:
 
 	ret = pthread_create(&client_thread, NULL, client_function, (void*)client_struct);
 	if (ret) {
-		x25_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		//x25_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -244,7 +190,7 @@ label_2:
 	//bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
 	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
 	if (ret) {
-		x25_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		//x25_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -254,42 +200,42 @@ label_2:
 	printf("Timer started\n\n");
 
 
-	/* LAPB init */
+	/* X25 init */
 	bzero(&callbacks, sizeof(struct x25_callbacks));
-	callbacks.connect_confirmation = connect_confirmation;
-	callbacks.connect_indication = connect_indication;
-	callbacks.disconnect_confirmation = disconnect_confirmation;
-	callbacks.disconnect_indication = disconnect_indication;
-	callbacks.data_indication = data_indication;
-	callbacks.transmit_data = transmit_data;
+//	callbacks.connect_confirmation = connect_confirmation;
+//	callbacks.connect_indication = connect_indication;
+//	callbacks.disconnect_confirmation = disconnect_confirmation;
+//	callbacks.disconnect_indication = disconnect_indication;
+//	callbacks.data_indication = data_indication;
+//	callbacks.transmit_data = transmit_data;
 
-	callbacks.add_timer = timer_add;
-	callbacks.del_timer = timer_del;
-	callbacks.start_timer = timer_start;
-	callbacks.stop_timer = timer_stop;
+//	callbacks.add_timer = timer_add;
+//	callbacks.del_timer = timer_del;
+//	callbacks.start_timer = timer_start;
+//	callbacks.stop_timer = timer_stop;
 
-	callbacks.debug = x25_debug;
+	callbacks.debug = custom_debug;
 
-	/* Define LAPB values */
+	/* Define X25 values */
 	struct x25_params params;
-	params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
-	params.window = LAPB_DEFAULT_SWINDOW;
-	params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
-	params.T201_interval = 1000;	/* 1s */
-	params.T202_interval = 100;		/* 0.1s */
-	params.N201 = 10;					/* T201 timer will repeat for 10 times */
-	params.low_order_bits = FALSE;
-	params.auto_connecting = TRUE;
+//	params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
+//	params.window = LAPB_DEFAULT_SWINDOW;
+//	params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
+//	params.T201_interval = 1000;	/* 1s */
+//	params.T202_interval = 100;		/* 0.1s */
+//	params.N201 = 10;					/* T201 timer will repeat for 10 times */
+//	params.low_order_bits = FALSE;
+//	params.auto_connecting = TRUE;
 
 	x25_res = x25_register(&callbacks, &params, &x25_client);
-	if (x25_res != LAPB_OK) {
-		printf("lapb_register return %d\n", x25_res);
+	if (x25_res != X25_OK) {
+		printf("x25_register return %d\n", x25_res);
 		exit(EXIT_FAILURE);
 	};
 
 	/* Start endless loop */
 	printf("Run Main loop\n\n");
-	main_loop(x25_client);
+	main_loop();
 
 	printf("Main loop ended\n");
 

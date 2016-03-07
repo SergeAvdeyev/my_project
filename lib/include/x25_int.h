@@ -18,80 +18,49 @@
 
 /* Private lapb properties */
 struct x25_cs_internal {
-	_uchar		state;
-	_ushort		vs, vr, va;
-	_uchar		condition;
 
-	void *		T201_timer_ptr;		/* Pointer to timer T201 object */
-	void *		T202_timer_ptr;		/* Pointer to timer T202 object */
-	_ushort		RC;					/* Retry counter */
-	_uchar		T201_state, T202_state;
-
-	/* FRMR control information */
-	struct lapb_frame	frmr_data;
-	_uchar				frmr_type;
-
-	struct circular_buffer	write_queue;
-	struct circular_buffer	ack_queue;
 #if INTERNAL_SYNC
 	pthread_mutex_t		_mutex;
 #endif
 };
 
-/* lapb_iface.c */
-void lapb_connect_confirmation(struct x25_cs *lapb, int);
-void lapb_connect_indication(struct x25_cs *lapb, int);
-void lapb_disconnect_confirmation(struct x25_cs *lapb, int);
-void lapb_disconnect_indication(struct x25_cs *lapb, int);
-int lapb_data_indication(struct x25_cs *lapb, char * data, int data_size);
-int lapb_data_transmit(struct x25_cs *lapb, char *data, int data_size);
+/* x25_iface.c */
 
-/* lapb_in.c */
-//void lapb_data_input(struct x25_cs *lapb, char * data, int data_size);
 
-/* lapb_out.c */
-//void lapb_kick(struct lapb_cs *lapb);
-//void lapb_transmit_buffer(struct lapb_cs *lapb, char *data, int data_size, int type);
-//void lapb_establish_data_link(struct lapb_cs *lapb);
-//void lapb_enquiry_response(struct lapb_cs *lapb);
-//void lapb_timeout_response(struct lapb_cs *lapb);
-//void lapb_check_iframes_acked(struct lapb_cs *lapb, unsigned short);
-//void lapb_check_need_response(struct lapb_cs *lapb, int, int);
 
-/* lapb_subr.c */
-//void lock(struct lapb_cs *lapb);
-//void unlock(struct lapb_cs *lapb);
-//char * lapb_buf_to_str(char * data, int data_size);
-//void lapb_clear_queues(struct lapb_cs *lapb);
-//int lapb_frames_acked(struct lapb_cs *lapb, unsigned short nr);
-//void lapb_requeue_frames(struct lapb_cs *lapb);
-//int lapb_validate_nr(struct lapb_cs *lapb, unsigned short);
-//int lapb_decode(struct lapb_cs *lapb, char * data, int data_size, struct lapb_frame * frame);
-//void lapb_send_control(struct lapb_cs *lapb, int, int, int);
-//void lapb_transmit_frmr(struct lapb_cs *lapb);
-//void fill_inv_table();
-//_uchar invert_uchar(_uchar value);
-//int lapb_is_dce(struct lapb_cs *lapb);
-//int lapb_is_extended(struct lapb_cs *lapb);
-//int lapb_is_slp(struct lapb_cs *lapb);
-///* Convert void *lapb_cs::internal_struct to lapb_cs_internal */
-//struct lapb_cs_internal * lapb_get_internal(struct lapb_cs *lapb);
+/* x25_in.c */
 
+
+
+/* x25_out.c */
+
+
+
+/* x25_subr.c */
+void lock(struct x25_cs *x25);
+void unlock(struct x25_cs *x25);
+struct x25_cs_internal * x25_get_internal(struct x25_cs *x25);
 /* Redefine 'malloc' and 'free' */
-void * lapb_mem_get(_ulong size);
-void lapb_mem_free(void *ptr);
-void * lapb_mem_copy(void *dest, const void *src, _ulong n);
-void lapb_mem_zero(void *src, _ulong n);
+void * x25_mem_get(_ulong size);
+void x25_mem_free(void *ptr);
+void * x25_mem_copy(void *dest, const void *src, _ulong n);
+void x25_mem_zero(void *src, _ulong n);
+int x25_pacsize_to_bytes(unsigned int pacsize);
+void x25_write_internal(struct x25_cs *x25, int frametype);
 
 
 /* x25_timer.c */
-//void lapb_start_t201timer(struct lapb_cs *lapb);
-//void lapb_stop_t201timer(struct lapb_cs *lapb);
-//void lapb_restart_t201timer(struct lapb_cs *lapb);
-//int lapb_t201timer_running(struct lapb_cs *lapb);
-//void lapb_start_t202timer(struct lapb_cs *lapb);
-//void lapb_stop_t202timer(struct lapb_cs *lapb);
-//int lapb_t202timer_running(struct lapb_cs *lapb);
 
-#endif // LAPB_INT_H
+void x25_start_heartbeat(struct x25_cs *x25);
+void x25_stop_heartbeat(struct x25_cs *x25);
+
+void x25_start_timer(struct x25_cs *x25, struct x25_timer * _timer);
+void x25_stop_timer(struct x25_cs *x25, struct x25_timer * _timer);
+int x25_timer_running(struct x25_timer * _timer);
+void x25_t21timer_expiry(void * x25_ptr);
+void x25_t22timer_expiry(void * x25_ptr);
+void x25_t23timer_expiry(void * x25_ptr);
+void x25_t2timer_expiry(void * x25_ptr);
+
+#endif // X25_INT_H
 
