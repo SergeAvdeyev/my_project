@@ -106,6 +106,16 @@
 #define X25_MAX_AE_LEN			40			/* Max num of semi-octets in AE - OSI Nw */
 #define X25_MAX_DTE_FACIL_LEN	21			/* Max length of DTE facility params */
 
+/* values for above global_facil_mask */
+
+#define	X25_MASK_REVERSE	0x01
+#define	X25_MASK_THROUGHPUT	0x02
+#define	X25_MASK_PACKET_SIZE	0x04
+#define	X25_MASK_WINDOW_SIZE	0x08
+
+#define X25_MASK_CALLING_AE 0x10
+#define X25_MASK_CALLED_AE 0x20
+
 
 #define	X25_ADDR_LEN			16
 
@@ -167,7 +177,10 @@ enum {
 	X25_STATE_4		/* Awaiting Reset Confirmation */
 };
 
-
+struct sk_buff {
+	_uchar * data;
+	int	   data_size;
+};
 
 struct x25_callbacks {
 	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
@@ -237,21 +250,21 @@ struct x25_calluserdata {
 	_uchar	cuddata[128];
 };
 
-struct x25_neigh {
-	//struct list_head	node;
-	//struct net_device	*dev;
-	_uint		state;
-	_uint		extended;
-	struct circular_buffer	queue;
-	_ulong		t20;
-	void *	t20timer;
-	_ulong		global_facil_mask;
-};
-
 struct x25_timer {
 	_ulong		interval;
 	void *		timer_ptr;
 	_uchar		state;
+};
+
+struct x25_link {
+	void *		link_ptr;
+	_uint		state;
+	_uint		extended;
+	struct circular_buffer	queue;
+	struct x25_timer	T20;
+	//_ulong		t20;
+	//void *	t20timer;
+	_ulong		global_facil_mask;
 };
 
 /* X.25 Control structure */
@@ -259,7 +272,7 @@ struct x25_cs {
 	//struct sock		sk;
 	struct x25_address	source_addr;
 	struct x25_address	dest_addr;
-	struct x25_neigh	*neighbour;
+	struct x25_link		neighbour;
 	_uint		lci;
 	_uint		cudmatchlength;
 	_uchar		state;
@@ -319,6 +332,10 @@ extern int x25_register(struct x25_callbacks *callbacks, struct x25_params * par
 extern int x25_unregister(struct x25_cs * x25);
 extern int x25_get_params(struct x25_cs * x25, struct x25_params * params);
 extern int x25_set_params(struct x25_cs * x25, struct x25_params * params);
+
+//int x25_connect_request(struct x25_cs * x25, struct x25_address *uaddr, int addr_len);
+void x25_add_link(struct x25_cs *x25, void * link, int extended);
+int x25_connect_request(struct x25_cs * x25, struct x25_address *dest_addr);
 
 
 /* lapb_subr.c */

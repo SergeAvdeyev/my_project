@@ -8,8 +8,8 @@
  *
  */
 
-#ifndef QUEUE_H
-#define QUEUE_H
+#ifndef LAPB_QUEUE_H
+#define LAPB_QUEUE_H
 
 #include "subr.h"
 
@@ -36,5 +36,5 @@ char * cb_dequeue(struct circular_buffer * cb, int * buffer_size);
 char * cb_dequeue_tail(struct circular_buffer *cb, int * buffer_size);
 char * cb_push(char * data, int len);
 
-#endif // LAPB_INT_H
+#endif
 

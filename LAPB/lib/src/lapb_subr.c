@@ -15,7 +15,7 @@
 //char str_buf[1024];
 _uchar uchar_inv_table[256];
 
-void lock(struct lapb_cs *lapb) {
+void lapb_lock(struct lapb_cs *lapb) {
 #if !INTERNAL_SYNC
 	(void)lapb;
 #else
@@ -25,7 +25,7 @@ void lock(struct lapb_cs *lapb) {
 #endif
 }
 
-void unlock(struct lapb_cs *lapb) {
+void lapb_unlock(struct lapb_cs *lapb) {
 #if !INTERNAL_SYNC
 	(void)lapb;
 #else

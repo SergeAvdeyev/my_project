@@ -12,6 +12,7 @@
 #include <stdarg.h>
 
 #include "x25_iface.h"
+#include "lapb_iface.h"
 
 #define TRUE	1
 #define FALSE	0
@@ -23,6 +24,17 @@ volatile sig_atomic_t exit_flag;
 _ushort error_type; /* 0 - no error; 1 - FCS error; 2 - N(R) error */
 _ushort error_counter;
 
+/* Called by LAPB to inform X25 that Connect Request is confirmed */
+void lapb_connect_confirmation_cb(struct lapb_cs * lapb, int reason);
+/* Called by LAPB to inform X25 that connection was initiated by the remote system */
+void lapb_connect_indication_cb(struct lapb_cs * lapb, int reason);
+/* Called by LAPB to inform X25 that Disconnect Request is confirmed */
+void lapb_disconnect_confirmation_cb(struct lapb_cs * lapb, int reason);
+/* Called by LAPB to inform X25 that connection was terminated by the remote system */
+void lapb_disconnect_indication_cb(struct lapb_cs * lapb, int reason);
+/* Called by LAPB to inform X25 about new data */
+int lapb_data_indication_cb(struct lapb_cs * lapb, char * data, int data_size);
+char * lapb_error_str(int error);
 
 
 void setup_signals_handler();

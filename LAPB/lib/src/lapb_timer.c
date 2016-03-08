@@ -90,14 +90,14 @@ void lapb_t202timer_expiry(void * lapb_ptr) {
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	lock(lapb);
+	lapb_lock(lapb);
 	lapb->callbacks->debug(1, "[LAPB] S%d Timer_202 expired", lapb_int->state);
 	if (lapb_int->condition & LAPB_ACK_PENDING_CONDITION) {
 		lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 		lapb_timeout_response(lapb);
 		lapb_stop_t202timer(lapb);
 	};
-	unlock(lapb);
+	lapb_unlock(lapb);
 }
 
 void lapb_t201timer_expiry(void * lapb_ptr) {
@@ -106,7 +106,7 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	lock(lapb);
+	lapb_lock(lapb);
 	lapb_int->RC++;
 	lapb->callbacks->debug(1, "[LAPB] S%d Timer_201 expired(%d of %d)",
 						   lapb_int->state, lapb_int->RC, lapb->N201);
@@ -187,5 +187,5 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 //			};
 //			break;
 	};
-	unlock(lapb);
+	lapb_unlock(lapb);
 }

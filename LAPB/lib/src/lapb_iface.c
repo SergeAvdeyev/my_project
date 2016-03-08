@@ -245,7 +245,7 @@ int lapb_connect_request(struct lapb_cs *lapb) {
 
 	if (!lapb)
 		goto out;
-	lock(lapb);
+	lapb_lock(lapb);
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
@@ -266,7 +266,7 @@ int lapb_connect_request(struct lapb_cs *lapb) {
 
 	rc = LAPB_OK;
 unlock_out:
-	unlock(lapb);
+	lapb_unlock(lapb);
 out:
 	return rc;
 }
@@ -274,7 +274,7 @@ out:
 int lapb_disconnect_request(struct lapb_cs *lapb) {
 	int rc = LAPB_BADTOKEN;
 
-	lock(lapb);
+	lapb_lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -311,14 +311,14 @@ int lapb_disconnect_request(struct lapb_cs *lapb) {
 
 	rc = LAPB_OK;
 out:
-	unlock(lapb);
+	lapb_unlock(lapb);
 	return rc;
 }
 
 int lapb_data_request(struct lapb_cs *lapb, char *data, int data_size) {
 	int rc = LAPB_BADTOKEN;
 
-	lock(lapb);
+	lapb_lock(lapb);
 	if (!lapb)
 		goto out;
 
@@ -353,14 +353,14 @@ int lapb_data_request(struct lapb_cs *lapb, char *data, int data_size) {
 	rc = LAPB_OK;
 
 out:
-	unlock(lapb);
+	lapb_unlock(lapb);
 	return rc;
 }
 
 int lapb_data_received(struct lapb_cs *lapb, char *data, int data_size, _ushort fcs) {
 	int rc = LAPB_BADFCS;
 
-	lock(lapb);
+	lapb_lock(lapb);
 	if (fcs != 0) /* Drop frames with bad summ */
 		goto out;
 
@@ -370,7 +370,7 @@ int lapb_data_received(struct lapb_cs *lapb, char *data, int data_size, _ushort 
 		rc = LAPB_OK;
 	};
 out:
-	unlock(lapb);
+	lapb_unlock(lapb);
 	return rc;
 }
 

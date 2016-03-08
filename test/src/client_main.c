@@ -2,6 +2,7 @@
 
 
 #include "x25_iface.h"
+#include "lapb_iface.h"
 
 #include "tcp_client.h"
 #include "my_timer.h"
@@ -10,6 +11,8 @@
 #include "common.h"
 
 struct x25_cs * x25_client = NULL;
+struct lapb_cs * lapb_client = NULL;
+
 
 char in_buffer[4096];
 int data_block = FALSE;
@@ -19,15 +22,41 @@ int block_size = 0;
 
 
 /*
- * callback functions for X.25
+ * LAPB callback functions for X.25
  *
 */
 
-void transmit_data(struct x25_cs * lapb, char *data, int data_size) {
+void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	(void)lapb;
-	(void)data;
-	(void)data_size;
+	if (!is_client_connected()) return;
+	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
+
+	char buffer[1024];
+	buffer[0] = 0x7E; /* Open flag */
+	buffer[1] = 0x7E; /* Open flag */
+	memcpy(&buffer[2], data, data_size);
+	if (error_type == 1) { /* Bad FCS (for I frames) */
+		int i_frame = ~(*(_uchar *)&buffer[3] & 0x01);
+		if (i_frame && (error_counter == 0))
+			*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
+		else
+			*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	} else if (error_type == 2) { /* Bad N(R) (for I or S frames) */
+		int if_nr_present = *(_uchar *)&buffer[3];
+		if_nr_present = if_nr_present & 0x03;
+		if ((if_nr_present != 0x03) && (error_counter == 0))
+			*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
+		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	} else
+		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	buffer[data_size + 4] = 0x7E; /* Close flag */
+	buffer[data_size + 5] = 0x7E; /* Close flag */
+
+	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
+	if (n < 0)
+		custom_debug(0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
+
 
 
 
@@ -67,13 +96,10 @@ int main(int argc, char *argv[]) {
 	int ret;
 	char buffer[2048];
 
-	int dbg = FALSE;
+	int dbg = TRUE;
 
-//	unsigned char lapb_equipment_type = LAPB_DTE;
-//	unsigned char lapb_modulo = LAPB_STANDARD;
-
-	struct x25_callbacks callbacks;
-	int x25_res;
+	unsigned char lapb_equipment_type = LAPB_DTE;
+	unsigned char lapb_modulo = LAPB_STANDARD;
 
 	pthread_t client_thread;
 	struct tcp_client_struct * client_struct = NULL;
@@ -113,7 +139,7 @@ int main(int argc, char *argv[]) {
 		sleep_ms(200);
 	printf("Logger started\n\n");
 
-	//x25_debug(0, "Program started by User %d", getuid ());
+	custom_debug(0, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
 	setup_signals_handler();
@@ -174,7 +200,7 @@ label_2:
 
 	ret = pthread_create(&client_thread, NULL, client_function, (void*)client_struct);
 	if (ret) {
-		//x25_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		custom_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -190,7 +216,7 @@ label_2:
 	//bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
 	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
 	if (ret) {
-		//x25_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		custom_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -200,38 +226,77 @@ label_2:
 	printf("Timer started\n\n");
 
 
-	/* X25 init */
-	bzero(&callbacks, sizeof(struct x25_callbacks));
-//	callbacks.connect_confirmation = connect_confirmation;
-//	callbacks.connect_indication = connect_indication;
-//	callbacks.disconnect_confirmation = disconnect_confirmation;
-//	callbacks.disconnect_indication = disconnect_indication;
-//	callbacks.data_indication = data_indication;
-//	callbacks.transmit_data = transmit_data;
+	/* LAPB init */
+	struct lapb_callbacks lapb_callbacks;
+	int res;
+	bzero(&lapb_callbacks, sizeof(struct lapb_callbacks));
+	lapb_callbacks.connect_confirmation = lapb_connect_confirmation_cb;
+	lapb_callbacks.connect_indication = lapb_connect_indication_cb;
+	lapb_callbacks.disconnect_confirmation = lapb_disconnect_confirmation_cb;
+	lapb_callbacks.disconnect_indication = lapb_disconnect_indication_cb;
+	lapb_callbacks.data_indication = lapb_data_indication_cb;
+	lapb_callbacks.transmit_data = lapb_transmit_data;
 
-//	callbacks.add_timer = timer_add;
-//	callbacks.del_timer = timer_del;
-//	callbacks.start_timer = timer_start;
-//	callbacks.stop_timer = timer_stop;
+	lapb_callbacks.add_timer = timer_add;
+	lapb_callbacks.del_timer = timer_del;
+	lapb_callbacks.start_timer = timer_start;
+	lapb_callbacks.stop_timer = timer_stop;
 
-	callbacks.debug = custom_debug;
+	lapb_callbacks.debug = custom_debug;
 
-	/* Define X25 values */
-	struct x25_params params;
-//	params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
-//	params.window = LAPB_DEFAULT_SWINDOW;
-//	params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
-//	params.T201_interval = 1000;	/* 1s */
-//	params.T202_interval = 100;		/* 0.1s */
-//	params.N201 = 10;					/* T201 timer will repeat for 10 times */
-//	params.low_order_bits = FALSE;
-//	params.auto_connecting = TRUE;
+	/* Define LAPB values */
+	struct lapb_params lapb_params;
+	lapb_params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
+	lapb_params.window = LAPB_DEFAULT_SWINDOW;
+	lapb_params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
+	lapb_params.T201_interval = 1000;	/* 1s */
+	lapb_params.T202_interval = 100;		/* 0.1s */
+	lapb_params.N201 = 10;					/* T201 timer will repeat for 10 times */
+	lapb_params.low_order_bits = FALSE;
+	lapb_params.auto_connecting = TRUE;
 
-	x25_res = x25_register(&callbacks, &params, &x25_client);
-	if (x25_res != X25_OK) {
-		printf("x25_register return %d\n", x25_res);
+	res = lapb_register(&lapb_callbacks, &lapb_params, &lapb_client);
+	if (res != LAPB_OK) {
+		printf("lapb_register return %d\n", res);
 		exit(EXIT_FAILURE);
 	};
+
+
+
+
+	/* X25 init */
+	struct x25_callbacks x25_callbacks;
+	bzero(&x25_callbacks, sizeof(struct x25_callbacks));
+//	x25_callbacks.connect_confirmation = connect_confirmation;
+//	x25_callbacks.connect_indication = connect_indication;
+//	x25_callbacks.disconnect_confirmation = disconnect_confirmation;
+//	x25_callbacks.disconnect_indication = disconnect_indication;
+//	x25_callbacks.data_indication = data_indication;
+//	x25_callbacks.transmit_data = transmit_data;
+
+	x25_callbacks.add_timer = timer_add;
+	x25_callbacks.del_timer = timer_del;
+	x25_callbacks.start_timer = timer_start;
+	x25_callbacks.stop_timer = timer_stop;
+
+	x25_callbacks.debug = custom_debug;
+
+	/* Define X25 values */
+	struct x25_params x25_params;
+
+	res = x25_register(&x25_callbacks, &x25_params, &x25_client);
+	if (res != X25_OK) {
+		printf("x25_register return %d\n", res);
+		exit(EXIT_FAILURE);
+	};
+	x25_add_link(x25_client, lapb_client, 0);
+
+	struct x25_address addr;
+	sprintf(addr.x25_addr, "7654321");
+	//x25_client->lci = 1 << 8 | 1;
+	x25_client->lci = 1;
+	sprintf((char *)&x25_client->source_addr, "1234567");
+	x25_connect_request(x25_client, &addr);
 
 	/* Start endless loop */
 	printf("Run Main loop\n\n");

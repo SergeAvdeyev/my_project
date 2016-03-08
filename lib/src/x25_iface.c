@@ -128,12 +128,25 @@ int x25_get_state(struct x25_cs *x25) {
 }
 
 
+void x25_add_link(struct x25_cs *x25, void * link, int extended) {
+	x25->neighbour.link_ptr = link;
+	x25->neighbour.state    = X25_LINK_STATE_0;
+	x25->neighbour.extended = extended == 0 ? 0 : 1;
+	cb_init(&x25->neighbour.queue, 10, 1024);
+	x25->neighbour.T20.interval = X25_DEFAULT_T20;
+	if (x25->callbacks->add_timer)
+		x25->neighbour.T20.timer_ptr = x25->callbacks->add_timer(x25->T21.interval, x25, x25_t20timer_expiry);
+	x25->neighbour.global_facil_mask =	X25_MASK_REVERSE |
+										X25_MASK_THROUGHPUT |
+										X25_MASK_PACKET_SIZE |
+										X25_MASK_WINDOW_SIZE;
+}
 
 
 
 
-
-int x25_connect_request(struct x25_cs * x25, struct x25_address *uaddr, int addr_len) {
+//int x25_connect_request(struct x25_cs * x25, struct x25_address *uaddr, int addr_len) {
+int x25_connect_request(struct x25_cs * x25, struct x25_address *dest_addr) {
 	int rc = X25_BADTOKEN;
 
 	if (!x25)
@@ -150,10 +163,6 @@ int x25_connect_request(struct x25_cs * x25, struct x25_address *uaddr, int addr
 	if (x25->state == X25_STATE_3)
 		goto out_unlock;
 
-	rc = X25_INVALUE;
-	if (addr_len != sizeof(struct x25_address))
-		goto out_unlock;
-
 //	rc = X25_ROOT_UNREACH;
 //	rt = x25_get_route(&addr);
 //	if (!rt)
@@ -163,7 +172,7 @@ int x25_connect_request(struct x25_cs * x25, struct x25_address *uaddr, int addr
 //	if (!x25->neighbour)
 //		goto out_put_route;
 
-//	x25_limit_facilities(&x25->facilities, x25->neighbour);
+	x25_limit_facilities(x25);
 
 //	x25->lci = x25_new_lci(x25->neighbour);
 //	if (!x25->lci)
@@ -173,7 +182,7 @@ int x25_connect_request(struct x25_cs * x25, struct x25_address *uaddr, int addr
 	if (!strcmp(x25->source_addr.x25_addr, null_x25_address.x25_addr))
 		memset(&x25->source_addr, '\0', X25_ADDR_LEN);
 
-	x25->dest_addr = *uaddr;
+	x25->dest_addr = *dest_addr;
 
 	x25->state = X25_STATE_1;
 

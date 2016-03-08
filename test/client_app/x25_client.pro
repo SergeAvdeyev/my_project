@@ -24,9 +24,18 @@ SOURCES += \
     ../../lib/src/x25_out.c \
     ../../lib/src/x25_subr.c \
     ../../lib/src/x25_timer.c \
+    ../../lib/src/x25_restart.c \
+    ../../lib/src/x25_facilities.c \
+    ../../lib/src/x25_link.c \
+#
     ../../LAPB/lib/src/queue.c \
     ../../LAPB/lib/src/subr.c \
-    ../../lib/src/x25_restart.c
+    ../../LAPB/lib/src/lapb_iface.c \
+    ../../LAPB/lib/src/lapb_timer.c \
+    ../../LAPB/lib/src/lapb_in.c \
+    ../../LAPB/lib/src/lapb_out.c \
+    ../../LAPB/lib/src/lapb_subr.c
+
 
 
 HEADERS += \

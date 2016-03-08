@@ -5,7 +5,7 @@
 
 char str_buf[1024];
 int break_flag = FALSE;
-//int out_counter;
+int out_counter;
 //int old_state = FALSE;
 
 /* Signals handler */
@@ -38,12 +38,6 @@ void setup_signals_handler() {
 	if (sigaction(SIGTERM, &sa, NULL) == -1)
 		perror("Error: cannot handle SIGUSR1"); // Should not happen
 
-	// Will always fail, SIGKILL is intended to force kill your process
-	//if (sigaction(SIGKILL, &sa, NULL) == -1) {
-	//	perror("Cannot handle SIGKILL"); // Will always happen
-	//	printf("You can never handle SIGKILL anyway...\n");
-	//};
-
 	if (sigaction(SIGINT, &sa, NULL) == -1)
 		perror("Error: cannot handle SIGINT"); // Should not happen
 }
@@ -62,6 +56,81 @@ void custom_debug(int level, const char * format, ...) {
 }
 
 
+
+/*
+ * LAPB callback functions for X.25
+ *
+*/
+/* Called by LAPB to inform X25 that Connect Request is confirmed */
+void lapb_connect_confirmation_cb(struct lapb_cs * lapb, int reason) {
+	(void)lapb;
+	custom_debug(0, "[X25_CB] connect_confirmation event is called(%s)", lapb_error_str(reason));
+	out_counter = 0;
+}
+
+/* Called by LAPB to inform X25 that connection was initiated by the remote system */
+void lapb_connect_indication_cb(struct lapb_cs * lapb, int reason) {
+	(void)lapb;
+	custom_debug(0, "[X25_CB] connect_indication event is called(%s)", lapb_error_str(reason));
+	out_counter = 0;
+}
+
+/* Called by LAPB to inform X25 that Disconnect Request is confirmed */
+void lapb_disconnect_confirmation_cb(struct lapb_cs * lapb, int reason) {
+	(void)lapb;
+	custom_debug(0, "[X25_CB] disconnect_confirmation event is called(%s)", lapb_error_str(reason));
+}
+
+/* Called by LAPB to inform X25 that connection was terminated by the remote system */
+void lapb_disconnect_indication_cb(struct lapb_cs * lapb, int reason) {
+	char * buffer;
+	int buffer_size;
+
+	custom_debug(0, "[X25_CB] disconnect_indication event is called(%s)", lapb_error_str(reason));
+	buffer = lapb_dequeue(lapb, &buffer_size);
+	if (buffer) {
+		printf("\nUnacked data:\n");
+		printf("%s\n", buf_to_str(buffer, buffer_size));
+		while ((buffer = lapb_dequeue(lapb, &buffer_size)) != NULL)
+			printf("%s\n", buf_to_str(buffer, buffer_size));
+	};
+}
+
+/* Called by LAPB to inform X25 about new data */
+int lapb_data_indication_cb(struct lapb_cs * lapb, char * data, int data_size) {
+	(void)lapb;
+	//lapb_debug(NULL, 0, "[X25_CB] received new data");
+	printf("%s\n", buf_to_str(data, data_size));
+	return 0;
+}
+
+char * lapb_error_str(int error) {
+	switch (error) {
+		case LAPB_OK:
+			return LAPB_OK_STR;
+		case LAPB_BADTOKEN:
+			return LAPB_BADTOKEN_STR;
+		case LAPB_INVALUE:
+			return LAPB_INVALUE_STR;
+		case LAPB_CONNECTED:
+			return LAPB_CONNECTED_STR;
+		case LAPB_NOTCONNECTED:
+			return LAPB_NOTCONNECTED_STR;
+		case LAPB_REFUSED:
+			return LAPB_REFUSED_STR;
+		case LAPB_TIMEDOUT:
+			return LAPB_TIMEDOUT_STR;
+		case LAPB_NOMEM:
+			return LAPB_NOMEM_STR;
+		case LAPB_BUSY:
+			return LAPB_BUSY_STR;
+		case LAPB_BADFCS:
+			return LAPB_BADFCS_STR;
+		default:
+			return "Unknown error";
+			break;
+	};
+}
 
 
 

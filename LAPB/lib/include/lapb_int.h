@@ -58,8 +58,8 @@ void lapb_check_iframes_acked(struct lapb_cs *lapb, unsigned short);
 void lapb_check_need_response(struct lapb_cs *lapb, int, int);
 
 /* lapb_subr.c */
-void lock(struct lapb_cs *lapb);
-void unlock(struct lapb_cs *lapb);
+void lapb_lock(struct lapb_cs *lapb);
+void lapb_unlock(struct lapb_cs *lapb);
 //char * lapb_buf_to_str(char * data, int data_size);
 void lapb_clear_queues(struct lapb_cs *lapb);
 int lapb_frames_acked(struct lapb_cs *lapb, unsigned short nr);
