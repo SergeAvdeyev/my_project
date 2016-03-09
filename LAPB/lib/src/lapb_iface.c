@@ -240,7 +240,9 @@ out:
 
 
 
-int lapb_connect_request(struct lapb_cs *lapb) {
+//int lapb_connect_request(struct lapb_cs *lapb) {
+int lapb_connect_request(void *lapb_ptr) {
+	struct lapb_cs *lapb = lapb_ptr;
 	int rc = LAPB_BADTOKEN;
 
 	if (!lapb)

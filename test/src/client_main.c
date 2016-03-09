@@ -1,14 +1,10 @@
-#include <signal.h>     /* for signal */
 
-
-#include "x25_iface.h"
-#include "lapb_iface.h"
+#include "common.h"
 
 #include "tcp_client.h"
 #include "my_timer.h"
 #include "logger.h"
 
-#include "common.h"
 
 struct x25_cs * x25_client = NULL;
 struct lapb_cs * lapb_client = NULL;
@@ -248,8 +244,8 @@ label_2:
 	struct lapb_params lapb_params;
 	lapb_params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 	lapb_params.window = LAPB_DEFAULT_SWINDOW;
-	lapb_params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
-	lapb_params.T201_interval = 1000;	/* 1s */
+	lapb_params.N1 = LAPB_DEFAULT_N1;		/* I frame size is 135 bytes */
+	lapb_params.T201_interval = 1000;		/* 1s */
 	lapb_params.T202_interval = 100;		/* 0.1s */
 	lapb_params.N201 = 10;					/* T201 timer will repeat for 10 times */
 	lapb_params.low_order_bits = FALSE;
@@ -267,6 +263,7 @@ label_2:
 	/* X25 init */
 	struct x25_callbacks x25_callbacks;
 	bzero(&x25_callbacks, sizeof(struct x25_callbacks));
+	x25_callbacks.link_connect_request = lapb_connect_request;
 //	x25_callbacks.connect_confirmation = connect_confirmation;
 //	x25_callbacks.connect_indication = connect_indication;
 //	x25_callbacks.disconnect_confirmation = disconnect_confirmation;
@@ -289,7 +286,7 @@ label_2:
 		printf("x25_register return %d\n", res);
 		exit(EXIT_FAILURE);
 	};
-	x25_add_link(x25_client, lapb_client, 0);
+	x25_add_link(x25_client, lapb_client, lapb_modulo == LAPB_EXTENDED);
 
 	struct x25_address addr;
 	sprintf(addr.x25_addr, "7654321");
@@ -297,6 +294,9 @@ label_2:
 	x25_client->lci = 1;
 	sprintf((char *)&x25_client->source_addr, "1234567");
 	x25_connect_request(x25_client, &addr);
+
+
+
 
 	/* Start endless loop */
 	printf("Run Main loop\n\n");

@@ -309,7 +309,7 @@ int x25_negotiate_facilities(struct x25_cs *x25,
  */
 void x25_limit_facilities(struct x25_cs *x25) {
 
-	if (!x25->neighbour.extended) {
+	if (!x25->link.extended) {
 		if (x25->facilities.winsize_in  > 7) {
 			x25->callbacks->debug(1, "[X25] incoming winsize limited to 7");
 			x25->facilities.winsize_in = 7;

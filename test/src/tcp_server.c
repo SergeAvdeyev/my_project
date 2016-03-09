@@ -138,7 +138,7 @@ void * server_function(void *ptr) {
 	/* connections on                                            */
 	server_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_socket < 0)    {
-		lapb_debug(0, "socket() failed, %s", strerror(errno));
+		custom_debug(0, "socket() failed, %s", strerror(errno));
 		*result = -1;
 		return result;
 	};
@@ -147,7 +147,7 @@ void * server_function(void *ptr) {
 	rc = setsockopt(server_socket, SOL_SOCKET,  SO_REUSEADDR,
 	(char *)&on, sizeof(on));
 	if (rc < 0) {
-		lapb_debug(0, "setsockopt() failed, %s", strerror(errno));
+		custom_debug(0, "setsockopt() failed, %s", strerror(errno));
 		close(server_socket);
 		*result = -1;
 		return result;
@@ -158,7 +158,7 @@ void * server_function(void *ptr) {
 	/* they will inherit that state from the listening socket.   */
 	rc = ioctl(server_socket, FIONBIO, (char *)&on);
 	if (rc < 0) {
-		lapb_debug(0, "ioctl() failed, %s", strerror(errno));
+		custom_debug(0, "ioctl() failed, %s", strerror(errno));
 		close(server_socket);
 		*result = -1;
 		return result;
@@ -171,7 +171,7 @@ void * server_function(void *ptr) {
 	addr.sin6_port = htons(port_no);
 	rc = bind(server_socket, (struct sockaddr *)&addr, sizeof(addr));
 	if (rc < 0) {
-		lapb_debug(0, "bind() failed, %s", strerror(errno));
+		custom_debug(0, "bind() failed, %s", strerror(errno));
 		close(server_socket);
 		*result = -1;
 		return result;
@@ -180,7 +180,7 @@ void * server_function(void *ptr) {
 	/* Set the listen back log	*/
 	rc = listen(server_socket, 32);
 	if (rc < 0) {
-		lapb_debug(0, "listen() failed, %s", strerror(errno));
+		custom_debug(0, "listen() failed, %s", strerror(errno));
 		close(server_socket);
 		*result = -1;
 		return result;
@@ -210,7 +210,7 @@ void * server_function(void *ptr) {
 		if (get_server_exit_flag()) break;
 		/* Check to see if the select call failed.				*/
 		if (rc < 0) {
-			lapb_debug(0, "select() failed, %s", strerror(errno));
+			custom_debug(0, "select() failed, %s", strerror(errno));
 			break;
 		};
 
@@ -234,17 +234,17 @@ void * server_function(void *ptr) {
 						int client_socket_tmp = accept(server_socket, NULL, NULL);
 						if (client_socket_tmp < 0) {
 							if (errno != EWOULDBLOCK) {
-								lapb_debug(0, "accept() failed, %s", strerror(errno));
+								custom_debug(0, "accept() failed, %s", strerror(errno));
 								*result = -1;
 								return result;
 							};
 							break;
 						};
 
-						lapb_debug(0, "New incoming connection - %d", client_socket_tmp);
+						custom_debug(0, "New incoming connection - %d", client_socket_tmp);
 						if (is_server_accepted()) {
 							// already established one connection
-							lapb_debug(0, "One connection already established. Close it");
+							custom_debug(0, "One connection already established. Close it");
 							close(client_socket_tmp);
 							break;
 						};
@@ -265,13 +265,13 @@ void * server_function(void *ptr) {
 					rc = recv(i, buffer, sizeof(buffer), 0);
 					if (rc < 0) {
 						if (errno != EWOULDBLOCK) {
-							lapb_debug(0, "Client(%d): recv() failed, %s", i, strerror(errno));
-							lapb_debug(0, "Client(%d): Connection will be closed", i);
+							custom_debug(0, "Client(%d): recv() failed, %s", i, strerror(errno));
+							custom_debug(0, "Client(%d): Connection will be closed", i);
 							close_conn = TRUE;
 						};
 					} else if (rc == 0) {
 						/* Connection has been closed by the client  */
-						lapb_debug(0, "Client(%d): Connection closed by client\n", i);
+						custom_debug(0, "Client(%d): Connection closed by client\n", i);
 						close_conn = TRUE;
 					} else {
 						/* Data was received                          */

@@ -45,7 +45,7 @@ struct x25_cs_internal {
 
 
 /* x25_link.c */
-void x25_transmit_link(struct x25_link *nb, char * data, int data_size);
+void x25_transmit_link(struct x25_cs * x25, char * data, int data_size);
 
 
 /* x25_facilities.c */

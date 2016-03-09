@@ -1,15 +1,12 @@
 
-#include <string.h>
-#include <signal.h>
-
-#include "lapb_iface.h"
+#include "common.h"
 
 #include "tcp_server.h"
 #include "my_timer.h"
-#include "common.h"
 #include "logger.h"
 
 
+struct x25_cs * x25_client = NULL;
 struct lapb_cs * lapb_server = NULL;
 
 char in_buffer[4096];
@@ -44,7 +41,8 @@ void hex_dump(char * data, int data_size) {
  */
 
 /* Called by LAPB to transmit data via physical connection */
-void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
+void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
+	(void)lapb;
 	if (!is_server_accepted()) return;
 	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
@@ -70,7 +68,7 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
 	buffer[data_size + 5] = 0x7E; /* Close flag */
 	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
 	if (n < 0)
-		lapb_debug(lapb, 0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
+		custom_debug(0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
@@ -147,7 +145,7 @@ void new_data_received(char * data, int data_size) {
 						in_buffer[block_size] = data[i];
 						block_size++;
 					} else {
-						lapb_debug(NULL, 0, "[PHYS_CB] data error");
+						custom_debug(0, "[PHYS_CB] data error");
 						break;
 					};
 				}
@@ -211,10 +209,10 @@ int main (int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 	int ret;
-	int dbg = FALSE;
+	int dbg = TRUE;
 
-	struct lapb_callbacks callbacks;
-	int lapb_res;
+	struct lapb_callbacks lapb_callbacks;
+	int res;
 
 	char buffer[2048];
 
@@ -250,7 +248,7 @@ int main (int argc, char *argv[]) {
 		sleep_ms(200);
 	printf("Logger started\n\n");
 
-	lapb_debug(NULL, 0, "Program started by User %d", getuid ());
+	custom_debug(0, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
 	setup_signals_handler();
@@ -319,8 +317,8 @@ label_2:
 		sleep_ms(200);
 	printf("TCP server started\n\n");
 
-	if (!AutomaticMode)
-		return manual_process();
+//	if (!AutomaticMode)
+//		return manual_process();
 
 	/* Create timer */
 	timer_struct = malloc(sizeof(struct timer_thread_struct));
@@ -328,7 +326,7 @@ label_2:
 	//bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
 	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
 	if (ret) {
-		lapb_debug(NULL, 0, "Error - pthread_create() return code: %d\n", ret);
+		custom_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -339,48 +337,73 @@ label_2:
 
 
 	/* LAPB init */
-	bzero(&callbacks, sizeof(struct lapb_callbacks));
-	callbacks.connect_confirmation = connect_confirmation;
-	callbacks.connect_indication = connect_indication;
-	callbacks.disconnect_confirmation = disconnect_confirmation;
-	callbacks.disconnect_indication = disconnect_indication;
-	callbacks.data_indication = data_indication;
-	callbacks.transmit_data = transmit_data;
+	bzero(&lapb_callbacks, sizeof(struct lapb_callbacks));
+	lapb_callbacks.connect_confirmation = lapb_connect_confirmation_cb;
+	lapb_callbacks.connect_indication = lapb_connect_indication_cb;
+	lapb_callbacks.disconnect_confirmation = lapb_disconnect_confirmation_cb;
+	lapb_callbacks.disconnect_indication = lapb_disconnect_indication_cb;
+	lapb_callbacks.data_indication = lapb_data_indication_cb;
+	lapb_callbacks.transmit_data = lapb_transmit_data;
 
-	callbacks.add_timer = timer_add;
-	callbacks.del_timer = timer_del;
-	callbacks.start_timer = timer_start;
-	callbacks.stop_timer = timer_stop;
+	lapb_callbacks.add_timer = timer_add;
+	lapb_callbacks.del_timer = timer_del;
+	lapb_callbacks.start_timer = timer_start;
+	lapb_callbacks.stop_timer = timer_stop;
 
-	callbacks.debug = lapb_debug;
+	lapb_callbacks.debug = custom_debug;
 
 	/* Define LAPB values */
-	struct lapb_params params;
-	params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
-	params.window = LAPB_DEFAULT_SWINDOW;
-	params.N1 = LAPB_DEFAULT_N1;	/* I frame size is 135 bytes */
-	params.T201_interval = 1000;	/* 1s */
-	params.T202_interval = 100;		/* 0.1s */
-	params.N201 = 10;					/* T201 timer will repeat for 10 times */
-	params.low_order_bits = FALSE;
-	params.auto_connecting = TRUE;
+	struct lapb_params lapb_params;
+	lapb_params.mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
+	lapb_params.window = LAPB_DEFAULT_SWINDOW;
+	lapb_params.N1 = LAPB_DEFAULT_N1;		/* I frame size is 135 bytes */
+	lapb_params.T201_interval = 1000;		/* 1s */
+	lapb_params.T202_interval = 100;		/* 0.1s */
+	lapb_params.N201 = 10;					/* T201 timer will repeat for 10 times */
+	lapb_params.low_order_bits = FALSE;
+	lapb_params.auto_connecting = TRUE;
 
-	lapb_res = lapb_register(&callbacks, &params, &lapb_server);
-	if (lapb_res != LAPB_OK) {
-		printf("lapb_register return %d\n", lapb_res);
+	res = lapb_register(&lapb_callbacks, &lapb_params, &lapb_server);
+	if (res != LAPB_OK) {
+		printf("lapb_register return %d\n", res);
 		exit(EXIT_FAILURE);
 	};
-	//lapb_server->mode = lapb_modulo | LAPB_SLP | lapb_equipment_type;
 
-	/* Redefine some default values */
-	lapb_server->T201_interval = 1000; /* 1s */
-	lapb_server->T202_interval = 100;  /* 0.5s */
-	lapb_server->N201 = 10;	/* Try 10 times */
-	//lapb_server->low_order_bits = TRUE;
+
+
+
+	/* X25 init */
+	struct x25_callbacks x25_callbacks;
+	bzero(&x25_callbacks, sizeof(struct x25_callbacks));
+//	x25_callbacks.connect_confirmation = connect_confirmation;
+//	x25_callbacks.connect_indication = connect_indication;
+//	x25_callbacks.disconnect_confirmation = disconnect_confirmation;
+//	x25_callbacks.disconnect_indication = disconnect_indication;
+//	x25_callbacks.data_indication = data_indication;
+//	x25_callbacks.transmit_data = transmit_data;
+
+	x25_callbacks.add_timer = timer_add;
+	x25_callbacks.del_timer = timer_del;
+	x25_callbacks.start_timer = timer_start;
+	x25_callbacks.stop_timer = timer_stop;
+
+	x25_callbacks.debug = custom_debug;
+
+	/* Define X25 values */
+	struct x25_params x25_params;
+
+	res = x25_register(&x25_callbacks, &x25_params, &x25_client);
+	if (res != X25_OK) {
+		printf("x25_register return %d\n", res);
+		exit(EXIT_FAILURE);
+	};
+	x25_add_link(x25_client, lapb_server, lapb_modulo == LAPB_EXTENDED);
+
+
 
 	/* Start endless loop */
 	printf("Run Main loop\n\n");
-	main_loop(lapb_server);
+	main_loop();
 
 	printf("Main loop ended\n");
 
@@ -438,180 +461,180 @@ void print_man_commands() {
 }
 
 
-int manual_process() {
-	struct lapb_callbacks callbacks;
-	int lapb_res;
+//int manual_process() {
+//	struct lapb_callbacks callbacks;
+//	int lapb_res;
 
-	fd_set			read_set;
-	struct timeval	timeout;
-	int sr = 0;
+//	fd_set			read_set;
+//	struct timeval	timeout;
+//	int sr = 0;
 
-	char buffer[4];
+//	char buffer[4];
 
-	/* LAPB init */
-	bzero(&callbacks, sizeof(struct lapb_callbacks));
-	callbacks.transmit_data = transmit_data;
-	callbacks.debug = lapb_debug;
-	lapb_res = lapb_register(&callbacks, NULL, &lapb_server);
-	if (lapb_res != LAPB_OK) {
-		printf("lapb_register return %d\n", lapb_res);
-		exit(EXIT_FAILURE);
-	};
-	//lapb_server->mode = LAPB_DCE;
+//	/* LAPB init */
+//	bzero(&callbacks, sizeof(struct lapb_callbacks));
+//	callbacks.transmit_data = transmit_data;
+//	callbacks.debug = lapb_debug;
+//	lapb_res = lapb_register(&callbacks, NULL, &lapb_server);
+//	if (lapb_res != LAPB_OK) {
+//		printf("lapb_register return %d\n", lapb_res);
+//		exit(EXIT_FAILURE);
+//	};
+//	//lapb_server->mode = LAPB_DCE;
 
-	print_man_commands();
+//	print_man_commands();
 
-	while (!exit_flag) {
-		FD_ZERO(&read_set);
-		FD_SET(fileno(stdin), &read_set);
-		timeout.tv_sec  = 0;
-		timeout.tv_usec = 100000;
-		sr = select(fileno(stdin) + 1, &read_set, NULL, NULL, &timeout);
-		if (sr > 0) {
-			bzero(buffer, sizeof(buffer));
-			while (read(0, buffer, sizeof(buffer)) <= 1)
-				write(0, ">", 1);
-			//printf("\n");
-			int action = atoi(buffer);
-			switch (action) {
-				case 1: /* SABM */
-					//lapb_send_control(lapb_server, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
-					//
-					break;
-				case 2: /* SABME */
-					//lapb_send_control(lapb_server, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
-					//
-					break;
-				case 3: /* DISC */
-					//lapb_send_control(lapb_server, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
-					//
-					break;
-				case 4: /* UA */
-					//lapb_send_control(lapb_server, LAPB_UA, LAPB_POLLON, LAPB_RESPONSE);
-					//
-					break;
-				case 5: /* DM */
-					//lapb_send_control(lapb_server, LAPB_DM, LAPB_POLLON, LAPB_RESPONSE);
-					//
-					break;
-				case 6: /* RR good*/
-					//lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
-					//
-					break;
-				case 7: /* RR bad*/
-					//lapb_server->vr++;
-					//lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
-					//
-					break;
-				case 0:
-					exit_flag = TRUE;
-					break;
-				default:
-					printf("Command is not supported\n\n");
-					break;
-			};
-		};
+//	while (!exit_flag) {
+//		FD_ZERO(&read_set);
+//		FD_SET(fileno(stdin), &read_set);
+//		timeout.tv_sec  = 0;
+//		timeout.tv_usec = 100000;
+//		sr = select(fileno(stdin) + 1, &read_set, NULL, NULL, &timeout);
+//		if (sr > 0) {
+//			bzero(buffer, sizeof(buffer));
+//			while (read(0, buffer, sizeof(buffer)) <= 1)
+//				write(0, ">", 1);
+//			//printf("\n");
+//			int action = atoi(buffer);
+//			switch (action) {
+//				case 1: /* SABM */
+//					//lapb_send_control(lapb_server, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
+//					//
+//					break;
+//				case 2: /* SABME */
+//					//lapb_send_control(lapb_server, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
+//					//
+//					break;
+//				case 3: /* DISC */
+//					//lapb_send_control(lapb_server, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
+//					//
+//					break;
+//				case 4: /* UA */
+//					//lapb_send_control(lapb_server, LAPB_UA, LAPB_POLLON, LAPB_RESPONSE);
+//					//
+//					break;
+//				case 5: /* DM */
+//					//lapb_send_control(lapb_server, LAPB_DM, LAPB_POLLON, LAPB_RESPONSE);
+//					//
+//					break;
+//				case 6: /* RR good*/
+//					//lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
+//					//
+//					break;
+//				case 7: /* RR bad*/
+//					//lapb_server->vr++;
+//					//lapb_send_control(lapb_server, LAPB_RR, LAPB_POLLON, LAPB_RESPONSE);
+//					//
+//					break;
+//				case 0:
+//					exit_flag = TRUE;
+//					break;
+//				default:
+//					printf("Command is not supported\n\n");
+//					break;
+//			};
+//		};
 
-	};
-
-
-	lapb_unregister(lapb_server);
-
-	return EXIT_SUCCESS;
-}
+//	};
 
 
-int man_decode(struct lapb_cs *lapb, char *data, int data_size, struct lapb_frame *frame) {
-	frame->type = LAPB_ILLEGAL;
+//	lapb_unregister(lapb_server);
+
+//	return EXIT_SUCCESS;
+//}
 
 
-	/* We always need to look at 2 bytes, sometimes we need
-	 * to look at 3 and those cases are handled below.
-	 */
-	if (data_size < 2)
-		return -1;
+//int man_decode(struct lapb_cs *lapb, char *data, int data_size, struct lapb_frame *frame) {
+//	frame->type = LAPB_ILLEGAL;
 
-	if (lapb->mode & LAPB_MLP) {
-		if (lapb->mode & LAPB_DCE) {
-			if (data[0] == LAPB_ADDR_D)
-				frame->cr = LAPB_COMMAND;
-			if (data[0] == LAPB_ADDR_C)
-				frame->cr = LAPB_RESPONSE;
-		} else {
-			if (data[0] == LAPB_ADDR_C)
-				frame->cr = LAPB_COMMAND;
-			if (data[0] == LAPB_ADDR_D)
-				frame->cr = LAPB_RESPONSE;
-		};
-	} else {
-		if (lapb->mode & LAPB_DCE) {
-			if (data[0] == LAPB_ADDR_B)
-				frame->cr = LAPB_COMMAND;
-			if (data[0] == LAPB_ADDR_A)
-				frame->cr = LAPB_RESPONSE;
-		} else {
-			if (data[0] == LAPB_ADDR_A)
-				frame->cr = LAPB_COMMAND;
-			if (data[0] == LAPB_ADDR_B)
-				frame->cr = LAPB_RESPONSE;
-		};
-	};
 
-	if (lapb->mode & LAPB_EXTENDED) {
-		if (!(data[1] & LAPB_S)) {
-			/*
-			 * I frame - carries NR/NS/PF
-			 */
-			frame->type       = LAPB_I;
-			frame->ns         = (data[1] >> 1) & 0x7F;
-			frame->nr         = (data[2] >> 1) & 0x7F;
-			frame->pf         = data[2] & LAPB_EPF;
-			frame->control[0] = data[1];
-			frame->control[1] = data[2];
-		} else if ((data[1] & LAPB_U) == 1) {
-			/*
-			 * S frame - take out PF/NR
-			 */
-			frame->type       = data[1] & 0x0F;
-			frame->nr         = (data[2] >> 1) & 0x7F;
-			frame->pf         = data[2] & LAPB_EPF;
-			frame->control[0] = data[1];
-			frame->control[1] = data[2];
-		} else if ((data[1] & LAPB_U) == 3) {
-			/*
-			 * U frame - take out PF
-			 */
-			frame->type       = data[1] & ~LAPB_SPF;
-			frame->pf         = data[1] & LAPB_SPF;
-			frame->control[0] = data[1];
-			frame->control[1] = 0x00;
-		};
-	} else {
-		if (!(data[1] & LAPB_S)) {
-			/*
-			 * I frame - carries NR/NS/PF
-			 */
-			frame->type = LAPB_I;
-			frame->ns   = (data[1] >> 1) & 0x07;
-			frame->nr   = (data[1] >> 5) & 0x07;
-			frame->pf   = (data[1] & LAPB_SPF) >> 4;
-		} else if ((data[1] & LAPB_U) == 1) {
-			/*
-			 * S frame - take out PF/NR
-			 */
-			frame->type = data[1] & 0x0F;
-			frame->nr   = (data[1] >> 5) & 0x07;
-			frame->pf   = (data[1] & LAPB_SPF) >> 4;
-		} else if ((data[1] & LAPB_U) == 3) {
-			/*
-			 * U frame - take out PF
-			 */
-			frame->type = data[1] & ~LAPB_SPF;
-			frame->pf   = (data[1] & LAPB_SPF) >> 4;
-		};
+//	/* We always need to look at 2 bytes, sometimes we need
+//	 * to look at 3 and those cases are handled below.
+//	 */
+//	if (data_size < 2)
+//		return -1;
 
-		frame->control[0] = data[1];
-	};
+//	if (lapb->mode & LAPB_MLP) {
+//		if (lapb->mode & LAPB_DCE) {
+//			if (data[0] == LAPB_ADDR_D)
+//				frame->cr = LAPB_COMMAND;
+//			if (data[0] == LAPB_ADDR_C)
+//				frame->cr = LAPB_RESPONSE;
+//		} else {
+//			if (data[0] == LAPB_ADDR_C)
+//				frame->cr = LAPB_COMMAND;
+//			if (data[0] == LAPB_ADDR_D)
+//				frame->cr = LAPB_RESPONSE;
+//		};
+//	} else {
+//		if (lapb->mode & LAPB_DCE) {
+//			if (data[0] == LAPB_ADDR_B)
+//				frame->cr = LAPB_COMMAND;
+//			if (data[0] == LAPB_ADDR_A)
+//				frame->cr = LAPB_RESPONSE;
+//		} else {
+//			if (data[0] == LAPB_ADDR_A)
+//				frame->cr = LAPB_COMMAND;
+//			if (data[0] == LAPB_ADDR_B)
+//				frame->cr = LAPB_RESPONSE;
+//		};
+//	};
 
-	return 0;
-}
+//	if (lapb->mode & LAPB_EXTENDED) {
+//		if (!(data[1] & LAPB_S)) {
+//			/*
+//			 * I frame - carries NR/NS/PF
+//			 */
+//			frame->type       = LAPB_I;
+//			frame->ns         = (data[1] >> 1) & 0x7F;
+//			frame->nr         = (data[2] >> 1) & 0x7F;
+//			frame->pf         = data[2] & LAPB_EPF;
+//			frame->control[0] = data[1];
+//			frame->control[1] = data[2];
+//		} else if ((data[1] & LAPB_U) == 1) {
+//			/*
+//			 * S frame - take out PF/NR
+//			 */
+//			frame->type       = data[1] & 0x0F;
+//			frame->nr         = (data[2] >> 1) & 0x7F;
+//			frame->pf         = data[2] & LAPB_EPF;
+//			frame->control[0] = data[1];
+//			frame->control[1] = data[2];
+//		} else if ((data[1] & LAPB_U) == 3) {
+//			/*
+//			 * U frame - take out PF
+//			 */
+//			frame->type       = data[1] & ~LAPB_SPF;
+//			frame->pf         = data[1] & LAPB_SPF;
+//			frame->control[0] = data[1];
+//			frame->control[1] = 0x00;
+//		};
+//	} else {
+//		if (!(data[1] & LAPB_S)) {
+//			/*
+//			 * I frame - carries NR/NS/PF
+//			 */
+//			frame->type = LAPB_I;
+//			frame->ns   = (data[1] >> 1) & 0x07;
+//			frame->nr   = (data[1] >> 5) & 0x07;
+//			frame->pf   = (data[1] & LAPB_SPF) >> 4;
+//		} else if ((data[1] & LAPB_U) == 1) {
+//			/*
+//			 * S frame - take out PF/NR
+//			 */
+//			frame->type = data[1] & 0x0F;
+//			frame->nr   = (data[1] >> 5) & 0x07;
+//			frame->pf   = (data[1] & LAPB_SPF) >> 4;
+//		} else if ((data[1] & LAPB_U) == 3) {
+//			/*
+//			 * U frame - take out PF
+//			 */
+//			frame->type = data[1] & ~LAPB_SPF;
+//			frame->pf   = (data[1] & LAPB_SPF) >> 4;
+//		};
+
+//		frame->control[0] = data[1];
+//	};
+
+//	return 0;
+//}

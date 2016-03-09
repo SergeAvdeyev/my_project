@@ -129,17 +129,17 @@ int x25_get_state(struct x25_cs *x25) {
 
 
 void x25_add_link(struct x25_cs *x25, void * link, int extended) {
-	x25->neighbour.link_ptr = link;
-	x25->neighbour.state    = X25_LINK_STATE_0;
-	x25->neighbour.extended = extended == 0 ? 0 : 1;
-	cb_init(&x25->neighbour.queue, 10, 1024);
-	x25->neighbour.T20.interval = X25_DEFAULT_T20;
+	x25->link.link_ptr = link;
+	x25->link.state    = X25_LINK_STATE_0;
+	x25->link.extended = extended == 0 ? 0 : 1;
+	cb_init(&x25->link.queue, 10, 1024);
+	x25->link.T20.interval = X25_DEFAULT_T20;
 	if (x25->callbacks->add_timer)
-		x25->neighbour.T20.timer_ptr = x25->callbacks->add_timer(x25->T21.interval, x25, x25_t20timer_expiry);
-	x25->neighbour.global_facil_mask =	X25_MASK_REVERSE |
-										X25_MASK_THROUGHPUT |
-										X25_MASK_PACKET_SIZE |
-										X25_MASK_WINDOW_SIZE;
+		x25->link.T20.timer_ptr = x25->callbacks->add_timer(x25->T21.interval, x25, x25_t20timer_expiry);
+	x25->link.global_facil_mask =	X25_MASK_REVERSE |
+									X25_MASK_THROUGHPUT |
+									X25_MASK_PACKET_SIZE |
+									X25_MASK_WINDOW_SIZE;
 }
 
 

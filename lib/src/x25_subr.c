@@ -217,7 +217,7 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 	lci1 = (x25->lci >> 8) & 0x0F;
 	lci2 = (x25->lci >> 0) & 0xFF;
 
-	if (x25->neighbour.extended) {
+	if (x25->link.extended) {
 		*dptr++ = lci1 | X25_GFI_EXTSEQ;
 		*dptr++ = lci2;
 	} else {
@@ -237,7 +237,7 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 			//dptr    = skb_put(skb, len);
 			mem_copy(dptr, addresses, len);
 			dptr += len;
-			len     = x25_create_facilities(facilities, &x25->facilities, &x25->dte_facilities, x25->neighbour.global_facil_mask);
+			len = x25_create_facilities(facilities, &x25->facilities, &x25->dte_facilities, x25->link.global_facil_mask);
 			//dptr    = skb_put(skb, len);
 			mem_copy(dptr, facilities, len);
 			dptr += len;
@@ -284,7 +284,7 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 		case X25_RR:
 		case X25_RNR:
 		case X25_REJ:
-			if (x25->neighbour.extended) {
+			if (x25->link.extended) {
 				//dptr     = skb_put(skb, 2);
 				*dptr++  = frametype;
 				*dptr++  = (x25->vr << 1) & 0xFE;
@@ -305,5 +305,5 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 
 	int n = (_ulong)(dptr) - (_ulong)data;
 	x25_hex_debug((char *)data, n);
-	x25_transmit_link(&(x25->neighbour), (char *)data, n);
+	x25_transmit_link(x25, (char *)data, n);
 }

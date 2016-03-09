@@ -183,6 +183,16 @@ struct sk_buff {
 };
 
 struct x25_callbacks {
+	int (*link_connect_request)(void * link_ptr);
+	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
+	void (*del_timer)(void * timer);
+	void (*start_timer)(void * timer);
+	void (*stop_timer)(void * timer);
+
+	void (*debug)(int level, const char * format, ...);
+};
+
+struct x25_link_callbacks {
 	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
 	void (*del_timer)(void * timer);
 	void (*start_timer)(void * timer);
@@ -256,6 +266,7 @@ struct x25_timer {
 	_uchar		state;
 };
 
+
 struct x25_link {
 	void *		link_ptr;
 	_uint		state;
@@ -272,7 +283,7 @@ struct x25_cs {
 	//struct sock		sk;
 	struct x25_address	source_addr;
 	struct x25_address	dest_addr;
-	struct x25_link		neighbour;
+	struct x25_link		link;
 	_uint		lci;
 	_uint		cudmatchlength;
 	_uchar		state;
