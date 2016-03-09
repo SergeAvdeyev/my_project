@@ -21,7 +21,7 @@ void lapb_lock(struct lapb_cs *lapb) {
 #else
 	if (!lapb) return;
 
-	pthread_mutex_lock(&(lapb_get_internal(lapb)->_mutex));
+	pthread_mutex_trylock(&(lapb_get_internal(lapb)->_mutex));
 #endif
 }
 

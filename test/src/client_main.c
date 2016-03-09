@@ -62,25 +62,54 @@ void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
  *
 */
 void new_data_received(char * data, int data_size) {
-	(void)data;
 	int i = 0;
-	//_ushort rcv_fcs;
+	_ushort rcv_fcs;
 
 	while (i < data_size) {
+		if (data[i] == 0x7E) { /* Flag */
+			if (data[i + 1] == 0x7E) {
+				if (data_block) { /* Close flag */
+					data_block = FALSE;
+					block_size -= 2; /* 2 bytes for FCS */
+					rcv_fcs = *(_ushort *)&in_buffer[block_size];
+					//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+					lapb_data_received(lapb_client, in_buffer, block_size, rcv_fcs);
+				} else {
+					/* Open flag */
+					bzero(in_buffer, 1024);
+					block_size = 0;
+					data_block = TRUE;
+				};
+				i += 2;
+				continue;
+			} else {
+				if (data_block) {
+					in_buffer[block_size] = data[i];
+					block_size++;
+				} else {
+					custom_debug(0, "[PHYS_CB] data error");
+					break;
+				};
+			}
 
-		i++;
+			i++;
+		} else if (data_block) {
+			in_buffer[block_size] = data[i];
+			block_size++;
+			i++;
+		};
 	};
 }
 
 void connection_lost() {
-//	char * buffer;
-//	int buffer_size;
+	char * buffer;
+	int buffer_size;
 
 	printf("\nUnacked data:\n");
-//	while ((buffer = x25_dequeue(x25_client, &buffer_size)) != NULL)
-//		printf("%s\n", buf_to_str(buffer, buffer_size));
+	while ((buffer = lapb_dequeue(lapb_client, &buffer_size)) != NULL)
+		printf("%s\n", buf_to_str(buffer, buffer_size));
 
-//	x25_reset(x25_client, LAPB_STATE_0);
+	lapb_reset(lapb_client, LAPB_STATE_0);
 }
 
 
@@ -264,10 +293,7 @@ label_2:
 	struct x25_callbacks x25_callbacks;
 	bzero(&x25_callbacks, sizeof(struct x25_callbacks));
 	x25_callbacks.link_connect_request = lapb_connect_request;
-//	x25_callbacks.connect_confirmation = connect_confirmation;
-//	x25_callbacks.connect_indication = connect_indication;
-//	x25_callbacks.disconnect_confirmation = disconnect_confirmation;
-//	x25_callbacks.disconnect_indication = disconnect_indication;
+	x25_callbacks.link_send_frame = lapb_data_request;
 //	x25_callbacks.data_indication = data_indication;
 //	x25_callbacks.transmit_data = transmit_data;
 
@@ -287,6 +313,7 @@ label_2:
 		exit(EXIT_FAILURE);
 	};
 	x25_add_link(x25_client, lapb_client, lapb_modulo == LAPB_EXTENDED);
+	lapb_client->L3_ptr = x25_client;
 
 	struct x25_address addr;
 	sprintf(addr.x25_addr, "7654321");

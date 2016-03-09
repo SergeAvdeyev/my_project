@@ -53,6 +53,7 @@ int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params,
 	if (!*lapb)
 		goto out;
 
+	(*lapb)->L3_ptr = NULL;
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(*lapb);
 
 	if (!callbacks->debug)
@@ -273,12 +274,14 @@ out:
 	return rc;
 }
 
-int lapb_disconnect_request(struct lapb_cs *lapb) {
+int lapb_disconnect_request(void *lapb_ptr) {
+	struct lapb_cs *lapb = lapb_ptr;
 	int rc = LAPB_BADTOKEN;
 
-	lapb_lock(lapb);
 	if (!lapb)
 		goto out;
+
+	lapb_lock(lapb);
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
@@ -317,12 +320,13 @@ out:
 	return rc;
 }
 
-int lapb_data_request(struct lapb_cs *lapb, char *data, int data_size) {
+int lapb_data_request(void *lapb_ptr, char *data, int data_size) {
+	struct lapb_cs *lapb = lapb_ptr;
 	int rc = LAPB_BADTOKEN;
 
-	lapb_lock(lapb);
 	if (!lapb)
 		goto out;
+	lapb_lock(lapb);
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 

@@ -65,6 +65,7 @@ void custom_debug(int level, const char * format, ...) {
 void lapb_connect_confirmation_cb(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
 	custom_debug(0, "[X25_CB] connect_confirmation event is called(%s)", lapb_error_str(reason));
+	x25_link_established(lapb->L3_ptr);
 	out_counter = 0;
 }
 
@@ -72,6 +73,7 @@ void lapb_connect_confirmation_cb(struct lapb_cs * lapb, int reason) {
 void lapb_connect_indication_cb(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
 	custom_debug(0, "[X25_CB] connect_indication event is called(%s)", lapb_error_str(reason));
+	x25_link_established(lapb->L3_ptr);
 	out_counter = 0;
 }
 

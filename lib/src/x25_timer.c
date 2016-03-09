@@ -63,7 +63,9 @@ int x25_timer_running(struct x25_timer * _timer) {
 
 void x25_t20timer_expiry(void * x25_ptr) {
 	struct x25_cs *x25 = x25_ptr;
-	if (!x25) return;
+
+	//x25_start_t20timer(nb);
+	x25_transmit_restart_request(x25);
 }
 
 

@@ -6,7 +6,7 @@
 #include "logger.h"
 
 
-struct x25_cs * x25_client = NULL;
+struct x25_cs * x25_server = NULL;
 struct lapb_cs * lapb_server = NULL;
 
 char in_buffer[4096];
@@ -375,11 +375,8 @@ label_2:
 	/* X25 init */
 	struct x25_callbacks x25_callbacks;
 	bzero(&x25_callbacks, sizeof(struct x25_callbacks));
-//	x25_callbacks.connect_confirmation = connect_confirmation;
-//	x25_callbacks.connect_indication = connect_indication;
-//	x25_callbacks.disconnect_confirmation = disconnect_confirmation;
-//	x25_callbacks.disconnect_indication = disconnect_indication;
-//	x25_callbacks.data_indication = data_indication;
+	x25_callbacks.link_connect_request = lapb_connect_request;
+	x25_callbacks.link_send_frame = lapb_data_request;
 //	x25_callbacks.transmit_data = transmit_data;
 
 	x25_callbacks.add_timer = timer_add;
@@ -392,12 +389,13 @@ label_2:
 	/* Define X25 values */
 	struct x25_params x25_params;
 
-	res = x25_register(&x25_callbacks, &x25_params, &x25_client);
+	res = x25_register(&x25_callbacks, &x25_params, &x25_server);
 	if (res != X25_OK) {
 		printf("x25_register return %d\n", res);
 		exit(EXIT_FAILURE);
 	};
-	x25_add_link(x25_client, lapb_server, lapb_modulo == LAPB_EXTENDED);
+	x25_add_link(x25_server, lapb_server, lapb_modulo == LAPB_EXTENDED);
+	lapb_server->L3_ptr = x25_server;
 
 
 

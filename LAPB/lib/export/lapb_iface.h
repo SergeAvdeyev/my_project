@@ -14,10 +14,10 @@
 
 //#define USE_GNU_C_Library 0
 
-//#ifdef __GNUC__
-//#include <string.h>
-//#include <stdlib.h>
-//#endif
+#ifdef __GNUC__
+#include <string.h>
+#include <stdlib.h>
+#endif
 
 #define INTERNAL_SYNC 1 /* For including pthread.h and make library thread-safe */
 
@@ -178,6 +178,7 @@ struct lapb_cs {
 	const struct lapb_callbacks *callbacks;
 	/* Internal control information */
 	void * internal_struct;
+	void * L3_ptr;  /* Pointer to packet layer struct */
 };
 
 
@@ -217,8 +218,8 @@ extern char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size);
 extern int lapb_reset(struct lapb_cs * lapb, _uchar init_state);
 //extern int lapb_connect_request(struct lapb_cs *lapb);
 extern int lapb_connect_request(void *lapb_ptr);
-extern int lapb_disconnect_request(struct lapb_cs *lapb);
-extern int lapb_data_request(struct lapb_cs *lapb, char * data, int data_size);
+extern int lapb_disconnect_request(void *lapb_ptr);
+extern int lapb_data_request(void *lapb_ptr, char * data, int data_size);
 extern int lapb_get_state(struct lapb_cs *lapb);
 
 /* Executing by physical leyer (when new incoming data received) */

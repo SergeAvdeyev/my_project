@@ -184,6 +184,7 @@ struct sk_buff {
 
 struct x25_callbacks {
 	int (*link_connect_request)(void * link_ptr);
+	int (*link_send_frame)(void * link_ptr, char * data, int data_size);
 	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
 	void (*del_timer)(void * timer);
 	void (*start_timer)(void * timer);
@@ -348,6 +349,9 @@ extern int x25_set_params(struct x25_cs * x25, struct x25_params * params);
 void x25_add_link(struct x25_cs *x25, void * link, int extended);
 int x25_connect_request(struct x25_cs * x25, struct x25_address *dest_addr);
 
+
+/* x25_link.c */
+void x25_link_established(void *x25_ptr);
 
 /* lapb_subr.c */
 

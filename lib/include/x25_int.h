@@ -38,7 +38,7 @@ struct x25_cs_internal {
 
 
 /* x25_in.c */
-
+int x25_process_rx_frame(struct x25_cs *x25, char * data, int data_size);
 
 
 /* x25_out.c */
@@ -46,7 +46,9 @@ struct x25_cs_internal {
 
 /* x25_link.c */
 void x25_transmit_link(struct x25_cs * x25, char * data, int data_size);
-
+void x25_transmit_restart_request(struct x25_cs * x25);
+void x25_transmit_restart_confirmation(struct x25_cs *x25);
+void x25_link_control(struct x25_cs *x25, char * data, int data_size, _ushort frametype);
 
 /* x25_facilities.c */
 int x25_parse_facilities(struct x25_cs *x25,
@@ -77,10 +79,10 @@ void x25_mem_zero(void *src, _ulong n);
 int x25_pacsize_to_bytes(unsigned int pacsize);
 int x25_addr_aton(_uchar *p, struct x25_address *called_addr, struct x25_address *calling_addr);
 void x25_write_internal(struct x25_cs *x25, int frametype);
-
+void x25_disconnect(void * x25_ptr, int reason, unsigned char cause, unsigned char diagnostic);
+int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr, int *q, int *d, int *m);
 
 /* x25_timer.c */
-
 void x25_start_heartbeat(struct x25_cs *x25);
 void x25_stop_heartbeat(struct x25_cs *x25);
 
