@@ -48,11 +48,13 @@ int x25_process_rx_frame(struct x25_cs *x25, char * data, int data_size);
 void x25_transmit_link(struct x25_cs * x25, char * data, int data_size);
 void x25_transmit_restart_request(struct x25_cs * x25);
 void x25_transmit_restart_confirmation(struct x25_cs *x25);
-void x25_link_control(struct x25_cs *x25, char * data, int data_size, _ushort frametype);
+void x25_link_control(struct x25_cs *x25, char * data, int data_size, _uchar frametype);
+void x25_transmit_clear_request(struct x25_cs *x25, _uint lci, _uchar cause);
 
 /* x25_facilities.c */
 int x25_parse_facilities(struct x25_cs *x25,
-						 struct sk_buff *skb,
+						 char * data,
+						 int data_size,
 						 struct x25_facilities *facilities,
 						 struct x25_dte_facilities *dte_facs,
 						 _ulong *vc_fac_mask);
@@ -62,8 +64,8 @@ int x25_create_facilities(//struct x25_cs * x25,
 						  struct x25_dte_facilities *dte_facs,
 						  _ulong facil_mask);
 int x25_negotiate_facilities(struct x25_cs *x25,
-							 struct sk_buff *skb,
-							 struct x25_facilities *_new,
+							 char * data,
+							 int data_size,
 							 struct x25_dte_facilities *dte);
 void x25_limit_facilities(struct x25_cs *x25);
 
@@ -76,11 +78,14 @@ void * x25_mem_get(_ulong size);
 void x25_mem_free(void *ptr);
 void * x25_mem_copy(void *dest, const void *src, _ulong n);
 void x25_mem_zero(void *src, _ulong n);
-int x25_pacsize_to_bytes(unsigned int pacsize);
+int x25_pacsize_to_bytes(_uint pacsize);
+int x25_parse_address_block(char * data, int data_size, struct x25_address *called_addr, struct x25_address *calling_addr);
+int x25_addr_ntoa(_uchar *p, struct x25_address *called_addr, struct x25_address *calling_addr);
 int x25_addr_aton(_uchar *p, struct x25_address *called_addr, struct x25_address *calling_addr);
 void x25_write_internal(struct x25_cs *x25, int frametype);
-void x25_disconnect(void * x25_ptr, int reason, unsigned char cause, unsigned char diagnostic);
+void x25_disconnect(void * x25_ptr, int reason, _uchar cause, _uchar diagnostic);
 int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr, int *q, int *d, int *m);
+int x25_rx_call_request(struct x25_cs * x25, char * data, int data_size, _uint lci);
 
 /* x25_timer.c */
 void x25_start_heartbeat(struct x25_cs *x25);
@@ -89,6 +94,7 @@ void x25_stop_heartbeat(struct x25_cs *x25);
 void x25_start_timer(struct x25_cs *x25, struct x25_timer * _timer);
 void x25_stop_timer(struct x25_cs *x25, struct x25_timer * _timer);
 int x25_timer_running(struct x25_timer * _timer);
+void x25_stop_timers(struct x25_cs *x25);
 void x25_t20timer_expiry(void * x25_ptr);
 void x25_t21timer_expiry(void * x25_ptr);
 void x25_t22timer_expiry(void * x25_ptr);

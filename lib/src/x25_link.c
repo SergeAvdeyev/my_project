@@ -16,6 +16,7 @@ void x25_transmit_link(struct x25_cs *x25, char * data, int data_size) {
 		case X25_LINK_STATE_3:
 			/* Send Iframe via lapb link */
 			//send_frame(data, data_size);
+			x25->callbacks->link_send_frame(x25->link.link_ptr, data, data_size);
 			break;
 	};
 }
@@ -56,13 +57,22 @@ void x25_link_terminated(void *x25_ptr) {
 
 int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 	struct x25_cs * x25 = x25_ptr;
-	_ushort frametype;
+	_uchar frametype;
 	_uint lci;
 
+//	x25->callbacks->debug(2,
+//						  "[X25] x25_link_receive_data(): %02x %02x %02x %02x %02x",
+//						  (_uchar)data[0],
+//						  (_uchar)data[1],
+//						  (_uchar)data[2],
+//						  (_uchar)data[3],
+//						  (_uchar)data[4]);
 	//if (!pskb_may_pull(skb, X25_STD_MIN_LEN))
-	//	return 0;
+	if (data_size < X25_STD_MIN_LEN)
+		return 0;
 
-	frametype = data[2];
+
+	frametype = (_uchar)data[2];
 	lci = ((data[0] << 8) & 0xF00) + ((data[1] << 0) & 0x0FF);
 
 	/*
@@ -83,23 +93,20 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 
 	/* Is it a Call Request ? if so process it. */
 	if (frametype == X25_CALL_REQUEST)
-		return x25_rx_call_request(skb, nb, lci);
+		return x25_rx_call_request(x25, data, data_size, lci);
 
-	/* Its not a Call Request, nor is it a control frame. Can we forward it? */
-	if (x25_forward_data(lci, nb, skb)) {
-		if (frametype == X25_CLEAR_CONFIRMATION) {
-			x25_clear_forward_by_lci(lci);
-		}
-		kfree_skb(skb);
-		return 1;
-	};
+//	/* Its not a Call Request, nor is it a control frame. Can we forward it? */
+//	if (x25_forward_data(lci, nb, skb)) {
+//		if (frametype == X25_CLEAR_CONFIRMATION)
+//			x25_clear_forward_by_lci(lci);
+//		//kfree_skb(skb);
+//		return 1;
+//	};
 
-/*
-	x25_transmit_clear_request(nb, lci, 0x0D);
-*/
 
+	x25_transmit_clear_request(x25, lci, 0x0D);
 	if (frametype != X25_CLEAR_CONFIRMATION)
-		x25->callbacks->debug(2, "[X25] x25_link_receive_data(): unknown frame type %2x\n", frametype);
+		x25->callbacks->debug(2, "[X25] x25_link_receive_data(): unknown frame type %2x", frametype);
 
 	return 0;
 }
@@ -107,7 +114,7 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 /*
  *	This handles all restart and diagnostic frames.
  */
-void x25_link_control(struct x25_cs *x25, char * data, int data_size, _ushort frametype) {
+void x25_link_control(struct x25_cs *x25, char * data, int data_size, _uchar frametype) {
 	//struct sk_buff *skbn;
 	int confirm;
 
@@ -133,7 +140,7 @@ void x25_link_control(struct x25_cs *x25, char * data, int data_size, _ushort fr
 			break;
 
 		default:
-			pr_debug("received unknown %02X with LCI 000\n", frametype);
+			x25->callbacks->debug(2, "[X25] received unknown %02X with LCI 000", frametype);
 			break;
 	};
 
@@ -194,4 +201,6 @@ void x25_transmit_clear_request(struct x25_cs *x25, unsigned int lci, unsigned c
 	data[4] = 0x00;
 
 	//x25_send_frame(skb, nb);
+	x25->callbacks->link_send_frame(x25->link.link_ptr, data, data_size);
+	x25->callbacks->debug(2, "[X25] Send clear request");
 }

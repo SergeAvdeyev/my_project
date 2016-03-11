@@ -55,6 +55,13 @@ int x25_timer_running(struct x25_timer * _timer) {
 	return _timer->state;
 }
 
+void x25_stop_timers(struct x25_cs *x25) {
+	if (!x25->callbacks->stop_timer) return;
+	x25_stop_timer(x25, x25->T2.timer_ptr);
+	x25_stop_timer(x25, x25->T21.timer_ptr);
+	x25_stop_timer(x25, x25->T22.timer_ptr);
+	x25_stop_timer(x25, x25->T23.timer_ptr);
+}
 
 
 

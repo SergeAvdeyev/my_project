@@ -109,7 +109,7 @@ void x25_clear_queues(struct x25_cs * x25) {
 	cb_clear(&x25->fragment_queue);
 }
 
-int x25_pacsize_to_bytes(unsigned int pacsize) {
+int x25_pacsize_to_bytes(_uint pacsize) {
 	int bytes = 1;
 
 	if (!pacsize)
@@ -119,6 +119,72 @@ int x25_pacsize_to_bytes(unsigned int pacsize) {
 		bytes *= 2;
 
 	return bytes;
+}
+
+int x25_parse_address_block(char * data, int data_size, struct x25_address *called_addr, struct x25_address *calling_addr) {
+	_uchar len;
+	int needed;
+	int rc;
+
+	//if (!pskb_may_pull(skb, 1)) {
+	if (data_size == 0) {
+		/* packet has no address block */
+		rc = 0;
+		goto empty;
+	};
+
+	len = *data;
+	needed = 1 + (len >> 4) + (len & 0x0f);
+
+	//if (!pskb_may_pull(skb, needed)) {
+	if (data_size < needed) {
+		/* packet is too short to hold the addresses it claims to hold */
+		rc = -1;
+		goto empty;
+	};
+
+	return x25_addr_ntoa((_uchar *)data, called_addr, calling_addr);
+
+empty:
+	*called_addr->x25_addr = 0;
+	*calling_addr->x25_addr = 0;
+
+	return rc;
+}
+
+int x25_addr_ntoa(_uchar *p, struct x25_address *called_addr, struct x25_address *calling_addr) {
+	_uint called_len;
+	_uint calling_len;
+	char * called;
+	char * calling;
+	_uint i;
+
+	called_len  = (*p >> 0) & 0x0F;
+	calling_len = (*p >> 4) & 0x0F;
+
+	called  = called_addr->x25_addr;
+	calling = calling_addr->x25_addr;
+	p++;
+
+	for (i = 0; i < (called_len + calling_len); i++) {
+		if (i < called_len) {
+			if (i % 2 != 0) {
+				*called++ = ((*p >> 0) & 0x0F) + '0';
+				p++;
+			} else
+				*called++ = ((*p >> 4) & 0x0F) + '0';
+		} else {
+			if (i % 2 != 0) {
+				*calling++ = ((*p >> 0) & 0x0F) + '0';
+				p++;
+			} else
+				*calling++ = ((*p >> 4) & 0x0F) + '0';
+		};
+	};
+
+	*called = *calling = '\0';
+
+	return 1 + (called_len + calling_len + 1) / 2;
 }
 
 int x25_addr_aton(_uchar *p, struct x25_address *called_addr, struct x25_address *calling_addr) {
@@ -266,6 +332,7 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 			len     = x25_create_facilities(facilities, &x25->facilities, &x25->dte_facilities, x25->vc_facil_mask);
 			//dptr    = skb_put(skb, len);
 			mem_copy(dptr, facilities, len);
+			dptr += len;
 
 			/* fast select with no restriction on response
 				allows call user data. Userland must
@@ -411,4 +478,175 @@ int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr
 	x25->callbacks->debug(2, "[X25] Invalid PLP frame %02X %02X %02X", frame[0], frame[1], frame[2]);
 
 	return X25_ILLEGAL;
+}
+
+
+
+int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci) {
+	(void)x25;
+//	struct sock *sk;
+//	struct sock *make;
+//	struct x25_sock *makex25;
+	struct x25_address source_addr, dest_addr;
+	//struct x25_facilities facilities;
+	struct x25_dte_facilities dte_facilities;
+	int len;
+	int addr_len, rc;
+
+	char * ptr;
+	int data_size_tmp = data_size;
+
+	/*
+	 *	Remove the LCI and frame type.
+	 */
+	//skb_pull(skb, X25_STD_MIN_LEN);
+	ptr = data + X25_STD_MIN_LEN;
+	data_size_tmp -= X25_STD_MIN_LEN;
+
+	/*
+	 *	Extract the X.25 addresses and convert them to ASCII strings,
+	 *	and remove them.
+	 *
+	 *	Address block is mandatory in call request packets
+	 */
+	addr_len = x25_parse_address_block(ptr, data_size_tmp, &source_addr, &dest_addr);
+	if (addr_len <= 0)
+		goto out_clear_request;
+	//skb_pull(skb, addr_len);
+	ptr += addr_len;
+	data_size_tmp -= addr_len;
+
+	/*
+	 *	Get the length of the facilities, skip past them for the moment
+	 *	get the call user data because this is needed to determine
+	 *	the correct listener
+	 *
+	 *	Facilities length is mandatory in call request packets
+	 */
+	//if (!pskb_may_pull(skb, 1))
+	if (data_size_tmp == 0)
+		goto out_clear_request;
+	len = ptr[0] + 1;
+	//if (!pskb_may_pull(skb, len))
+	if (data_size_tmp < len)
+		goto out_clear_request;
+	//skb_pull(skb,len);
+	ptr += len;
+	data_size_tmp -= len;
+
+	/*
+	 *	Ensure that the amount of call user data is valid.
+	 */
+	//if (skb->len > X25_MAX_CUD_LEN)
+	if (data_size_tmp > X25_MAX_CUD_LEN)
+		goto out_clear_request;
+
+	/*
+	 *	Get all the call user data so it can be used in
+	 *	x25_find_listener and skb_copy_from_linear_data up ahead.
+	 */
+	//if (!pskb_may_pull(skb, skb->len))
+	//	goto out_clear_request;
+
+	/*
+	 *	Find a listener for the particular address/cud pair.
+	 */
+	//sk = x25_find_listener(&source_addr,skb);
+	//skb_push(skb, len);
+	ptr -= len;
+	data_size_tmp += len;
+
+
+//	if (sk != NULL && sk_acceptq_is_full(sk))
+//		goto out_sock_put;
+
+	/*
+	 *	We dont have any listeners for this incoming call.
+	 *	Try forwarding it.
+	 */
+//	if (sk == NULL) {
+//		skb_push(skb, addr_len + X25_STD_MIN_LEN);
+//		if (sysctl_x25_forward && x25_forward_call(&dest_addr, nb, skb, lci) > 0) {
+//			/* Call was forwarded, dont process it any more */
+//			kfree_skb(skb);
+//			rc = 1;
+//			goto out;
+//		} else {
+//			/* No listeners, can't forward, clear the call */
+//			goto out_clear_request;
+//		};
+//	};
+
+	/*
+	 *	Try to reach a compromise on the requested facilities.
+	 */
+	//len = x25_negotiate_facilities(x25, ptr, data_size_tmp, &facilities, &dte_facilities);
+	len = x25_negotiate_facilities(x25, ptr, data_size_tmp, &dte_facilities);
+	if (len == -1)
+		goto out_clear_request;
+
+	/*
+	 * current neighbour/link might impose additional limits
+	 * on certain facilties
+	 */
+	x25_limit_facilities(x25);
+
+	/*
+	 *	Try to create a new socket.
+	 */
+//	make = x25_make_new(sk);
+//	if (!make)
+//		goto out_sock_put;
+
+	/*
+	 *	Remove the facilities
+	 */
+	//skb_pull(skb, len);
+	ptr += len;
+	data_size_tmp -= len;
+
+	x25->lci = lci;
+	x25->dest_addr     = dest_addr;
+	//makex25->source_addr   = source_addr;
+	//makex25->neighbour     = nb;
+	//makex25->facilities    = facilities;
+	//makex25->dte_facilities= dte_facilities;
+	//makex25->vc_facil_mask = x25_sk(sk)->vc_facil_mask;
+
+	/* ensure no reverse facil on accept */
+	x25->vc_facil_mask &= ~X25_MASK_REVERSE;
+	/* ensure no calling address extension on accept */
+	x25->vc_facil_mask &= ~X25_MASK_CALLING_AE;
+	//makex25->cudmatchlength = x25_sk(sk)->cudmatchlength;
+
+	/* Normally all calls are accepted immediately */
+	if (x25->flags & X25_ACCPT_APPRV_FLAG) {
+		x25_write_internal(x25, X25_CALL_ACCEPTED);
+		x25->state = X25_STATE_3;
+	};
+
+	/*
+	 *	Incoming Call User Data.
+	 */
+	//skb_copy_from_linear_data(skb, makex25->calluserdata.cuddata, skb->len);
+	x25_mem_copy(x25->calluserdata.cuddata, ptr, data_size_tmp);
+	x25->calluserdata.cudlength = data_size_tmp;
+
+//	sk->sk_ack_backlog++;
+//	x25_insert_socket(make);
+//	skb_queue_head(&sk->sk_receive_queue, skb);
+	x25_start_heartbeat(x25);
+//	if (!sock_flag(sk, SOCK_DEAD))
+//		sk->sk_data_ready(sk);
+	rc = 1;
+//	sock_put(sk);
+out:
+	return rc;
+//out_sock_put:
+//	sock_put(sk);
+out_clear_request:
+	rc = 0;
+	x25_transmit_clear_request(x25, lci, 0x01);
+	goto out;
+	return 0;
 }

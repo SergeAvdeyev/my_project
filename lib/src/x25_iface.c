@@ -42,15 +42,15 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 	pthread_mutex_init(&(x25_int->_mutex), NULL);
 #endif
 
-	if (params)
-		x25_set_params(*x25, params);
-	else {
+//	if (params)
+//		x25_set_params(*x25, params);
+//	else {
 		/* Set default values */
 		(*x25)->T21.interval = X25_DEFAULT_T21;
 		(*x25)->T22.interval = X25_DEFAULT_T22;
 		(*x25)->T23.interval = X25_DEFAULT_T23;
 		(*x25)->T2.interval  = X25_DEFAULT_T2;
-	};
+//	};
 
 	/* Create timers T201, T202 */
 	if ((*x25)->callbacks->add_timer) {
@@ -60,7 +60,8 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 		(*x25)->T2.timer_ptr  = (*x25)->callbacks->add_timer((*x25)->T2.interval,  *x25, x25_t2timer_expiry);
 	};
 	(*x25)->state = X25_STATE_0;
-	(*x25)->cudmatchlength = 0;
+	(*x25)->cudmatchlength = 0;		/* normally no cud on call accept */
+	(*x25)->flags |= X25_ACCPT_APPRV_FLAG;
 
 	(*x25)->facilities.winsize_in  = X25_DEFAULT_WINDOW_SIZE;
 	(*x25)->facilities.winsize_out = X25_DEFAULT_WINDOW_SIZE;

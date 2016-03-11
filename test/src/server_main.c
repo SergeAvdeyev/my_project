@@ -397,6 +397,10 @@ label_2:
 	x25_add_link(x25_server, lapb_server, lapb_modulo == LAPB_EXTENDED);
 	lapb_server->L3_ptr = x25_server;
 
+	//x25_server->lci = 1;
+	sprintf((char *)&x25_server->source_addr, "7654321");
+
+	//x25_connect_request(x25_client, &addr);
 
 
 	/* Start endless loop */

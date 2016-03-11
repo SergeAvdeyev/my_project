@@ -100,9 +100,9 @@ void lapb_disconnect_indication_cb(struct lapb_cs * lapb, int reason) {
 
 /* Called by LAPB to inform X25 about new data */
 int lapb_data_indication_cb(struct lapb_cs * lapb, char * data, int data_size) {
-	(void)lapb;
-	//lapb_debug(NULL, 0, "[X25_CB] received new data");
-	printf("%s\n", buf_to_str(data, data_size));
+	custom_debug(0, "[X25_CB] received new data");
+	x25_link_receive_data(lapb->L3_ptr, data, data_size);
+	//printf("%s\n", buf_to_str(data, data_size));
 	return 0;
 }
 

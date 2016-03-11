@@ -63,75 +63,72 @@
  * Handling of state 0 and connection release is in af_x25.c.
  */
 int x25_state1_machine(struct x25_cs * x25, char * data, int data_size, int frametype) {
-	(void)data;
-	(void)data_size;
-//	struct x25_address source_addr, dest_addr;
-//	int len;
+	struct x25_address source_addr, dest_addr;
+	int len;
+	char * ptr = data;
+	int data_size_tmp = data_size;
 
 	switch (frametype) {
-	case X25_CALL_ACCEPTED: {
+		case X25_CALL_ACCEPTED: {
+			x25_stop_timers(x25);
+			x25->condition = 0x00;
+			x25->vs        = 0;
+			x25->va        = 0;
+			x25->vr        = 0;
+			x25->vl        = 0;
+			x25->state     = X25_STATE_3;
+			/*
+			 *	Parse the data in the frame.
+			 */
+			if(data_size < X25_STD_MIN_LEN)
+				goto out_clear;
+			ptr += X25_STD_MIN_LEN;
+			data_size_tmp -= X25_STD_MIN_LEN;
 
-//		x25_stop_timer(sk);
-		x25->condition = 0x00;
-//		x25->vs        = 0;
-//		x25->va        = 0;
-//		x25->vr        = 0;
-//		x25->vl        = 0;
-//		x25->state     = X25_STATE_3;
-////		sk->sk_state   = TCP_ESTABLISHED;
-//		/*
-//		 *	Parse the data in the frame.
-//		 */
-//		if (!pskb_may_pull(skb, X25_STD_MIN_LEN))
-//			goto out_clear;
-//		skb_pull(skb, X25_STD_MIN_LEN);
+			len = x25_parse_address_block(ptr, data_size_tmp, &source_addr, &dest_addr);
+			if (len > 0) {
+				ptr += len;
+				data_size_tmp -= len;
+			} else if (len < 0)
+				goto out_clear;
 
-//		len = x25_parse_address_block(skb, &source_addr,
-//						  &dest_addr);
-//		if (len > 0)
-//			skb_pull(skb, len);
-//		else if (len < 0)
-//			goto out_clear;
+			len = x25_parse_facilities(x25, ptr, data_size_tmp, &x25->facilities, &x25->dte_facilities, &x25->vc_facil_mask);
+			if (len > 0) {
+				ptr += len;
+				data_size_tmp -= len;
+			} else if (len < 0)
+				goto out_clear;
+			/*
+			 *	Copy any Call User Data.
+			 */
+			if (data_size_tmp > 0) {
+				if (data_size_tmp > X25_MAX_CUD_LEN)
+					goto out_clear;
 
-//		len = x25_parse_facilities(skb, &x25->facilities,
-//					   &x25->dte_facilities,
-//					   &x25->vc_facil_mask);
-//		if (len > 0)
-//			skb_pull(skb, len);
-//		else if (len < 0)
-//			goto out_clear;
-//		/*
-//		 *	Copy any Call User Data.
-//		 */
-//		if (skb->len > 0) {
-//			if (skb->len > X25_MAX_CUD_LEN)
-//				goto out_clear;
+				//skb_copy_bits(skb, 0, x25->calluserdata.cuddata, skb->len);
+				x25_mem_copy(x25->calluserdata.cuddata, ptr, data_size_tmp);
+				x25->calluserdata.cudlength = data_size_tmp;
+			};
+			break;
+		}
+		case X25_CLEAR_REQUEST:
+			if (data_size_tmp < X25_STD_MIN_LEN + 2)
+				goto out_clear;
 
-////			skb_copy_bits(skb, 0, x25->calluserdata.cuddata, skb->len);
-//			x25->calluserdata.cudlength = skb->len;
-//		}
-////		if (!sock_flag(sk, SOCK_DEAD))
-////			sk->sk_state_change(sk);
-		break;
-	}
-	case X25_CLEAR_REQUEST:
-//		if (!pskb_may_pull(skb, X25_STD_MIN_LEN + 2))
-//			goto out_clear;
+			x25_write_internal(x25, X25_CLEAR_CONFIRMATION);
+			x25_disconnect(x25, X25_REFUSED, data[3], data[4]);
+			break;
 
-//		x25_write_internal(sk, X25_CLEAR_CONFIRMATION);
-//		x25_disconnect(sk, ECONNREFUSED, skb->data[3], skb->data[4]);
-		break;
+		default:
+			break;
+	};
 
-	default:
-		break;
-	}
+	return 0;
 
-//	return 0;
-
-//out_clear:
-//	x25_write_internal(sk, X25_CLEAR_REQUEST);
-//	x25->state = X25_STATE_2;
-//	x25_start_t23timer(sk);
+out_clear:
+	x25_write_internal(x25, X25_CLEAR_REQUEST);
+	x25->state = X25_STATE_2;
+	x25_start_timer(x25, x25->T23.timer_ptr);
 	return 0;
 }
 

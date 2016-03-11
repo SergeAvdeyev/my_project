@@ -151,6 +151,10 @@
 #define	X25_ILLEGAL						0xFD
 
 
+/* Bitset in x25_cs->flags for misc flags */
+#define X25_Q_BIT_FLAG			0
+#define X25_INTERRUPT_FLAG		1
+#define X25_ACCPT_APPRV_FLAG	2
 
 
 
@@ -352,8 +356,13 @@ int x25_connect_request(struct x25_cs * x25, struct x25_address *dest_addr);
 
 /* x25_link.c */
 void x25_link_established(void *x25_ptr);
+int x25_link_receive_data(void *x25_ptr, char * data, int data_size);
+
 
 /* lapb_subr.c */
+
+
+
 
 /* lapb_timer.c */
 
