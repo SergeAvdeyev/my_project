@@ -36,12 +36,14 @@ void lapb_disconnect_indication_cb(struct lapb_cs * lapb, int reason);
 int lapb_data_indication_cb(struct lapb_cs * lapb, char * data, int data_size);
 char * lapb_error_str(int error);
 
+void x25_call_indication_cb(struct x25_cs * x25);
+void x25_call_accepted_cb(struct x25_cs * x25);
 
 void setup_signals_handler();
 int sleep_ms(int milliseconds);
 char * buf_to_str(char * data, int data_size);
 void custom_debug(int level, const char * format, ...);
-void main_loop();
+void main_loop(struct x25_cs *x25, struct x25_address *dest_addr);
 
 
 #endif // COMMON_H

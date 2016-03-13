@@ -59,7 +59,7 @@ void * timer_add(int interval, void * lapb_ptr, void *timer_expiry) {
 }
 
 void timer_del(void *timer) {
-	(void)timer;
+	free(timer);
 }
 
 void timer_start(void * timer) {

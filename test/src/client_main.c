@@ -102,12 +102,12 @@ void new_data_received(char * data, int data_size) {
 }
 
 void connection_lost() {
-	char * buffer;
-	int buffer_size;
+//	char * buffer;
+//	int buffer_size;
 
-	printf("\nUnacked data:\n");
-	while ((buffer = lapb_dequeue(lapb_client, &buffer_size)) != NULL)
-		printf("%s\n", buf_to_str(buffer, buffer_size));
+//	printf("\nUnacked data:\n");
+//	while ((buffer = lapb_dequeue(lapb_client, &buffer_size)) != NULL)
+//		printf("%s\n", buf_to_str(buffer, buffer_size));
 
 	lapb_reset(lapb_client, LAPB_STATE_0);
 }
@@ -139,6 +139,7 @@ int main(int argc, char *argv[]) {
 	printf("******  X25 EMULATOR (client side)  ******\n");
 	printf("******                               ******\n");
 	printf("*******************************************\n");
+
 
 //	printf("sizeof(unsigned char)=%d\n", (int)sizeof(unsigned char));
 //	printf("sizeof(unsigned short)=%d\n", (int)sizeof(unsigned short));
@@ -173,19 +174,19 @@ int main(int argc, char *argv[]) {
 	if (dbg)
 		goto label_1;
 
-//	/* Set up equipment type: DTE or DCE */
-//	fprintf(stderr, "\nSelect equipment type:\n1. DTE\n2. DCE\n>");
-//	while (read(0, buffer, sizeof(buffer)) <= 1)
-//		fprintf(stderr, ">");
-//	if (atoi(buffer) == 2)
-//		lapb_equipment_type = LAPB_DCE;
+	/* Set up equipment type: DTE or DCE */
+	fprintf(stderr, "\nSelect equipment type:\n1. DTE\n2. DCE\n>");
+	while (read(0, buffer, sizeof(buffer)) <= 1)
+		fprintf(stderr, ">");
+	if (atoi(buffer) == 2)
+		lapb_equipment_type = LAPB_DCE;
 
-//	/* Set up lapb modulo: STANDARD or EXTENDED */
-//	fprintf(stderr, "\nSelect modulo value:\n1. STANDARD(8)\n2. EXTENDED(128)\n>");
-//	while (read(0, buffer, sizeof(buffer)) <= 1)
-//		fprintf(stderr, ">");
-//	if (atoi(buffer) == 2)
-//		lapb_modulo = LAPB_EXTENDED;
+	/* Set up lapb modulo: STANDARD or EXTENDED */
+	fprintf(stderr, "\nSelect modulo value:\n1. STANDARD(8)\n2. EXTENDED(128)\n>");
+	while (read(0, buffer, sizeof(buffer)) <= 1)
+		fprintf(stderr, ">");
+	if (atoi(buffer) == 2)
+		lapb_modulo = LAPB_EXTENDED;
 
 label_1:
 
@@ -293,9 +294,10 @@ label_2:
 	struct x25_callbacks x25_callbacks;
 	bzero(&x25_callbacks, sizeof(struct x25_callbacks));
 	x25_callbacks.link_connect_request = lapb_connect_request;
+	x25_callbacks.link_disconnect_request = lapb_disconnect_request;
 	x25_callbacks.link_send_frame = lapb_data_request;
-//	x25_callbacks.data_indication = data_indication;
-//	x25_callbacks.transmit_data = transmit_data;
+	x25_callbacks.call_indication = x25_call_indication_cb;
+	x25_callbacks.call_accepted = x25_call_accepted_cb;
 
 	x25_callbacks.add_timer = timer_add;
 	x25_callbacks.del_timer = timer_del;
@@ -305,9 +307,10 @@ label_2:
 	x25_callbacks.debug = custom_debug;
 
 	/* Define X25 values */
-	struct x25_params x25_params;
+	//struct x25_params x25_params;
 
-	res = x25_register(&x25_callbacks, &x25_params, &x25_client);
+	//res = x25_register(&x25_callbacks, &x25_params, &x25_client);
+	res = x25_register(&x25_callbacks, NULL, &x25_client);
 	if (res != X25_OK) {
 		printf("x25_register return %d\n", res);
 		exit(EXIT_FAILURE);
@@ -315,19 +318,27 @@ label_2:
 	x25_add_link(x25_client, lapb_client, lapb_modulo == LAPB_EXTENDED);
 	lapb_client->L3_ptr = x25_client;
 
-	struct x25_address addr;
-	sprintf(addr.x25_addr, "7654321");
+	printf("Enter local X25 address[1234567]: ");
+	fgets(x25_client->source_addr.x25_addr, 16, stdin);
+	tmp_len = strlen(x25_client->source_addr.x25_addr);
+	if (tmp_len == 1)
+		sprintf(x25_client->source_addr.x25_addr, "1234567");
+	else
+		x25_client->source_addr.x25_addr[tmp_len - 1] = 0;
+
+	struct x25_address dest_addr;
+	sprintf(dest_addr.x25_addr, "7654321");
 	//x25_client->lci = 1 << 8 | 1;
 	x25_client->lci = 1;
-	sprintf((char *)&x25_client->source_addr, "1234567");
-	x25_connect_request(x25_client, &addr);
 
-
+	custom_debug(0, "[X25]");
+	custom_debug(0, "[X25]");
+	custom_debug(0, "[X25]");
 
 
 	/* Start endless loop */
-	printf("Run Main loop\n\n");
-	main_loop();
+	printf("\nRun Main loop\n\n");
+	main_loop(x25_client, &dest_addr);
 
 	printf("Main loop ended\n");
 
@@ -355,6 +366,7 @@ label_2:
 		free(timer_struct);
 
 	x25_unregister(x25_client);
+	lapb_unregister(lapb_client);
 
 	terminate_logger();
 	while (is_logger_started())

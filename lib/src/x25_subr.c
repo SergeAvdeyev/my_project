@@ -32,6 +32,38 @@ void unlock(struct x25_cs *x25) {
 #endif
 }
 
+char * x25_error_str(int error) {
+	if (error < 0)
+		error *= -1;
+	switch (error) {
+		case X25_OK:
+			return X25_OK_STR;
+		case X25_BADTOKEN:
+			return X25_BADTOKEN_STR;
+		case X25_INVALUE:
+			return X25_INVALUE_STR;
+		case X25_CONNECTED:
+			return X25_CONNECTED_STR;
+		case X25_NOTCONNECTED:
+			return X25_NOTCONNECTED_STR;
+		case X25_REFUSED:
+			return X25_REFUSED_STR;
+		case X25_TIMEDOUT:
+			return X25_TIMEDOUT_STR;
+		case X25_NOMEM:
+			return X25_NOMEM_STR;
+		case X25_BUSY:
+			return X25_BUSY_STR;
+		case X25_ROOT_UNREACH:
+			return X25_ROOT_UNREACH_STR;
+		case X25_CALLBACK_ERR:
+			return X25_CALLBACK_ERR_STR;
+		default:
+			return "Unknown error";
+			break;
+	};
+}
+
 
 char * x25_buf_to_str(char * data, int data_size) {
 	str_buf[0] = '\0';
@@ -42,12 +74,20 @@ char * x25_buf_to_str(char * data, int data_size) {
 	return str_buf;
 }
 
-void x25_hex_debug(char * data, int data_size) {
+void x25_hex_debug(char * data, int data_size, char * out_buffer, int out_buffer_size) {
 #ifdef __GNUC__
+	if (out_buffer_size < (data_size*3 + 1)) return;
+
 	int i = 0;
+	char * out_ptr = out_buffer;
+
+	bzero(out_buffer, out_buffer_size);
+
 	while (i < data_size) {
-		fprintf(stderr, "%02X ", data[i]);
+		//fprintf(stderr, "%02X ", data[i]);
+		sprintf(out_ptr, "%02X ", (_uchar)data[i]);
 		i++;
+		out_ptr += 3;
 	};
 #endif
 }
@@ -94,39 +134,42 @@ void x25_mem_zero(void *src, _ulong n) {
 #endif
 }
 
+void set_bit(long nr, _ulong * addr) {
+	*addr |= nr;
+}
+
+void clear_bit(long nr, _ulong * addr) {
+	*addr &= ~nr;
+}
+
+int test_bit(long nr, _ulong * addr) {
+	if (*addr & nr)
+		return 1;
+	else
+		return 0;
+}
+
+int test_and_set_bit(long nr, _ulong * addr) {
+	int old = 0;
+
+	if (*addr & nr)
+		old = 1;
+	*addr |= nr;
+	return old;
+}
+
+
 
 struct x25_cs_internal * x25_get_internal(struct x25_cs *x25) {
 	return (struct x25_cs_internal *)x25->internal_struct;
 }
 
-/*
- *	This routine purges all of the queues of frames.
- */
-void x25_clear_queues(struct x25_cs * x25) {
-	cb_clear(&x25->ack_queue);
-	cb_clear(&x25->interrupt_in_queue);
-	cb_clear(&x25->interrupt_out_queue);
-	cb_clear(&x25->fragment_queue);
-}
-
-int x25_pacsize_to_bytes(_uint pacsize) {
-	int bytes = 1;
-
-	if (!pacsize)
-		return 128;
-
-	while (pacsize-- > 0)
-		bytes *= 2;
-
-	return bytes;
-}
 
 int x25_parse_address_block(char * data, int data_size, struct x25_address *called_addr, struct x25_address *calling_addr) {
 	_uchar len;
 	int needed;
 	int rc;
 
-	//if (!pskb_may_pull(skb, 1)) {
 	if (data_size == 0) {
 		/* packet has no address block */
 		rc = 0;
@@ -136,7 +179,6 @@ int x25_parse_address_block(char * data, int data_size, struct x25_address *call
 	len = *data;
 	needed = 1 + (len >> 4) + (len & 0x0f);
 
-	//if (!pskb_may_pull(skb, needed)) {
 	if (data_size < needed) {
 		/* packet is too short to hold the addresses it claims to hold */
 		rc = -1;
@@ -225,7 +267,72 @@ int x25_addr_aton(_uchar *p, struct x25_address *called_addr, struct x25_address
 
 
 
+/*
+ *	This routine purges all of the queues of frames.
+ */
+void x25_clear_queues(struct x25_cs * x25) {
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
+	cb_clear(&x25_int->ack_queue);
+	cb_clear(&x25_int->write_queue);
+	cb_clear(&x25_int->receive_queue);
+	cb_clear(&x25_int->interrupt_in_queue);
+	cb_clear(&x25_int->interrupt_out_queue);
+	x25_int->fragment_len = 0;
+}
+
+
+/*
+ * This routine purges the input queue of those frames that have been
+ * acknowledged. This replaces the boxes labelled "V(a) <- N(r)" on the
+ * SDL diagram.
+*/
+void x25_frames_acked(struct x25_cs * x25, _ushort nr) {
+	int modulus = x25->link.extended ? X25_EMODULUS : X25_SMODULUS;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
+	/*
+	 * Remove all the ack-ed frames from the ack queue.
+	 */
+	if (x25_int->va != nr)
+		while (cb_peek(&x25_int->ack_queue) && x25_int->va != nr) {
+			cb_dequeue(&x25_int->ack_queue, NULL);
+			x25_int->va = (x25_int->va + 1) % modulus;
+		};
+}
+
+void x25_requeue_frames(struct x25_cs * x25) {
+	char *buffer;
+	int buffer_size;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
+	/*
+	 * Requeue all the un-ack-ed frames on the output queue to be picked
+	 * up by x25_kick. This arrangement handles the possibility of an empty
+	 * output queue.
+	 */
+	while ((buffer = cb_dequeue_tail(&x25_int->ack_queue, &buffer_size)) != NULL)
+		cb_queue_head(&x25_int->write_queue, buffer, buffer_size);
+}
+
+
+/*
+ *	Validate that the value of nr is between va and vs. Return true or
+ *	false for testing.
+ */
+int x25_validate_nr(struct x25_cs * x25, _ushort nr) {
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+	_ushort vc = x25_int->va;
+	int modulus = x25->link.extended ? X25_EMODULUS : X25_SMODULUS;
+
+	while (vc != x25_int->vs) {
+		if (nr == vc)
+			return 1;
+		vc = (vc + 1) % modulus;
+	};
+
+	return nr == x25_int->vs ? 1 : 0;
+}
 
 
 /*
@@ -233,18 +340,16 @@ int x25_addr_aton(_uchar *p, struct x25_address *called_addr, struct x25_address
  *  control frame.
  */
 void x25_write_internal(struct x25_cs *x25, int frametype) {
-	//struct x25_sock *x25 = x25_sk(sk);
-	//struct sk_buff *skb;
-	_uchar data[209];  /* 2 bytes for GFI & LCI */
-						/*  */
+	_uchar data[209];
 	_uchar  *dptr = &data[0];
 	_uchar  facilities[X25_MAX_FAC_LEN];
 	_uchar  addresses[1 + X25_ADDR_LEN];
 	_uchar  lci1, lci2;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
 	/*
 	 *	Default safe frame size.
 	 */
-	//int len = X25_MAX_L2_LEN + X25_EXT_MIN_LEN;
 	int len = X25_EXT_MIN_LEN;
 
 	/*
@@ -255,7 +360,7 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 			len += 1 + X25_ADDR_LEN + X25_MAX_FAC_LEN + X25_MAX_CUD_LEN;
 			break;
 		case X25_CALL_ACCEPTED: /* fast sel with no restr on resp */
-			if (x25->facilities.reverse & 0x80) {
+			if (x25_int->facilities.reverse & 0x80) {
 				len += 1 + X25_MAX_FAC_LEN + X25_MAX_CUD_LEN;
 			} else {
 				len += 1 + X25_MAX_FAC_LEN;
@@ -277,19 +382,9 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 			return;
 	};
 
-//	if ((skb = malloc(len)) == NULL)
-//		return;
-
-	/*
-	 *	Space for Ethernet and 802.2 LLC headers.
-	 */
-	//skb_reserve(skb, X25_MAX_L2_LEN);
-
 	/*
 	 *	Make space for the GFI and LCI, and fill them in.
 	 */
-	//dptr = skb_put(skb, 2);
-
 	lci1 = (x25->lci >> 8) & 0x0F;
 	lci2 = (x25->lci >> 0) & 0xFF;
 
@@ -307,52 +402,48 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 	switch (frametype) {
 
 		case X25_CALL_REQUEST:
-			//dptr    = skb_put(skb, 1);
 			*dptr++ = X25_CALL_REQUEST;
 			len = x25_addr_aton(addresses, &x25->dest_addr, &x25->source_addr);
-			//dptr    = skb_put(skb, len);
 			mem_copy(dptr, addresses, len);
 			dptr += len;
-			len = x25_create_facilities(facilities, &x25->facilities, &x25->dte_facilities, x25->link.global_facil_mask);
-			//dptr    = skb_put(skb, len);
+			len = x25_create_facilities(facilities,
+										&x25_int->facilities,
+										&x25_int->dte_facilities,
+										x25->link.global_facil_mask);
 			mem_copy(dptr, facilities, len);
 			dptr += len;
-			if (x25->calluserdata.cudlength != 0) {
-				//dptr = skb_put(skb, x25->calluserdata.cudlength);
-				mem_copy(dptr, x25->calluserdata.cuddata, x25->calluserdata.cudlength);
-				x25->calluserdata.cudlength = 0;
-				//dptr += len;
+			if (x25_int->calluserdata.cudlength != 0) {
+				mem_copy(dptr, x25_int->calluserdata.cuddata, x25_int->calluserdata.cudlength);
+				x25_int->calluserdata.cudlength = 0;
 			};
 			break;
 
 		case X25_CALL_ACCEPTED:
-			//dptr    = skb_put(skb, 2);
 			*dptr++ = X25_CALL_ACCEPTED;
 			*dptr++ = 0x00;		/* Address lengths */
-			len     = x25_create_facilities(facilities, &x25->facilities, &x25->dte_facilities, x25->vc_facil_mask);
-			//dptr    = skb_put(skb, len);
+			len     = x25_create_facilities(facilities,
+											&x25_int->facilities,
+											&x25_int->dte_facilities,
+											x25_int->vc_facil_mask);
 			mem_copy(dptr, facilities, len);
 			dptr += len;
 
 			/* fast select with no restriction on response
 				allows call user data. Userland must
 				ensure it is ours and not theirs */
-			if (x25->facilities.reverse & 0x80) {
-				//dptr = skb_put(skb, x25->calluserdata.cudlength);
-				mem_copy(dptr, x25->calluserdata.cuddata, x25->calluserdata.cudlength);
+			if (x25_int->facilities.reverse & 0x80) {
+				mem_copy(dptr, x25_int->calluserdata.cuddata, x25_int->calluserdata.cudlength);
 			};
-			x25->calluserdata.cudlength = 0;
+			x25_int->calluserdata.cudlength = 0;
 			break;
 
 		case X25_CLEAR_REQUEST:
-			//dptr    = skb_put(skb, 3);
 			*dptr++ = frametype;
-			*dptr++ = x25->causediag.cause;
-			*dptr++ = x25->causediag.diagnostic;
+			*dptr++ = x25_int->causediag.cause;
+			*dptr++ = x25_int->causediag.diagnostic;
 			break;
 
 		case X25_RESET_REQUEST:
-			//dptr    = skb_put(skb, 3);
 			*dptr++ = frametype;
 			*dptr++ = 0x00;		/* XXX */
 			*dptr++ = 0x00;		/* XXX */
@@ -362,26 +453,26 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 		case X25_RNR:
 		case X25_REJ:
 			if (x25->link.extended) {
-				//dptr     = skb_put(skb, 2);
 				*dptr++  = frametype;
-				*dptr++  = (x25->vr << 1) & 0xFE;
+				*dptr++  = (x25_int->vr << 1) & 0xFE;
 			} else {
-				//dptr     = skb_put(skb, 1);
 				*dptr    = frametype;
-				*dptr++ |= (x25->vr << 5) & 0xE0;
+				*dptr++ |= (x25_int->vr << 5) & 0xE0;
 			};
 			break;
 
 		case X25_CLEAR_CONFIRMATION:
 		case X25_INTERRUPT_CONFIRMATION:
 		case X25_RESET_CONFIRMATION:
-			//dptr  = skb_put(skb, 1);
-			*dptr = frametype;
+			*dptr++ = frametype;
 			break;
 	};
 
 	int n = (_ulong)(dptr) - (_ulong)data;
-	x25_hex_debug((char *)data, n);
+
+	char debug_buf[2048];
+	x25_hex_debug((char *)data, n, debug_buf, 2048);
+	x25->callbacks->debug(1, "[X25] S%d TX '%s'", x25_int->state, debug_buf);
 	x25_transmit_link(x25, (char *)data, n);
 }
 
@@ -390,18 +481,20 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 void x25_disconnect(void * x25_ptr, int reason, unsigned char cause, unsigned char diagnostic) {
 	(void)reason;
 	struct x25_cs *x25 = x25_ptr;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	x25_clear_queues(x25);
-	x25->callbacks->stop_timer(x25->T2.timer_ptr);
-	x25->callbacks->stop_timer(x25->T21.timer_ptr);
-	x25->callbacks->stop_timer(x25->T22.timer_ptr);
-	x25->callbacks->stop_timer(x25->T23.timer_ptr);
+	x25->callbacks->stop_timer(x25_int->T20.timer_ptr);
+	x25->callbacks->stop_timer(x25_int->T21.timer_ptr);
+	x25->callbacks->stop_timer(x25_int->T22.timer_ptr);
+	x25->callbacks->stop_timer(x25_int->T23.timer_ptr);
 
-	x25->lci   = 0;
-	x25->state = X25_STATE_0;
+	x25->peer_lci = 0;
+	x25->callbacks->debug(1, "[X25] S%d -> S0", x25_int->state);
+	x25_int->state = X25_STATE_0;
 
-	x25->causediag.cause      = cause;
-	x25->causediag.diagnostic = diagnostic;
+	x25_int->causediag.cause      = cause;
+	x25_int->causediag.diagnostic = diagnostic;
 }
 
 
@@ -483,23 +576,20 @@ int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr
 
 
 int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci) {
-	(void)x25;
-//	struct sock *sk;
-//	struct sock *make;
-//	struct x25_sock *makex25;
 	struct x25_address source_addr, dest_addr;
 	//struct x25_facilities facilities;
 	struct x25_dte_facilities dte_facilities;
 	int len;
 	int addr_len, rc;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	char * ptr;
 	int data_size_tmp = data_size;
 
+	x25->callbacks->debug(1, "[X25] S%d RX CALL_REQUEST", x25_int->state);
 	/*
 	 *	Remove the LCI and frame type.
 	 */
-	//skb_pull(skb, X25_STD_MIN_LEN);
 	ptr = data + X25_STD_MIN_LEN;
 	data_size_tmp -= X25_STD_MIN_LEN;
 
@@ -512,7 +602,6 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 	addr_len = x25_parse_address_block(ptr, data_size_tmp, &source_addr, &dest_addr);
 	if (addr_len <= 0)
 		goto out_clear_request;
-	//skb_pull(skb, addr_len);
 	ptr += addr_len;
 	data_size_tmp -= addr_len;
 
@@ -523,21 +612,17 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 	 *
 	 *	Facilities length is mandatory in call request packets
 	 */
-	//if (!pskb_may_pull(skb, 1))
 	if (data_size_tmp == 0)
 		goto out_clear_request;
 	len = ptr[0] + 1;
-	//if (!pskb_may_pull(skb, len))
 	if (data_size_tmp < len)
 		goto out_clear_request;
-	//skb_pull(skb,len);
 	ptr += len;
 	data_size_tmp -= len;
 
 	/*
 	 *	Ensure that the amount of call user data is valid.
 	 */
-	//if (skb->len > X25_MAX_CUD_LEN)
 	if (data_size_tmp > X25_MAX_CUD_LEN)
 		goto out_clear_request;
 
@@ -552,7 +637,6 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 	 *	Find a listener for the particular address/cud pair.
 	 */
 	//sk = x25_find_listener(&source_addr,skb);
-	//skb_push(skb, len);
 	ptr -= len;
 	data_size_tmp += len;
 
@@ -580,73 +664,53 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 	/*
 	 *	Try to reach a compromise on the requested facilities.
 	 */
-	//len = x25_negotiate_facilities(x25, ptr, data_size_tmp, &facilities, &dte_facilities);
 	len = x25_negotiate_facilities(x25, ptr, data_size_tmp, &dte_facilities);
 	if (len == -1)
 		goto out_clear_request;
 
 	/*
-	 * current neighbour/link might impose additional limits
-	 * on certain facilties
+	 * current link might impose additional limits on certain facilties
 	 */
 	x25_limit_facilities(x25);
 
 	/*
-	 *	Try to create a new socket.
-	 */
-//	make = x25_make_new(sk);
-//	if (!make)
-//		goto out_sock_put;
-
-	/*
 	 *	Remove the facilities
 	 */
-	//skb_pull(skb, len);
 	ptr += len;
 	data_size_tmp -= len;
 
-	x25->lci = lci;
-	x25->dest_addr     = dest_addr;
-	//makex25->source_addr   = source_addr;
-	//makex25->neighbour     = nb;
-	//makex25->facilities    = facilities;
-	//makex25->dte_facilities= dte_facilities;
-	//makex25->vc_facil_mask = x25_sk(sk)->vc_facil_mask;
+	x25->peer_lci  = lci;
+	x25->dest_addr = dest_addr;
 
 	/* ensure no reverse facil on accept */
-	x25->vc_facil_mask &= ~X25_MASK_REVERSE;
+	x25_int->vc_facil_mask &= ~X25_MASK_REVERSE;
 	/* ensure no calling address extension on accept */
-	x25->vc_facil_mask &= ~X25_MASK_CALLING_AE;
-	//makex25->cudmatchlength = x25_sk(sk)->cudmatchlength;
+	x25_int->vc_facil_mask &= ~X25_MASK_CALLING_AE;
 
 	/* Normally all calls are accepted immediately */
-	if (x25->flags & X25_ACCPT_APPRV_FLAG) {
+	if (x25_int->flags & X25_ACCPT_APPRV_FLAG) {
+		x25->callbacks->debug(1, "[X25] S%d TX CALL_ACCEPTED", x25_int->state);
 		x25_write_internal(x25, X25_CALL_ACCEPTED);
-		x25->state = X25_STATE_3;
+		x25->callbacks->debug(1, "[X25] S%d -> S3", x25_int->state);
+		x25_int->state = X25_STATE_3;
 	};
 
 	/*
 	 *	Incoming Call User Data.
 	 */
-	//skb_copy_from_linear_data(skb, makex25->calluserdata.cuddata, skb->len);
-	x25_mem_copy(x25->calluserdata.cuddata, ptr, data_size_tmp);
-	x25->calluserdata.cudlength = data_size_tmp;
+	x25_mem_copy(x25_int->calluserdata.cuddata, ptr, data_size_tmp);
+	x25_int->calluserdata.cudlength = data_size_tmp;
 
-//	sk->sk_ack_backlog++;
-//	x25_insert_socket(make);
-//	skb_queue_head(&sk->sk_receive_queue, skb);
 	x25_start_heartbeat(x25);
-//	if (!sock_flag(sk, SOCK_DEAD))
-//		sk->sk_data_ready(sk);
 	rc = 1;
-//	sock_put(sk);
-out:
+	/* Notify Application about new incoming call */
+	x25->callbacks->call_indication(x25);
+
+//out:
 	return rc;
-//out_sock_put:
-//	sock_put(sk);
+
 out_clear_request:
 	rc = 0;
 	x25_transmit_clear_request(x25, lci, 0x01);
-	goto out;
 	return 0;
 }

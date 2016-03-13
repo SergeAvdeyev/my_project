@@ -190,12 +190,12 @@ void new_data_received(char * data, int data_size) {
 }
 
 void no_active_connection() {
-	char * buffer;
-	int buffer_size;
+//	char * buffer;
+//	int buffer_size;
 
-	printf("\nUnacked data:\n");
-	while ((buffer = lapb_dequeue(lapb_server, &buffer_size)) != NULL)
-		printf("%s\n", buf_to_str(buffer, buffer_size));
+//	printf("\nUnacked data:\n");
+//	while ((buffer = lapb_dequeue(lapb_server, &buffer_size)) != NULL)
+//		printf("%s\n", buf_to_str(buffer, buffer_size));
 
 	lapb_reset(lapb_server, LAPB_STATE_0);
 }
@@ -229,7 +229,7 @@ int main (int argc, char *argv[]) {
 
 	printf("*******************************************\n");
 	printf("******                               ******\n");
-	printf("******  LAPB EMULATOR (server side)  ******\n");
+	printf("******  X25 EMULATOR (server side)  ******\n");
 	printf("******                               ******\n");
 	printf("*******************************************\n");
 
@@ -376,8 +376,11 @@ label_2:
 	struct x25_callbacks x25_callbacks;
 	bzero(&x25_callbacks, sizeof(struct x25_callbacks));
 	x25_callbacks.link_connect_request = lapb_connect_request;
+	x25_callbacks.link_disconnect_request = lapb_disconnect_request;
 	x25_callbacks.link_send_frame = lapb_data_request;
-//	x25_callbacks.transmit_data = transmit_data;
+
+	x25_callbacks.call_indication = x25_call_indication_cb;
+	x25_callbacks.call_accepted = x25_call_accepted_cb;
 
 	x25_callbacks.add_timer = timer_add;
 	x25_callbacks.del_timer = timer_del;
@@ -387,9 +390,10 @@ label_2:
 	x25_callbacks.debug = custom_debug;
 
 	/* Define X25 values */
-	struct x25_params x25_params;
+	//struct x25_params x25_params;
 
-	res = x25_register(&x25_callbacks, &x25_params, &x25_server);
+	//res = x25_register(&x25_callbacks, &x25_params, &x25_server);
+	res = x25_register(&x25_callbacks, NULL, &x25_server);
 	if (res != X25_OK) {
 		printf("x25_register return %d\n", res);
 		exit(EXIT_FAILURE);
@@ -397,15 +401,26 @@ label_2:
 	x25_add_link(x25_server, lapb_server, lapb_modulo == LAPB_EXTENDED);
 	lapb_server->L3_ptr = x25_server;
 
-	//x25_server->lci = 1;
-	sprintf((char *)&x25_server->source_addr, "7654321");
+	printf("Enter local X25 address[7654321]: ");
+	fgets(x25_server->source_addr.x25_addr, 16, stdin);
+	tmp_len = strlen(x25_server->source_addr.x25_addr);
+	if (tmp_len == 1)
+		sprintf(x25_server->source_addr.x25_addr, "7654321");
+	else
+		x25_server->source_addr.x25_addr[tmp_len - 1] = 0;
 
-	//x25_connect_request(x25_client, &addr);
+	struct x25_address dest_addr;
+	sprintf(dest_addr.x25_addr, "1234567");
 
+	x25_server->lci = 128;
+
+	custom_debug(0, "[X25]");
+	custom_debug(0, "[X25]");
+	custom_debug(0, "[X25]");
 
 	/* Start endless loop */
 	printf("Run Main loop\n\n");
-	main_loop();
+	main_loop(x25_server, &dest_addr);
 
 	printf("Main loop ended\n");
 

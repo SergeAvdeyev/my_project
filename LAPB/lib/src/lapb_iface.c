@@ -95,7 +95,7 @@ int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params,
 
 	/* Fill invert table */
 	fill_inv_table();
-	if (lapb_is_dce(*lapb))
+	if (lapb_is_dce(*lapb) && (*lapb)->auto_connecting)
 		lapb_start_t201timer((*lapb));
 
 	rc = LAPB_OK;
@@ -113,6 +113,9 @@ int lapb_unregister(struct lapb_cs * lapb) {
 
 	lapb_stop_t201timer(lapb);
 	lapb_stop_t202timer(lapb);
+
+	lapb->callbacks->del_timer(lapb_int->T201_timer_ptr);
+	lapb->callbacks->del_timer(lapb_int->T202_timer_ptr);
 
 	cb_free(&lapb_int->write_queue);
 	cb_free(&lapb_int->ack_queue);
@@ -210,7 +213,7 @@ char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size) {
 	return result;
 }
 
-int lapb_reset(struct lapb_cs * lapb, unsigned char init_state) {
+int lapb_reset(struct lapb_cs * lapb, _uchar init_state) {
 	int rc = LAPB_BADTOKEN;
 
 	if (!lapb)
@@ -227,12 +230,14 @@ int lapb_reset(struct lapb_cs * lapb, unsigned char init_state) {
 	lapb_int->vr = 0;
 	lapb_int->vs = 0;
 	lapb_int->condition = 0x00;
-	unsigned char old_state = lapb_int->state;
+	_uchar old_state = lapb_int->state;
 	lapb_int->state   = init_state;
 	if ((lapb_is_dce(lapb)) && (init_state == LAPB_STATE_0))
 		lapb_start_t201timer(lapb);
 
 	lapb->callbacks->debug(0, "[LAPB] S%d -> S%d", old_state, init_state);
+	if (((old_state == LAPB_STATE_3) || (old_state == LAPB_STATE_4)) && (init_state == LAPB_STATE_0))
+		lapb->callbacks->disconnect_indication(lapb, LAPB_REFUSED);
 
 	rc = LAPB_OK;
 out:

@@ -76,12 +76,6 @@ int lapb_is_slp(struct lapb_cs *lapb);
 /* Convert void *lapb_cs::internal_struct to lapb_cs_internal */
 struct lapb_cs_internal * lapb_get_internal(struct lapb_cs *lapb);
 
-///* Redefine 'malloc' and 'free' */
-//void * lapb_mem_get(_ulong size);
-//void lapb_mem_free(void *ptr);
-//void * lapb_mem_copy(void *dest, const void *src, _ulong n);
-//void lapb_mem_zero(void *src, _ulong n);
-
 
 /* lapb_timer.c */
 void lapb_start_t201timer(struct lapb_cs *lapb);

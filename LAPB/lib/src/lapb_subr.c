@@ -12,7 +12,6 @@
 #include "lapb_int.h"
 
 
-//char str_buf[1024];
 _uchar uchar_inv_table[256];
 
 void lapb_lock(struct lapb_cs *lapb) {
@@ -60,56 +59,6 @@ _uchar invert_uchar(_uchar value) {
 	return uchar_inv_table[value];
 }
 
-//char * lapb_buf_to_str(char * data, int data_size) {
-//	str_buf[0] = '\0';
-//	if (data_size < 1024) {/* 1 byte for null-terminating */
-//		lapb_mem_copy(str_buf, data, data_size);
-//		str_buf[data_size] = '\0';
-//	};
-//	return str_buf;
-//}
-
-//void * lapb_mem_get(_ulong size) {
-//#ifdef __GNUC__
-//	return malloc(size);
-//#else
-//	size = 0;
-//	return (void *)size;
-//#endif
-//}
-
-//void lapb_mem_free(void * ptr) {
-//#ifdef __GNUC__
-//	free(ptr);
-//#else
-//	*(int *)ptr = 0;
-//#endif
-//}
-
-//void * lapb_mem_copy(void *dest, const void *src, _ulong n) {
-//#ifdef __GNUC__
-//	return memcpy(dest, src, n);
-//#else
-//	_ulong i = 0;
-//	while (i < n) {
-//		*(char *)dest = *(char *)src;
-//		i++;
-//	};
-//	return dest;
-//#endif
-//}
-
-//void lapb_mem_zero(void *src, _ulong n) {
-//#ifdef __GNUC__
-//	bzero(src, n);
-//#else
-//	_ulong i = 0;
-//	while (i < n) {
-//		*(char *)src = 0;
-//		i++;
-//	};
-//#endif
-//}
 
 /*  */
 int lapb_is_dce(struct lapb_cs *lapb) {
@@ -127,6 +76,34 @@ int lapb_is_slp(struct lapb_cs *lapb) {
 
 struct lapb_cs_internal * lapb_get_internal(struct lapb_cs *lapb) {
 	return (struct lapb_cs_internal *)lapb->internal_struct;
+}
+
+char * lapb_error_str(int error) {
+	switch (error) {
+		case LAPB_OK:
+			return LAPB_OK_STR;
+		case LAPB_BADTOKEN:
+			return LAPB_BADTOKEN_STR;
+		case LAPB_INVALUE:
+			return LAPB_INVALUE_STR;
+		case LAPB_CONNECTED:
+			return LAPB_CONNECTED_STR;
+		case LAPB_NOTCONNECTED:
+			return LAPB_NOTCONNECTED_STR;
+		case LAPB_REFUSED:
+			return LAPB_REFUSED_STR;
+		case LAPB_TIMEDOUT:
+			return LAPB_TIMEDOUT_STR;
+		case LAPB_NOMEM:
+			return LAPB_NOMEM_STR;
+		case LAPB_BUSY:
+			return LAPB_BUSY_STR;
+		case LAPB_BADFCS:
+			return LAPB_BADFCS_STR;
+		default:
+			return "Unknown error";
+			break;
+	};
 }
 
 /*

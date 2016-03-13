@@ -53,19 +53,21 @@ int cb_queue_head(struct circular_buffer *cb, const char *data, int data_size) {
 	return 1;
 }
 
-int cb_queue_tail(struct circular_buffer *cb, const char *data, int data_size) {
-	if (cb->buffer == NULL) return 0;
+char * cb_queue_tail(struct circular_buffer *cb, const char *data, int data_size) {
+	if (cb->buffer == NULL) return NULL;
 	if (cb->count == cb->capacity)
-		return 0;
+		return NULL;
+	char * result;
 
 	*(int *)(cb->tail) = data_size;
-	mem_copy(cb->tail + 8, data, data_size);
+	result = cb->tail + 8;
+	mem_copy(result, data, data_size);
 
 	cb->tail = cb->tail + cb->sz + 8;
 	if (cb->tail == cb->buffer_end)
 		cb->tail = cb->buffer;
 	cb->count++;
-	return 1;
+	return result;
 }
 
 char * cb_peek(struct circular_buffer *cb) {

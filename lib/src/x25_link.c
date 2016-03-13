@@ -2,20 +2,30 @@
 #include "x25_int.h"
 
 void x25_transmit_link(struct x25_cs *x25, char * data, int data_size) {
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
 	switch (x25->link.state) {
 		case X25_LINK_STATE_0:
 			cb_queue_tail(&x25->link.queue, data, data_size);
 			x25->link.state = X25_LINK_STATE_1;
 			/* Exec link callback function link_connect_request method */
+			x25->callbacks->debug(1, "[X25_LINK] S0 Establish Data link...");
 			x25->callbacks->link_connect_request(x25->link.link_ptr);
+			x25->callbacks->debug(1, "[X25_LINK] S0 -> S1");
 			break;
 		case X25_LINK_STATE_1:
+			cb_queue_tail(&x25->link.queue, data, data_size);
+			x25_int->N20_RC = 0;
+			x25_transmit_restart_request(x25);
+			x25->link.state = X25_LINK_STATE_2;
+			x25->callbacks->debug(1, "[X25_LINK] S1 -> S2");
+			x25_start_timer(x25, x25->link.T2.timer_ptr);
+			break;
 		case X25_LINK_STATE_2:
 			cb_queue_tail(&x25->link.queue, data, data_size);
 			break;
 		case X25_LINK_STATE_3:
 			/* Send Iframe via lapb link */
-			//send_frame(data, data_size);
 			x25->callbacks->link_send_frame(x25->link.link_ptr, data, data_size);
 			break;
 	};
@@ -26,17 +36,23 @@ void x25_transmit_link(struct x25_cs *x25, char * data, int data_size) {
  */
 void x25_link_established(void *x25_ptr) {
 	struct x25_cs * x25 = (struct x25_cs *)x25_ptr;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	if (x25 == NULL) return;
 
+	x25->callbacks->debug(1, "[X25_LINK] S%d Link established", x25->link.state);
+
 	switch (x25->link.state) {
 		case X25_LINK_STATE_0:
-			x25->link.state = X25_LINK_STATE_2;
+			x25->link.state = X25_LINK_STATE_1;
+			x25->callbacks->debug(1, "[X25_LINK] S0 -> S1");
 			break;
 		case X25_LINK_STATE_1:
+			x25_int->N20_RC = 0;
 			x25_transmit_restart_request(x25);
 			x25->link.state = X25_LINK_STATE_2;
-			x25_start_timer(x25, x25->link.T20.timer_ptr);
+			x25->callbacks->debug(1, "[X25_LINK] S1 -> S2");
+			x25_start_timer(x25, x25->link.T2.timer_ptr);
 			break;
 	};
 }
@@ -50,6 +66,9 @@ void x25_link_terminated(void *x25_ptr) {
 
 	if (x25 == NULL) return;
 
+	x25->callbacks->debug(1, "[X25_LINK] S%d Link terminated", x25->link.state);
+
+	x25->callbacks->debug(1, "[X25_LINK] S%d -> S0", x25->link.state);
 	x25->link.state = X25_LINK_STATE_0;
 	/* Out of order: clear existing virtual calls (X.25 03/93 4.6.3) */
 	x25_disconnect(x25, X25_REFUSED, 0, 0);
@@ -61,7 +80,7 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 	_uint lci;
 
 //	x25->callbacks->debug(2,
-//						  "[X25] x25_link_receive_data(): %02x %02x %02x %02x %02x",
+//						  "[X25_LINK] x25_link_receive_data(): %02x %02x %02x %02x %02x",
 //						  (_uchar)data[0],
 //						  (_uchar)data[1],
 //						  (_uchar)data[2],
@@ -84,9 +103,11 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 	};
 
 	/* Find an existing socket. */
-	if (x25->lci == lci) {
+	if ((x25->peer_lci == lci) || (frametype == X25_CALL_ACCEPTED)) {
 		int queued = 1;
 
+		if (frametype == X25_CALL_ACCEPTED)
+			x25->peer_lci = lci;
 		queued = x25_process_rx_frame(x25, data, data_size);
 		return queued;
 	};
@@ -106,7 +127,7 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 
 	x25_transmit_clear_request(x25, lci, 0x0D);
 	if (frametype != X25_CLEAR_CONFIRMATION)
-		x25->callbacks->debug(2, "[X25] x25_link_receive_data(): unknown frame type %2x", frametype);
+		x25->callbacks->debug(2, "[X25_LINK] S%d x25_link_receive_data(): unknown frame type %2x", x25->link.state, frametype);
 
 	return 0;
 }
@@ -115,32 +136,36 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
  *	This handles all restart and diagnostic frames.
  */
 void x25_link_control(struct x25_cs *x25, char * data, int data_size, _uchar frametype) {
-	//struct sk_buff *skbn;
 	int confirm;
 
 	switch (frametype) {
 		case X25_RESTART_REQUEST:
-			confirm = !x25->link.T20.state;
-			x25->callbacks->stop_timer(x25->link.T20.timer_ptr);
-			x25->link.state = X25_LINK_STATE_3;
+			x25->callbacks->debug(1, "[X25_LINK] S%d RX RESTART_REQUEST", x25->link.state);
+			confirm = !x25->link.T2.state;
+			x25->callbacks->stop_timer(x25->link.T2.timer_ptr);
 			if (confirm)
 				x25_transmit_restart_confirmation(x25);
+			x25->callbacks->debug(1, "[X25_LINK] S%d -> S3", x25->link.state);
+			x25->link.state = X25_LINK_STATE_3;
 			break;
 
 		case X25_RESTART_CONFIRMATION:
-			x25->callbacks->stop_timer(x25->link.T20.timer_ptr);
+			x25->callbacks->debug(1, "[X25_LINK] S%d RX RESTART_CONFIRMATION", x25->link.state);
+			x25->callbacks->stop_timer(x25->link.T2.timer_ptr);
+			x25->callbacks->debug(1, "[X25_LINK] S%d -> S3", x25->link.state);
 			x25->link.state = X25_LINK_STATE_3;
 			break;
 
 		case X25_DIAGNOSTIC:
+			//x25->callbacks->debug(1, "[X25_LINK] S%d RX RESTART_REQUEST", x25->link.state);
 			if (data_size < 7)
 				break;
 
-			x25->callbacks->debug(2, "[X25] diagnostic #%d - %02X %02X %02X", data[3], data[4], data[5], data[6]);
+			x25->callbacks->debug(2, "[X25_LINK] S%d diagnostic #%d - %02X %02X %02X", x25->link.state, data[3], data[4], data[5], data[6]);
 			break;
 
 		default:
-			x25->callbacks->debug(2, "[X25] received unknown %02X with LCI 000", frametype);
+			x25->callbacks->debug(2, "[X25_LINK] S%d received unknown %02X with LCI 000", x25->link.state, frametype);
 			break;
 	};
 
@@ -164,9 +189,8 @@ void x25_transmit_restart_request(struct x25_cs *x25) {
 	data[3] = 0x00;
 	data[4] = 0;
 
-	//x25_send_frame(skb, nb);
+	x25->callbacks->debug(2, "[X25_LINK] S%d TX RESTART_REQUEST", x25->link.state);
 	x25->callbacks->link_send_frame(x25->link.link_ptr, data, data_size);
-	x25->callbacks->debug(2, "[X25] Send restart request");
 }
 
 
@@ -181,9 +205,8 @@ void x25_transmit_restart_confirmation(struct x25_cs *x25) {
 	data[1] = 0x00;
 	data[2] = X25_RESTART_CONFIRMATION;
 
-	//x25_send_frame(skb, nb);
+	x25->callbacks->debug(2, "[X25_LINK] S%d TX RESTART_CONFIRMATION", x25->link.state);
 	x25->callbacks->link_send_frame(x25->link.link_ptr, data, data_size);
-	x25->callbacks->debug(2, "[X25] Send restart confirmation");
 }
 
 /*
@@ -200,7 +223,6 @@ void x25_transmit_clear_request(struct x25_cs *x25, unsigned int lci, unsigned c
 	data[3] = cause;
 	data[4] = 0x00;
 
-	//x25_send_frame(skb, nb);
+	x25->callbacks->debug(2, "[X25_LINK] S%d TX CLEAR_REQUEST", x25->link.state);
 	x25->callbacks->link_send_frame(x25->link.link_ptr, data, data_size);
-	x25->callbacks->debug(2, "[X25] Send clear request");
 }

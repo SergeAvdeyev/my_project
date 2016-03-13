@@ -216,7 +216,6 @@ extern int lapb_get_params(struct lapb_cs * lapb, struct lapb_params * params);
 extern int lapb_set_params(struct lapb_cs * lapb, struct lapb_params * params);
 extern char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size);
 extern int lapb_reset(struct lapb_cs * lapb, _uchar init_state);
-//extern int lapb_connect_request(struct lapb_cs *lapb);
 extern int lapb_connect_request(void *lapb_ptr);
 extern int lapb_disconnect_request(void *lapb_ptr);
 extern int lapb_data_request(void *lapb_ptr, char * data, int data_size);
@@ -226,8 +225,9 @@ extern int lapb_get_state(struct lapb_cs *lapb);
 extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, _ushort fcs);
 
 
-///* lapb_subr.c */
+/* lapb_subr.c */
 //extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
+char * lapb_error_str(int error);
 
 /* lapb_timer.c */
 extern void lapb_t201timer_expiry(void * lapb_ptr);

@@ -121,37 +121,6 @@ int data_indication(struct lapb_cs * lapb, char * data, int data_size) {
 }
 
 
-char * lapb_error_str(int error) {
-	switch (error) {
-		case LAPB_OK:
-			return LAPB_OK_STR;
-		case LAPB_BADTOKEN:
-			return LAPB_BADTOKEN_STR;
-		case LAPB_INVALUE:
-			return LAPB_INVALUE_STR;
-		case LAPB_CONNECTED:
-			return LAPB_CONNECTED_STR;
-		case LAPB_NOTCONNECTED:
-			return LAPB_NOTCONNECTED_STR;
-		case LAPB_REFUSED:
-			return LAPB_REFUSED_STR;
-		case LAPB_TIMEDOUT:
-			return LAPB_TIMEDOUT_STR;
-		case LAPB_NOMEM:
-			return LAPB_NOMEM_STR;
-		case LAPB_BUSY:
-			return LAPB_BUSY_STR;
-		case LAPB_BADFCS:
-			return LAPB_BADFCS_STR;
-		default:
-			return "Unknown error";
-			break;
-	};
-}
-
-
-
-
 
 int sleep_ms(int milliseconds) {
 	int result = 0;

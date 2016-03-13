@@ -27,7 +27,7 @@
 
 
 
-
+/* X25 function results */
 #define	X25_OK				0
 #define	X25_BADTOKEN		1
 #define	X25_INVALUE			2
@@ -37,26 +37,32 @@
 #define	X25_TIMEDOUT		6
 #define	X25_NOMEM			7
 #define X25_BUSY			8
-#define X25_BADFCS			9
+//#define X25_BADFCS			9
 #define X25_ROOT_UNREACH	10
+#define X25_CALLBACK_ERR	11
+#define X25_MSGSIZE			12
 
+/* X25 fuction result descriptions */
 #define	X25_OK_STR				"OK"
 #define	X25_BADTOKEN_STR		"Bad token"
-#define	X25_INVALUE_STR		""
+#define	X25_INVALUE_STR			"Invalid value"
 #define	X25_CONNECTED_STR		"Connected"
 #define	X25_NOTCONNECTED_STR	"Not connected"
-#define	X25_REFUSED_STR		"Refused"
+#define	X25_REFUSED_STR			"Refused"
 #define	X25_TIMEDOUT_STR		"Timed out"
 #define	X25_NOMEM_STR			"No memory"
 #define	X25_BUSY_STR			"Transmitter busy"
-#define	X25_BADFCS_STR			"Bad checksum"
+//#define	X25_BADFCS_STR			"Bad checksum"
+#define X25_ROOT_UNREACH_STR	"Destination unreacheble"
+#define X25_CALLBACK_ERR_STR	"Bad callback pointer"
+#define X25_MSGSIZE_STR			"Message size is too long"
 
 
-#define X25_DEFAULT_T20		200		/* Default restart_request_timeout value 200ms */
-#define X25_DEFAULT_T21		200		/* Default call_request_timeout value 200ms */
-#define X25_DEFAULT_T22		200		/* Default reset_request_timeout value 200ms */
-#define	X25_DEFAULT_T23		200		/* Default clear_request_timeout value 200ms */
-#define	X25_DEFAULT_T2		1000	/* Default ack_holdback_timeout value 1s */
+#define X25_DEFAULT_T20		180000	/* Default restart_request_timeout value 180s */
+#define X25_DEFAULT_T21		200000	/* Default call_request_timeout value 200s */
+#define X25_DEFAULT_T22		180000	/* Default reset_request_timeout value 180s */
+#define	X25_DEFAULT_T23		180000	/* Default clear_request_timeout value 180s */
+#define	X25_DEFAULT_T2		1000	/* Default Link timer value 1s */
 
 /*
  *	X.25 Packet Size values.
@@ -119,44 +125,6 @@
 
 #define	X25_ADDR_LEN			16
 
-#define	X25_STD_MIN_LEN			3
-#define	X25_EXT_MIN_LEN			4
-
-#define	X25_GFI_SEQ_MASK		0x30
-#define	X25_GFI_STDSEQ			0x10
-#define	X25_GFI_EXTSEQ			0x20
-
-#define	X25_Q_BIT				0x80
-#define	X25_D_BIT				0x40
-#define	X25_STD_M_BIT			0x10
-#define	X25_EXT_M_BIT			0x01
-
-#define	X25_CALL_REQUEST				0x0B
-#define	X25_CALL_ACCEPTED				0x0F
-#define	X25_CLEAR_REQUEST				0x13
-#define	X25_CLEAR_CONFIRMATION			0x17
-#define	X25_DATA						0x00
-#define	X25_INTERRUPT					0x23
-#define	X25_INTERRUPT_CONFIRMATION		0x27
-#define	X25_RR							0x01
-#define	X25_RNR							0x05
-#define	X25_REJ							0x09
-#define	X25_RESET_REQUEST				0x1B
-#define	X25_RESET_CONFIRMATION			0x1F
-#define	X25_REGISTRATION_REQUEST		0xF3
-#define	X25_REGISTRATION_CONFIRMATION	0xF7
-#define	X25_RESTART_REQUEST				0xFB
-#define	X25_RESTART_CONFIRMATION		0xFF
-#define	X25_DIAGNOSTIC					0xF1
-#define	X25_ILLEGAL						0xFD
-
-
-/* Bitset in x25_cs->flags for misc flags */
-#define X25_Q_BIT_FLAG			0
-#define X25_INTERRUPT_FLAG		1
-#define X25_ACCPT_APPRV_FLAG	2
-
-
 
 
 
@@ -181,13 +149,15 @@ enum {
 	X25_STATE_4		/* Awaiting Reset Confirmation */
 };
 
-struct sk_buff {
-	_uchar * data;
-	int	   data_size;
-};
+
+struct x25_cs;
 
 struct x25_callbacks {
+	void (*call_indication)(struct x25_cs * x25);
+	void (*call_accepted)(struct x25_cs * x25);
+
 	int (*link_connect_request)(void * link_ptr);
+	int (*link_disconnect_request)(void * link_ptr);
 	int (*link_send_frame)(void * link_ptr, char * data, int data_size);
 	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
 	void (*del_timer)(void * timer);
@@ -197,14 +167,6 @@ struct x25_callbacks {
 	void (*debug)(int level, const char * format, ...);
 };
 
-struct x25_link_callbacks {
-	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
-	void (*del_timer)(void * timer);
-	void (*start_timer)(void * timer);
-	void (*stop_timer)(void * timer);
-
-	void (*debug)(int level, const char * format, ...);
-};
 
 struct x25_params {
 };
@@ -218,52 +180,6 @@ struct x25_address {
 	char x25_addr[16];
 };
 
-/*
- *	Call clearing Cause and Diagnostic structure.
- */
-struct x25_causediag {
-	_uchar	cause;
-	_uchar	diagnostic;
-};
-
-/*
- *	Facilities structure.
- */
-struct x25_facilities {
-	_uint	winsize_in;
-	_uint	winsize_out;
-	_uint	pacsize_in;
-	_uint	pacsize_out;
-	_uint	throughput;
-	_uint	reverse;
-};
-
-/*
-* ITU DTE facilities
-* Only the called and calling address
-* extension are currently implemented.
-* The rest are in place to avoid the struct
-* changing size if someone needs them later
-*/
-struct x25_dte_facilities {
-	_ushort	delay_cumul;
-	_ushort	delay_target;
-	_ushort	delay_max;
-	_uchar	min_throughput;
-	_uchar	expedited;
-	_uchar	calling_len;
-	_uchar	called_len;
-	_uchar	calling_ae[20];
-	_uchar	called_ae[20];
-};
-
-/*
- *	Call User Data structure.
- */
-struct x25_calluserdata {
-	_uint	cudlength;
-	_uchar	cuddata[128];
-};
 
 struct x25_timer {
 	_ulong		interval;
@@ -277,62 +193,21 @@ struct x25_link {
 	_uint		state;
 	_uint		extended;
 	struct circular_buffer	queue;
-	struct x25_timer	T20;
-	//_ulong		t20;
-	//void *	t20timer;
+	struct x25_timer		T2;
 	_ulong		global_facil_mask;
 };
 
 /* X.25 Control structure */
 struct x25_cs {
-	//struct sock		sk;
 	struct x25_address	source_addr;
 	struct x25_address	dest_addr;
 	struct x25_link		link;
 	_uint		lci;
+	_uint		peer_lci;
 	_uint		cudmatchlength;
-	_uchar		state;
-	_uchar		condition;
-	_ushort		vs;
-	_ushort		vr;
-	_ushort		va;
-	_ushort		vl;
 
-	struct x25_timer	T2;
-	struct x25_timer	T21;
-	struct x25_timer	T22;
-	struct x25_timer	T23;
-
-//	_ulong		t2_interval;
-//	void *		t2_timer_ptr;
-//	_uchar		t2_state;
-
-//	_ulong		t21_interval;
-//	void *		t21_timer_ptr;
-//	_uchar		t21_state;
-
-//	_ulong		t22_interval;
-//	void *		t22_timer_ptr;
-//	_uchar		t22_state;
-
-//	_ulong		t23_interval;
-//	void *		t23_timer_ptr;
-//	_uchar		t23_state;
-
-	_ushort		fraglen;
-	_ulong		flags;
-
-	struct circular_buffer	ack_queue;
-	struct circular_buffer	fragment_queue;
-	struct circular_buffer	interrupt_in_queue;
-	struct circular_buffer	interrupt_out_queue;
-
-	//void *	timer;
-	struct x25_causediag	causediag;
-	struct x25_facilities	facilities;
-	struct x25_dte_facilities dte_facilities;
-	struct x25_calluserdata	calluserdata;
-	_ulong 		vc_facil_mask;	/* inc_call facilities mask */
+	_ushort		N20;	/* Maximum number of retries for T20 */
+	_ushort		N22;	/* Maximum number of retries for T22 */
 
 	const struct x25_callbacks *callbacks;
 	/* Internal control information */
@@ -348,19 +223,20 @@ extern int x25_register(struct x25_callbacks *callbacks, struct x25_params * par
 extern int x25_unregister(struct x25_cs * x25);
 extern int x25_get_params(struct x25_cs * x25, struct x25_params * params);
 extern int x25_set_params(struct x25_cs * x25, struct x25_params * params);
-
-//int x25_connect_request(struct x25_cs * x25, struct x25_address *uaddr, int addr_len);
-void x25_add_link(struct x25_cs *x25, void * link, int extended);
-int x25_connect_request(struct x25_cs * x25, struct x25_address *dest_addr);
+extern void x25_add_link(struct x25_cs *x25, void * link, int extended);
+extern int x25_get_state(struct x25_cs *x25);
+extern int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
+extern int x25_clear_request(struct x25_cs * x25);
 
 
 /* x25_link.c */
-void x25_link_established(void *x25_ptr);
+extern void x25_link_established(void *x25_ptr);
+extern void x25_link_terminated(void *x25_ptr);
 int x25_link_receive_data(void *x25_ptr, char * data, int data_size);
 
 
 /* lapb_subr.c */
-
+char * x25_error_str(int error);
 
 
 

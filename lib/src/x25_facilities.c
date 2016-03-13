@@ -246,58 +246,59 @@ int x25_negotiate_facilities(struct x25_cs *x25,
 	//struct x25_facilities *ours = &x25->facilities;
 	struct x25_facilities theirs;
 	int len;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	x25_mem_zero(&theirs, sizeof(theirs));
 	//x25_mem_copy(_new, ours, sizeof(*_new));
 
-	len = x25_parse_facilities(x25, data, data_size, &theirs, dte, &x25->vc_facil_mask);
+	len = x25_parse_facilities(x25, data, data_size, &theirs, dte, &x25_int->vc_facil_mask);
 	if (len < 0)
 		return len;
 
 	/*
 	 *	They want reverse charging, we won't accept it.
 	 */
-	if ((theirs.reverse & 0x01 ) && (x25->facilities.reverse & 0x01)) {
+	if ((theirs.reverse & 0x01 ) && (x25_int->facilities.reverse & 0x01)) {
 		x25->callbacks->debug(1, "[X25] rejecting reverse charging request");
 		return -1;
 	};
 
-	x25->facilities.reverse = theirs.reverse;
+	x25_int->facilities.reverse = theirs.reverse;
 
 	if (theirs.throughput) {
 		int theirs_in =  theirs.throughput & 0x0f;
 		int theirs_out = theirs.throughput & 0xf0;
-		int ours_in  = x25->facilities.throughput & 0x0f;
-		int ours_out = x25->facilities.throughput & 0xf0;
+		int ours_in  = x25_int->facilities.throughput & 0x0f;
+		int ours_out = x25_int->facilities.throughput & 0xf0;
 		if (!ours_in || theirs_in < ours_in) {
 			x25->callbacks->debug(1, "[X25] inbound throughput negotiated");
-			x25->facilities.throughput = (x25->facilities.throughput & 0xf0) | theirs_in;
+			x25_int->facilities.throughput = (x25_int->facilities.throughput & 0xf0) | theirs_in;
 		};
 		if (!ours_out || theirs_out < ours_out) {
 			x25->callbacks->debug(1, "[X25] outbound throughput negotiated");
-			x25->facilities.throughput = (x25->facilities.throughput & 0x0f) | theirs_out;
+			x25_int->facilities.throughput = (x25_int->facilities.throughput & 0x0f) | theirs_out;
 		};
 	};
 
 	if (theirs.pacsize_in && theirs.pacsize_out) {
-		if (theirs.pacsize_in < x25->facilities.pacsize_in) {
+		if (theirs.pacsize_in < x25_int->facilities.pacsize_in) {
 			x25->callbacks->debug(1, "[X25] packet size inwards negotiated down");
-			x25->facilities.pacsize_in = theirs.pacsize_in;
+			x25_int->facilities.pacsize_in = theirs.pacsize_in;
 		};
-		if (theirs.pacsize_out < x25->facilities.pacsize_out) {
+		if (theirs.pacsize_out < x25_int->facilities.pacsize_out) {
 			x25->callbacks->debug(1, "[X25] packet size outwards negotiated down");
-			x25->facilities.pacsize_out = theirs.pacsize_out;
+			x25_int->facilities.pacsize_out = theirs.pacsize_out;
 		};
 	};
 
 	if (theirs.winsize_in && theirs.winsize_out) {
-		if (theirs.winsize_in < x25->facilities.winsize_in) {
+		if (theirs.winsize_in < x25_int->facilities.winsize_in) {
 			x25->callbacks->debug(1, "[X25] window size inwards negotiated down");
-			x25->facilities.winsize_in = theirs.winsize_in;
+			x25_int->facilities.winsize_in = theirs.winsize_in;
 		};
-		if (theirs.winsize_out < x25->facilities.winsize_out) {
+		if (theirs.winsize_out < x25_int->facilities.winsize_out) {
 			x25->callbacks->debug(1, "[X25] window size outwards negotiated down");
-			x25->facilities.winsize_out = theirs.winsize_out;
+			x25_int->facilities.winsize_out = theirs.winsize_out;
 		};
 	};
 
@@ -309,14 +310,15 @@ int x25_negotiate_facilities(struct x25_cs *x25,
  *      currently attached x25 link.
  */
 void x25_limit_facilities(struct x25_cs *x25) {
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	if (!x25->link.extended) {
-		if (x25->facilities.winsize_in  > 7) {
+		if (x25_int->facilities.winsize_in  > 7) {
 			x25->callbacks->debug(1, "[X25] incoming winsize limited to 7");
-			x25->facilities.winsize_in = 7;
+			x25_int->facilities.winsize_in = 7;
 		};
-		if (x25->facilities.winsize_out > 7) {
-			x25->facilities.winsize_out = 7;
+		if (x25_int->facilities.winsize_out > 7) {
+			x25_int->facilities.winsize_out = 7;
 			x25->callbacks->debug(1, "[X25] outgoing winsize limited to 7");
 		};
 	};
