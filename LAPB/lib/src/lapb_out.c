@@ -86,7 +86,7 @@ void lapb_kick(struct lapb_cs *lapb) {
 			/*
 			 * Requeue the original data frame.
 			 */
-			cb_queue_tail(&lapb_int->ack_queue, buffer, buffer_size);
+			cb_queue_tail(&lapb_int->ack_queue, buffer, buffer_size, 0);
 
 		} while (lapb_int->vs != end && (buffer = cb_dequeue(&lapb_int->write_queue, &buffer_size)) != NULL);
 

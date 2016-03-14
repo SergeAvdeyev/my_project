@@ -28,7 +28,7 @@ SOURCES += \
     ../../lib/src/x25_facilities.c \
     ../../lib/src/x25_link.c \
 #
-    ../../LAPB/lib/src/queue.c \
+   ../../LAPB/lib/src/queue.c \
     ../../LAPB/lib/src/subr.c \
     ../../LAPB/lib/src/lapb_iface.c \
     ../../LAPB/lib/src/lapb_timer.c \

@@ -14,7 +14,7 @@
 #include <stdio.h>
 
 #include "x25_iface.h"
-#include "queue.h"
+//#include "queue.h"
 
 
 
@@ -173,7 +173,7 @@ int x25_process_rx_frame(struct x25_cs *x25, char * data, int data_size);
 
 /* x25_out.c */
 int x25_pacsize_to_bytes(_uint pacsize);
-int x25_output(struct x25_cs * x25, char * data, int data_size);
+int x25_output(struct x25_cs * x25, char * data, int data_size, int q_bit_flag);
 void x25_send_iframe(struct x25_cs * x25, char * data, int data_size);
 void x25_kick(struct x25_cs * x25);
 void x25_enquiry_response(struct x25_cs * x25);

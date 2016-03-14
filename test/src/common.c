@@ -124,6 +124,13 @@ void x25_call_accepted_cb(struct x25_cs * x25) {
 	custom_debug(0, "[X25_CB] call_accepted event is called");
 }
 
+/* Called by X25 to inform App that Call request is confirmed */
+int x25_data_indication_cb(struct x25_cs * x25, char * data, int data_size) {
+	(void)x25;
+	custom_debug(0, "[X25_CB] data_indication event is called");
+	printf("%s\n", buf_to_str(data, data_size));
+	return 0;
+}
 
 
 
@@ -379,8 +386,8 @@ void x25_state_3(struct x25_cs *x25) {
 				} else
 					data_size = strlen(buffer) - 1;
 				buffer[data_size] = 0;
-				//lapb_res = lapb_data_request(lapb, buffer, data_size);
-				if (res != X25_OK) {
+				res = x25_sendmsg(x25, buffer, data_size, FALSE, FALSE);
+				if (res < 0) {
 					printf("ERROR: %s\n\n", x25_error_str(res));
 					//lapb_reset(lapb, LAPB_STATE_0);
 				};
@@ -394,11 +401,11 @@ void x25_state_3(struct x25_cs *x25) {
 					bzero(buffer, sizeof(buffer));
 					sprintf(buffer, "abcdefghij_%d", out_counter);
 					//res = lapb_data_request(lapb, buffer, strlen(buffer));
-					if (res != X25_OK) {
-						if (res != X25_BUSY) {
+					if (res < 0) {
+						//if (res != X25_BUSY) {
 							printf("ERROR: %s\n", x25_error_str(res));
 							break;
-						};
+						//};
 						sleep_ms(50);
 						continue;
 					};

@@ -381,6 +381,7 @@ label_2:
 
 	x25_callbacks.call_indication = x25_call_indication_cb;
 	x25_callbacks.call_accepted = x25_call_accepted_cb;
+	x25_callbacks.data_indication = x25_data_indication_cb;
 
 	x25_callbacks.add_timer = timer_add;
 	x25_callbacks.del_timer = timer_del;

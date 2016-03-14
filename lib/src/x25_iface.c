@@ -269,25 +269,9 @@ int x25_clear_request(struct x25_cs * x25) {
 	return 0;
 }
 
-struct msghdr {
-
-};
-
-struct socket {
-
-};
-
 int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_band, _uchar q_bit_flag) {
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
-//	struct sock *sk = sock->sk;
-//	struct x25_sock *x25 = x25_sk(sk);
-
-//	DECLARE_SOCKADDR(struct sockaddr_x25 *, usx25, msg->msg_name);
-//	struct sockaddr_x25 sx25;
-//	struct sk_buff *skb;
-//	unsigned char *asmptr;
-//	int noblock = msg->msg_flags & MSG_DONTWAIT;
 	int data_size_tmp = data_size;
 	char * ptr = data;
 	int qbit = 0;
@@ -305,36 +289,10 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 		goto out;
 	};
 
-//	SOCK_DEBUG(sk, "x25_sendmsg: sendto: Addresses built.\n");
-
-//	/* Build a packet */
-//	SOCK_DEBUG(sk, "x25_sendmsg: sendto: building packet.\n");
-
 	if ((out_of_band) && data_size_tmp > 32)
 		data_size_tmp = 32;
 
 //	size = len + X25_EXT_MIN_LEN;
-
-//	release_sock(sk);
-//	skb = sock_alloc_send_skb(sk, size, noblock, &rc);
-//	lock_sock(sk);
-//	if (!skb)
-//		goto out;
-//	X25_SKB_CB(skb)->flags = msg->msg_flags;
-
-//	skb_reserve(skb, X25_MAX_L2_LEN + X25_EXT_MIN_LEN);
-
-//	/*
-//	 *	Put the data on the end
-//	 */
-//	SOCK_DEBUG(sk, "x25_sendmsg: Copying user data\n");
-
-//	skb_reset_transport_header(skb);
-//	skb_put(skb, len);
-
-//	rc = memcpy_from_msg(skb_transport_header(skb), msg, len);
-//	if (rc)
-//		goto out_kfree_skb;
 
 	/*
 	 *	If the Q BIT Include socket option is in force, the first
@@ -347,65 +305,24 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 		//skb_pull(skb, 1);
 	};
 
-//	/*
-//	 *	Push down the X.25 header
-//	 */
-//	SOCK_DEBUG(sk, "x25_sendmsg: Building X.25 Header.\n");
-
 	rc = -X25_NOMEM;
-
 	if (out_of_band) {
-		ptr = cb_queue_tail(&x25_int->interrupt_out_queue, ptr, data_size_tmp);
+		ptr = cb_queue_tail(&x25_int->interrupt_out_queue, ptr, data_size_tmp, X25_STD_MIN_LEN);
 		if (!ptr)
 			goto out;
 
-		ptr = cb_push(ptr, X25_STD_MIN_LEN);
 		if (x25->link.extended)
 			*ptr++ = ((x25->lci >> 8) & 0x0F) | X25_GFI_EXTSEQ;
 		else
 			*ptr++ = ((x25->lci >> 8) & 0x0F) | X25_GFI_STDSEQ;
 		*ptr++ = (x25->lci >> 0) & 0xFF;
 		*ptr++ = X25_INTERRUPT;
-	} else {
-		if (x25->link.extended) {
-			/* Build an Extended X.25 header */
-			asmptr    = skb_push(skb, X25_EXT_MIN_LEN);
-			*asmptr++ = ((x25->lci >> 8) & 0x0F) | X25_GFI_EXTSEQ;
-			*asmptr++ = (x25->lci >> 0) & 0xFF;
-			*asmptr++ = X25_DATA;
-			*asmptr++ = X25_DATA;
-		} else {
-			/* Build an Standard X.25 header */
-			asmptr    = skb_push(skb, X25_STD_MIN_LEN);
-			*asmptr++ = ((x25->lci >> 8) & 0x0F) | X25_GFI_STDSEQ;
-			*asmptr++ = (x25->lci >> 0) & 0xFF;
-			*asmptr++ = X25_DATA;
-		}
-
-		if (qbit)
-			data[0] |= X25_Q_BIT;
-	}
-
-//	SOCK_DEBUG(sk, "x25_sendmsg: Built header.\n");
-//	SOCK_DEBUG(sk, "x25_sendmsg: Transmitting buffer\n");
-
-//	rc = -ENOTCONN;
-//	if (sk->sk_state != TCP_ESTABLISHED)
-//		goto out_kfree_skb;
-
-//	if (msg->msg_flags & MSG_OOB)
-//		skb_queue_tail(&x25->interrupt_out_queue, skb);
-//	else {
-		rc = x25_output(sk, skb);
-//		len = rc;
-//		if (rc < 0)
-//			kfree_skb(skb);
-//		else if (test_bit(X25_Q_BIT_FLAG, &x25->flags))
-//			len++;
-//	}
+		rc = data_size_tmp + X25_STD_MIN_LEN;
+	} else
+		rc = x25_output(x25, ptr, data_size_tmp, qbit);
 
 	x25_kick(x25);
-	rc = len;
+	//rc = len;
 out:
 	unlock(x25);
 	return rc;

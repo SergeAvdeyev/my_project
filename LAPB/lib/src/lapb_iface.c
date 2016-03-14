@@ -357,7 +357,7 @@ int lapb_data_request(void *lapb_ptr, char *data, int data_size) {
 	if (actual_window_size >= lapb->window)
 		goto out;
 
-	cb_queue_tail(&lapb_int->write_queue, data, data_size);
+	cb_queue_tail(&lapb_int->write_queue, data, data_size, 0);
 //	if (!cb_queue_tail(&lapb->write_queue, data, data_size))
 //		goto out;
 	lapb_kick(lapb);

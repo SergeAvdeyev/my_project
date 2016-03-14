@@ -16,19 +16,19 @@
 struct circular_buffer {
 		char * buffer;		/* data buffer */
 		char * buffer_end;	/* end of data buffer */
-		size_t capacity;	/* maximum number of items in the buffer */
-		size_t count;		/* number of items in the buffer */
-		size_t sz;			/* size of each item in the buffer */
+		unsigned int capacity;	/* maximum number of items in the buffer */
+		unsigned int count;		/* number of items in the buffer */
+		unsigned int sz;			/* size of each item in the buffer */
 		char * head;		/* pointer to head */
 		char * tail;		/* pointer to tail */
 };
 
 /* queue.c */
-void cb_init(struct circular_buffer * cb, size_t capacity, size_t sz);
+void cb_init(struct circular_buffer * cb, unsigned int capacity, unsigned int sz);
 void cb_free(struct circular_buffer *cb);
 void cb_clear(struct circular_buffer *cb);
 int cb_queue_head(struct circular_buffer *cb, const char *data, int data_size);
-char * cb_queue_tail(struct circular_buffer * cb, const char * data, int data_size);
+char * cb_queue_tail(struct circular_buffer * cb, const char * data, unsigned int data_size, unsigned int offset);
 char * cb_peek(struct circular_buffer * cb);
 /* Remove buffer from head of queue */
 char * cb_dequeue(struct circular_buffer * cb, int * buffer_size);

@@ -155,6 +155,7 @@ struct x25_cs;
 struct x25_callbacks {
 	void (*call_indication)(struct x25_cs * x25);
 	void (*call_accepted)(struct x25_cs * x25);
+	int  (*data_indication)(struct x25_cs * x25, char * data, int data_size);	/* Data from the remote system has been received. */
 
 	int (*link_connect_request)(void * link_ptr);
 	int (*link_disconnect_request)(void * link_ptr);
@@ -186,6 +187,7 @@ struct x25_timer {
 	void *		timer_ptr;
 	_uchar		state;
 };
+
 
 
 struct x25_link {
@@ -227,6 +229,7 @@ extern void x25_add_link(struct x25_cs *x25, void * link, int extended);
 extern int x25_get_state(struct x25_cs *x25);
 extern int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
 extern int x25_clear_request(struct x25_cs * x25);
+extern int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_band, _uchar q_bit_flag);
 
 
 /* x25_link.c */
@@ -241,6 +244,9 @@ char * x25_error_str(int error);
 
 
 /* lapb_timer.c */
+
+
+
 
 
 /*

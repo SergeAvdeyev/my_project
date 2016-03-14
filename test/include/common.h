@@ -38,6 +38,7 @@ char * lapb_error_str(int error);
 
 void x25_call_indication_cb(struct x25_cs * x25);
 void x25_call_accepted_cb(struct x25_cs * x25);
+int x25_data_indication_cb(struct x25_cs * x25, char * data, int data_size);
 
 void setup_signals_handler();
 int sleep_ms(int milliseconds);

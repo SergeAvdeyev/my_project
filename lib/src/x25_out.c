@@ -31,65 +31,63 @@ int x25_pacsize_to_bytes(_uint pacsize) {
  *      Returns the amount of user data bytes sent on success
  *      or a negative error code on failure.
  */
-int x25_output(struct x25_cs *x25, char *data, int data_size) {
-//	struct sk_buff *skbn;
-//	_uchar header[X25_EXT_MIN_LEN];
-//	int err;
-//	int frontlen;
-	int data_size_tmp = data_size;
+int x25_output(struct x25_cs *x25, char *data, int data_size, int q_bit_flag) {
+	_uchar header[X25_EXT_MIN_LEN];
+	//int data_size_tmp = data_size;
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 	int len;
 	int sent = 0;
-//	int noblock = X25_SKB_CB(skb)->flags & MSG_DONTWAIT;
 	int header_len = x25->link.extended ? X25_EXT_MIN_LEN : X25_STD_MIN_LEN;
 	int max_len = x25_pacsize_to_bytes(x25_int->facilities.pacsize_out);
+	char * ptr = data;
+	char * tmp_buf;
 
-	if (data_size_tmp - header_len > max_len) {
-//		/* Save a copy of the Header */
-//		skb_copy_from_linear_data(skb, header, header_len);
-//		skb_pull(skb, header_len);
+	/* Build X25 Header */
+	if (x25->link.extended) {
+		/* Build an Extended X.25 header */
+		header[0] = ((x25->lci >> 8) & 0x0F) | X25_GFI_EXTSEQ;
+		header[1] = (x25->lci >> 0) & 0xFF;
+		header[2] = X25_DATA;
+		header[3] = X25_DATA;
+	} else {
+		/* Build an Standard X.25 header */
+		header[0] = ((x25->lci >> 8) & 0x0F) | X25_GFI_STDSEQ;
+		header[1] = (x25->lci >> 0) & 0xFF;
+		header[2] = X25_DATA;
+	};
+	if (q_bit_flag)
+		header[0] |= X25_Q_BIT;
 
-//		frontlen = skb_headroom(skb);
-
-		while (data_size_tmp > 0) {
-//			release_sock(sk);
-//			skbn = sock_alloc_send_skb(sk, frontlen + max_len, noblock, &err);
-//			lock_sock(sk);
-//			if (!skbn) {
-//				if (err == -EWOULDBLOCK && noblock){
-//					kfree_skb(skb);
-//					return sent;
-//				}
-//				pr_debug(sk, "x25_output: fragment alloc failed, err=%d, %d bytes sent\n", err, sent);
-//				return err;
-//			}
-
-//			skb_reserve(skbn, frontlen);
-
-			len = max_len > data_size_tmp ? data_size_tmp : max_len;
-
-//			/* Copy the user data */
-//			skb_copy_from_linear_data(skb, skb_put(skbn, len), len);
-//			skb_pull(skb, len);
-
-//			/* Duplicate the Header */
-//			skb_push(skbn, header_len);
-//			skb_copy_to_linear_data(skbn, header, header_len);
-
-//			if (skb->len > 0) {
-//				if (x25->neighbour->extended)
-//					skbn->data[3] |= X25_EXT_M_BIT;
-//				else
-//					skbn->data[2] |= X25_STD_M_BIT;
-//			}
-
-			//skb_queue_tail(&x25->write_queue, skbn);
+//	if (data_size > max_len) {
+		while (data_size > 0) {
+			len = max_len > data_size ? data_size : max_len;
+			tmp_buf = cb_queue_tail(&x25_int->write_queue, ptr, len, header_len);
+			if (x25->link.extended) {
+				/* Duplicate the Header */
+				tmp_buf[0] = header[0];
+				tmp_buf[1] = header[1];
+				tmp_buf[2] = header[2];
+				tmp_buf[3] = header[3];
+			} else {
+				/* Duplicate the Header */
+				tmp_buf[0] = header[0];
+				tmp_buf[1] = header[1];
+				tmp_buf[2] = header[2];
+			};
+			data_size -= len;
+			ptr += len;
+			if (data_size > 0) {
+				if (x25->link.extended)
+					tmp_buf[3] |= X25_EXT_M_BIT;
+				else
+					tmp_buf[2] |= X25_STD_M_BIT;
+			};
 			sent += len;
 		};
-	} else {
-		cb_queue_tail(&x25_int->write_queue, data, data_size);
-		sent = data_size - header_len;
-	};
+//	} else {
+//		tmp_buf = cb_queue_tail(&x25_int->write_queue, data, data_size, 0);
+//		sent = data_size;
+//	};
 	return sent;
 }
 
@@ -113,6 +111,7 @@ void x25_send_iframe(struct x25_cs *x25, char *data, int data_size) {
 		data[2] |= (x25_int->vr << 5) & 0xE0;
 	}
 
+	x25->callbacks->debug(1, "[X25] S%d TX I S%d R%d", x25_int->state, x25_int->vs, x25_int->vr);
 	x25_transmit_link(x25, data, data_size);
 }
 
@@ -167,7 +166,7 @@ void x25_kick(struct x25_cs * x25) {
 		/*
 		 * Requeue the original data frame.
 		 */
-		cb_queue_tail(&x25_int->ack_queue, buffer, buffer_size);
+		cb_queue_tail(&x25_int->ack_queue, buffer, buffer_size, 0);
 
 	} while (x25_int->vs != end && (buffer = cb_dequeue(&x25_int->write_queue, &buffer_size)) != NULL);
 

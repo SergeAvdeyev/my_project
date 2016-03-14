@@ -6,7 +6,7 @@ void x25_transmit_link(struct x25_cs *x25, char * data, int data_size) {
 
 	switch (x25->link.state) {
 		case X25_LINK_STATE_0:
-			cb_queue_tail(&x25->link.queue, data, data_size);
+			cb_queue_tail(&x25->link.queue, data, data_size, 0);
 			x25->link.state = X25_LINK_STATE_1;
 			/* Exec link callback function link_connect_request method */
 			x25->callbacks->debug(1, "[X25_LINK] S0 Establish Data link...");
@@ -14,7 +14,7 @@ void x25_transmit_link(struct x25_cs *x25, char * data, int data_size) {
 			x25->callbacks->debug(1, "[X25_LINK] S0 -> S1");
 			break;
 		case X25_LINK_STATE_1:
-			cb_queue_tail(&x25->link.queue, data, data_size);
+			cb_queue_tail(&x25->link.queue, data, data_size, 0);
 			x25_int->N20_RC = 0;
 			x25_transmit_restart_request(x25);
 			x25->link.state = X25_LINK_STATE_2;
@@ -22,7 +22,7 @@ void x25_transmit_link(struct x25_cs *x25, char * data, int data_size) {
 			x25_start_timer(x25, x25->link.T2.timer_ptr);
 			break;
 		case X25_LINK_STATE_2:
-			cb_queue_tail(&x25->link.queue, data, data_size);
+			cb_queue_tail(&x25->link.queue, data, data_size, 0);
 			break;
 		case X25_LINK_STATE_3:
 			/* Send Iframe via lapb link */
@@ -69,9 +69,9 @@ void x25_link_terminated(void *x25_ptr) {
 	x25->callbacks->debug(1, "[X25_LINK] S%d Link terminated", x25->link.state);
 
 	x25->callbacks->debug(1, "[X25_LINK] S%d -> S0", x25->link.state);
-	x25->link.state = X25_LINK_STATE_0;
 	/* Out of order: clear existing virtual calls (X.25 03/93 4.6.3) */
 	x25_disconnect(x25, X25_REFUSED, 0, 0);
+	//x25->link.state = X25_LINK_STATE_0;
 }
 
 int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {

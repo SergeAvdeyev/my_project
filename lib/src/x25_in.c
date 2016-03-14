@@ -28,11 +28,10 @@ int x25_queue_rx_frame(struct x25_cs * x25, char * data, int data_size, int more
 	if (more)
 		return 0;
 
-	cb_queue_tail(&x25_int->receive_queue, x25_int->fragment_buffer, x25_int->fragment_len);
+	cb_queue_tail(&x25_int->receive_queue, x25_int->fragment_buffer, x25_int->fragment_len, 0);
 	x25_int->fragment_len = 0;
 	/* Inform Application about new received data */
-	//if (!sock_flag(sk, SOCK_DEAD))
-	//	sk->sk_data_ready(sk);
+	x25->callbacks->data_indication(x25, data, data_size);
 
 	return 0;
 }
@@ -242,10 +241,11 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int fram
 				x25_int->state     = X25_STATE_4;
 				x25->callbacks->debug(1, "[X25] S3 -> S4");
 				break;
-			}
+			};
 			x25_frames_acked(x25, nr);
 			if (ns == x25_int->vr) {
-				if (x25_queue_rx_frame(x25, data, data_size, m) == 0) {
+				int offset = x25->link.extended ? 4 : 3;
+				if (x25_queue_rx_frame(x25, data + offset, data_size - offset, m) == 0) {
 					x25_int->vr = (x25_int->vr + 1) % modulus;
 					queued = 1;
 				} else {
@@ -288,7 +288,7 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int fram
 
 		case X25_INTERRUPT:
 			x25->callbacks->debug(1, "[X25] S3 RX INTERRUPT");
-			cb_queue_tail(&x25_int->interrupt_in_queue, data, data_size);
+			cb_queue_tail(&x25_int->interrupt_in_queue, data, data_size, 0);
 			queued = 1;
 			x25->callbacks->debug(1, "[X25] S3 TX INTERRUPT_CONFIRMATION");
 			x25_write_internal(x25, X25_INTERRUPT_CONFIRMATION);
