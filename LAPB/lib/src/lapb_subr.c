@@ -329,6 +329,7 @@ void lapb_send_control(struct lapb_cs *lapb, int frametype, int poll_bit, int ty
 	};
 
 	lapb_transmit_buffer(lapb, frame, frame_size, type);
+	lapb_int->last_vr = lapb_int->vr;
 }
 
 /*

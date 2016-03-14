@@ -14,23 +14,23 @@
 
 char str_buf[1024];
 
-void lock(struct x25_cs *x25) {
-#if !INTERNAL_SYNC
-	(void)x25;
-#else
-	if (!x25) return;
-	pthread_mutex_lock(&(x25_get_internal(x25)->_mutex));
-#endif
-}
+//void lock(struct x25_cs *x25) {
+//#if !INTERNAL_SYNC
+//	(void)x25;
+//#else
+//	if (!x25) return;
+//	pthread_mutex_lock(&(x25_get_internal(x25)->_mutex));
+//#endif
+//}
 
-void unlock(struct x25_cs *x25) {
-#if !INTERNAL_SYNC
-	(void)x25;
-#else
-	if (!x25) return;
-	pthread_mutex_unlock(&(x25_get_internal(x25)->_mutex));
-#endif
-}
+//void unlock(struct x25_cs *x25) {
+//#if !INTERNAL_SYNC
+//	(void)x25;
+//#else
+//	if (!x25) return;
+//	pthread_mutex_unlock(&(x25_get_internal(x25)->_mutex));
+//#endif
+//}
 
 char * x25_error_str(int error) {
 	if (error < 0)

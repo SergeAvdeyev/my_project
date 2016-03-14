@@ -176,16 +176,16 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 		/*
 		 *	Frame reject state, restransmit FRMR frames, up to N2 times.
 		 */
-//		case LAPB_STATE_4:
-//			if (lapb->N2count >= lapb->N2) {
-//				lapb_stop_t1timer(lapb);
-//				lapb_requeue_frames(lapb);
-//				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
-//				lapb_reset(lapb, LAPB_STATE_0);
-//			} else {
-//				lapb_transmit_frmr(lapb);
-//			};
-//			break;
+		case LAPB_STATE_4:
+			if (lapb_int->RC >= lapb->N201) {
+				lapb_stop_t201timer(lapb);
+				lapb_requeue_frames(lapb);
+				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
+				lapb_reset(lapb, LAPB_STATE_0);
+			} else {
+				lapb_transmit_frmr(lapb);
+			};
+			break;
 	};
 	lapb_unlock(lapb);
 }

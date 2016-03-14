@@ -117,6 +117,8 @@ int data_indication(struct lapb_cs * lapb, char * data, int data_size) {
 	(void)lapb;
 	//lapb_debug(NULL, 0, "[X25_CB] received new data");
 	printf("%s\n", buf_to_str(data, data_size));
+	if (lapb_is_dce(lapb))
+		lapb_data_request(lapb, data, data_size);
 	return 0;
 }
 

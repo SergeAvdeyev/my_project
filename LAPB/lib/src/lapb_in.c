@@ -32,6 +32,7 @@ void lapb_state0_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S0 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
@@ -48,6 +49,7 @@ void lapb_state0_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S0 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
@@ -106,6 +108,7 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
 				lapb_connect_confirmation(lapb, LAPB_OK);
@@ -123,6 +126,7 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
 				lapb_connect_confirmation(lapb, LAPB_OK);
@@ -150,6 +154,7 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 
 				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
@@ -242,6 +247,7 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb_requeue_frames(lapb);
 				lapb_start_t201timer(lapb); /* to kick data */
@@ -257,6 +263,7 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb_requeue_frames(lapb);
 				lapb_start_t201timer(lapb); /* to kick data */
@@ -361,6 +368,7 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_check_iframes_acked(lapb, frame->nr);
 
 			if (frame->ns == lapb_int->vr) {
+				lapb_int->vr = (lapb_int->vr + 1) % modulus;
 				int cn;
 				if (lapb_is_extended(lapb))
 					cn = lapb_data_indication(lapb, data + 3, data_size - 3);
@@ -377,17 +385,19 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 					lapb->callbacks->debug(1, "[LAPB] S3 Upper layer has dropped the frame");
 					break;
 				};
-				lapb_int->vr = (lapb_int->vr + 1) % modulus;
+				//lapb_int->vr = (lapb_int->vr + 1) % modulus;
 				lapb_int->condition &= ~LAPB_REJECT_CONDITION;
-				if (frame->pf)
-					lapb_enquiry_response(lapb);
-				else {
-					if (!(lapb_int->condition & LAPB_ACK_PENDING_CONDITION)) {
-						lapb_int->condition |= LAPB_ACK_PENDING_CONDITION;
-						lapb_start_t202timer(lapb);
+				if (lapb_int->last_vr != lapb_int->vr) {
+					if (frame->pf)
+						lapb_enquiry_response(lapb);
+					else {
+						if (!(lapb_int->condition & LAPB_ACK_PENDING_CONDITION)) {
+							lapb_int->condition |= LAPB_ACK_PENDING_CONDITION;
+							lapb_start_t202timer(lapb);
+						};
+						//else
+						//	lapb->callbacks->debug(lapb, 1, "[LAPB] S3 lapb->condition=%d", lapb->condition);
 					};
-					//else
-					//	lapb->callbacks->debug(lapb, 1, "[LAPB] S3 lapb->condition=%d", lapb->condition);
 				};
 			} else {
 				if (lapb_int->condition & LAPB_REJECT_CONDITION) {
@@ -436,6 +446,7 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb_start_t201timer(lapb); /* to kick data */
 			} else {
@@ -491,6 +502,7 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S4 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
@@ -508,6 +520,7 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
+				lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S4 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
@@ -568,9 +581,9 @@ void lapb_data_input(struct lapb_cs *lapb, char *data, int data_size) {
 		case LAPB_STATE_3:
 			lapb_state3_machine(lapb, data, data_size, &frame);
 			break;
-//		case LAPB_STATE_4:
-//			lapb_state4_machine(lapb, &frame);
-//			break;
+		case LAPB_STATE_4:
+			lapb_state4_machine(lapb, &frame);
+			break;
 	};
 
 	if (!(lapb_int->condition & LAPB_FRMR_CONDITION))

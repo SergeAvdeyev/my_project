@@ -17,11 +17,11 @@
 #include <stdlib.h>
 #endif
 
-#define INTERNAL_SYNC 1 /* For including pthread.h and make library thread-safe */
+//#define INTERNAL_SYNC 1 /* For including pthread.h and make library thread-safe */
 
-#if INTERNAL_SYNC
-#include <pthread.h>
-#endif
+//#if INTERNAL_SYNC
+//#include <pthread.h>
+//#endif
 
 #include "queue.h"
 

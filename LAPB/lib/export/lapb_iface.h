@@ -228,6 +228,9 @@ extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, 
 /* lapb_subr.c */
 //extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 char * lapb_error_str(int error);
+int lapb_is_dce(struct lapb_cs *lapb);
+int lapb_is_extended(struct lapb_cs *lapb);
+int lapb_is_slp(struct lapb_cs *lapb);
 
 /* lapb_timer.c */
 extern void lapb_t201timer_expiry(void * lapb_ptr);

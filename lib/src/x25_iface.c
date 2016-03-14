@@ -182,17 +182,19 @@ int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr) {
 
 	if (!x25)
 		goto out;
-	lock(x25);
+//	lock(x25);
 
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	rc = X25_NOTCONNECTED;
 	if (x25_int->state == X25_STATE_1)
-		goto out_unlock;
+		//goto out_unlock;
+		goto out;
 
 	rc = X25_CONNECTED;
 	if (x25_int->state == X25_STATE_3)
-		goto out_unlock;
+		//goto out_unlock;
+		goto out;
 
 //	rc = X25_ROOT_UNREACH;
 //	rt = x25_get_route(&addr);
@@ -231,10 +233,8 @@ int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr) {
 //		goto out_put_neigh;
 
 	rc = 0;
-//out_put_route:
-//	x25_route_put(rt);
-out_unlock:
-	unlock(x25);
+//out_unlock:
+//	unlock(x25);
 out:
 	return rc;
 }
@@ -244,7 +244,7 @@ out:
 int x25_clear_request(struct x25_cs * x25) {
 	if (!x25)
 		return 0;
-	lock(x25);
+//	lock(x25);
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	switch (x25_int->state) {
@@ -264,7 +264,7 @@ int x25_clear_request(struct x25_cs * x25) {
 			x25->callbacks->debug(1, "[X25] S%d -> S2", x25_int->state);
 			break;
 	};
-	unlock(x25);
+//	unlock(x25);
 
 	return 0;
 }
@@ -277,7 +277,7 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 	int qbit = 0;
 	int rc = -X25_INVALUE;
 
-	lock(x25);
+//	lock(x25);
 
 	rc = -X25_NOTCONNECTED;
 	if ((x25_int->state != X25_STATE_3) && (x25_int->state != X25_STATE_4))
@@ -324,7 +324,7 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 	x25_kick(x25);
 	//rc = len;
 out:
-	unlock(x25);
+//	unlock(x25);
 	return rc;
 }
 

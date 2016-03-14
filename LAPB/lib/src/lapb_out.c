@@ -53,6 +53,7 @@ void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_
 	lapb->callbacks->debug(1, "[LAPB] S%d TX I(%d) S%d R%d", lapb_int->state, poll_bit, lapb_int->vs, lapb_int->vr);
 
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
+	lapb_int->last_vr = lapb_int->vr;
 }
 
 void lapb_kick(struct lapb_cs *lapb) {

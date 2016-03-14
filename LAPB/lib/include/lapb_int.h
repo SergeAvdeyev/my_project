@@ -19,6 +19,7 @@
 struct lapb_cs_internal {
 	_uchar		state;
 	_ushort		vs, vr, va;
+	_ushort		last_vr;
 	_uchar		condition;
 
 	void *		T201_timer_ptr;		/* Pointer to timer T201 object */
@@ -70,9 +71,9 @@ void lapb_send_control(struct lapb_cs *lapb, int, int, int);
 void lapb_transmit_frmr(struct lapb_cs *lapb);
 void fill_inv_table();
 _uchar invert_uchar(_uchar value);
-int lapb_is_dce(struct lapb_cs *lapb);
-int lapb_is_extended(struct lapb_cs *lapb);
-int lapb_is_slp(struct lapb_cs *lapb);
+//int lapb_is_dce(struct lapb_cs *lapb);
+//int lapb_is_extended(struct lapb_cs *lapb);
+//int lapb_is_slp(struct lapb_cs *lapb);
 /* Convert void *lapb_cs::internal_struct to lapb_cs_internal */
 struct lapb_cs_internal * lapb_get_internal(struct lapb_cs *lapb);
 

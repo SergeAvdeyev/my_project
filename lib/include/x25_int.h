@@ -158,9 +158,9 @@ struct x25_cs_internal {
 	struct x25_calluserdata	calluserdata;
 	_ulong 		vc_facil_mask;	/* inc_call facilities mask */
 
-#if INTERNAL_SYNC
-	pthread_mutex_t		_mutex;
-#endif
+//#if INTERNAL_SYNC
+//	pthread_mutex_t		_mutex;
+//#endif
 };
 
 /* x25_iface.c */

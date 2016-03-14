@@ -212,7 +212,7 @@ int main (int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 	int ret;
-	int dbg = FALSE;
+	int dbg = TRUE;
 
 	struct lapb_callbacks callbacks;
 	int lapb_res;
