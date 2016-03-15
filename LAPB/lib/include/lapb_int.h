@@ -19,7 +19,7 @@
 struct lapb_cs_internal {
 	_uchar		state;
 	_ushort		vs, vr, va;
-	_ushort		last_vr;
+	//_ushort		last_vr;
 	_uchar		condition;
 
 	void *		T201_timer_ptr;		/* Pointer to timer T201 object */
@@ -60,6 +60,7 @@ void lapb_check_need_response(struct lapb_cs *lapb, int, int);
 
 /* lapb_subr.c */
 void lapb_lock(struct lapb_cs *lapb);
+int lapb_trylock(struct lapb_cs *lapb);
 void lapb_unlock(struct lapb_cs *lapb);
 //char * lapb_buf_to_str(char * data, int data_size);
 void lapb_clear_queues(struct lapb_cs *lapb);

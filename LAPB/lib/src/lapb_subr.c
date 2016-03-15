@@ -20,7 +20,17 @@ void lapb_lock(struct lapb_cs *lapb) {
 #else
 	if (!lapb) return;
 
-	pthread_mutex_trylock(&(lapb_get_internal(lapb)->_mutex));
+	pthread_mutex_lock(&(lapb_get_internal(lapb)->_mutex));
+#endif
+}
+
+int lapb_trylock(struct lapb_cs *lapb) {
+#if !INTERNAL_SYNC
+	(void)lapb;
+#else
+	if (!lapb) return -1;
+
+	return pthread_mutex_trylock(&(lapb_get_internal(lapb)->_mutex));
 #endif
 }
 
@@ -172,7 +182,7 @@ int lapb_validate_nr(struct lapb_cs *lapb, unsigned short nr) {
  *	information for the different frame formats.
  */
 int lapb_decode(struct lapb_cs * lapb, char * data, int data_size, 	struct lapb_frame * frame) {
-	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+	//struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 	frame->type = LAPB_ILLEGAL;
 
@@ -258,8 +268,8 @@ int lapb_decode(struct lapb_cs * lapb, char * data, int data_size, 	struct lapb_
 			/*
 			 * I frame - carries NR/NS/PF
 			 */
-			lapb->callbacks->debug(2, "[LAPB] S%d RX %02X %02X %s",
-								   lapb_int->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
+			//lapb->callbacks->debug(2, "[LAPB] S%d RX %02X %02X %s",
+			//					   lapb_int->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
 			frame->type = LAPB_I;
 			frame->ns   = (data[1] >> 1) & 0x07;
 			frame->nr   = (data[1] >> 5) & 0x07;
@@ -329,7 +339,7 @@ void lapb_send_control(struct lapb_cs *lapb, int frametype, int poll_bit, int ty
 	};
 
 	lapb_transmit_buffer(lapb, frame, frame_size, type);
-	lapb_int->last_vr = lapb_int->vr;
+	//lapb_int->last_vr = lapb_int->vr;
 }
 
 /*

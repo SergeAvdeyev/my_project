@@ -1,4 +1,6 @@
 
+#include <execinfo.h>
+
 #include "my_timer.h"
 #include "common.h"
 #include "logger.h"
@@ -24,6 +26,45 @@ void signal_callback_handler(int signum) {
 	};
 }
 
+static void signal_error(int sig) {
+	(void)sig;
+	//(void)ptr;
+	//void* ErrorAddr;
+	void* Trace[100];
+	int    x;
+	int    TraceSize;
+	char** Messages;
+
+	// запишем в лог что за сигнал пришел
+	syslog(LOG_ERR, "[DAEMON] Signal: %s", strsignal(sig));
+
+	// произведем backtrace чтобы получить весь стек вызовов
+	TraceSize = backtrace(Trace, sizeof(Trace) / sizeof(void *));
+	//Trace[1] = ErrorAddr;
+
+	// получим расшифровку трасировки
+	Messages = backtrace_symbols(Trace, TraceSize);
+
+	if (Messages) {
+		syslog(LOG_ERR, "== Backtrace ==");
+
+		// запишем в лог
+		for (x = 0; x < TraceSize; x++) {
+			syslog(LOG_ERR, "%s", Messages[x]);
+		};
+
+		syslog(LOG_ERR, "== End Backtrace ==");
+		free(Messages);
+	};
+
+	syslog(LOG_ERR, "[DAEMON] Stopped");
+	closelog();
+
+	// завершим процесс с кодом требующим перезапуска
+	exit(0);
+}
+
+
 void setup_signals_handler() {
 	struct sigaction sa;
 
@@ -40,6 +81,20 @@ void setup_signals_handler() {
 
 	if (sigaction(SIGINT, &sa, NULL) == -1)
 		perror("Error: cannot handle SIGINT"); // Should not happen
+
+
+	sigemptyset(&sa.sa_mask);
+	// сигналы об ошибках в программе будут обрататывать более тщательно
+	// указываем что хотим получать расширенную информацию об ошибках
+	sa.sa_flags = 0;
+	// задаем функцию обработчик сигналов
+	sa.sa_handler = signal_error;
+
+	// установим наш обработчик на сигналы
+	signal(SIGFPE,	&signal_error); // ошибка FPU
+	signal(SIGILL,	&signal_error); // ошибочная инструкция
+	signal(SIGSEGV,	&signal_error); // ошибка доступа к памяти
+
 }
 
 

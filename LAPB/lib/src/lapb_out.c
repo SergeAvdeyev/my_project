@@ -16,12 +16,14 @@
  *  the rest of the control part of the frame and then writes it out.
  */
 void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_bit) {
+	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+	//lapb->callbacks->debug(1, "[LAPB] S%d Point_5", lapb_int->state);
 	if (!data)
 		return;
 
+	//lapb->callbacks->debug(1, "[LAPB] S%d Point_6", lapb_int->state);
 	char *	frame;
 	int		frame_size = data_size;
-	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 
 	if (lapb_is_extended(lapb)) {
@@ -53,7 +55,7 @@ void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_
 	lapb->callbacks->debug(1, "[LAPB] S%d TX I(%d) S%d R%d", lapb_int->state, poll_bit, lapb_int->vs, lapb_int->vr);
 
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
-	lapb_int->last_vr = lapb_int->vr;
+	//lapb_int->last_vr = lapb_int->vr;
 }
 
 void lapb_kick(struct lapb_cs *lapb) {
@@ -67,10 +69,12 @@ void lapb_kick(struct lapb_cs *lapb) {
 	start = !cb_peek(&lapb_int->ack_queue) ? lapb_int->va : lapb_int->vs;
 	end   = (lapb_int->va + lapb->window) % modulus;
 
+	//lapb->callbacks->debug(1, "[LAPB] S%d Point_1", lapb_int->state);
 	if (!(lapb_int->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
-		start != end && cb_peek(&lapb_int->write_queue)) {
+		(start != end) && cb_peek(&lapb_int->write_queue)) {
 		lapb_int->vs = start;
 
+		//lapb->callbacks->debug(1, "[LAPB] S%d Point_2", lapb_int->state);
 		/*
 		 * Dequeue the frame and copy it.
 		 */
@@ -80,6 +84,7 @@ void lapb_kick(struct lapb_cs *lapb) {
 			/*
 			 * Transmit the frame copy.
 			 */
+			//lapb->callbacks->debug(1, "[LAPB] S%d Point_3", lapb_int->state);
 			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLOFF);
 
 			lapb_int->vs = (lapb_int->vs + 1) % modulus;
@@ -89,10 +94,11 @@ void lapb_kick(struct lapb_cs *lapb) {
 			 */
 			cb_queue_tail(&lapb_int->ack_queue, buffer, buffer_size, 0);
 
-		} while (lapb_int->vs != end && (buffer = cb_dequeue(&lapb_int->write_queue, &buffer_size)) != NULL);
+		} while ((lapb_int->vs != end) && ((buffer = cb_dequeue(&lapb_int->write_queue, &buffer_size)) != NULL));
 
 		lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
+		//lapb->callbacks->debug(1, "[LAPB] S%d Point_4", lapb_int->state);
 		lapb_start_t201timer(lapb);
 		lapb_stop_t202timer(lapb);
 	};
@@ -100,7 +106,7 @@ void lapb_kick(struct lapb_cs *lapb) {
 
 void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int type) {
 	char *ptr;
-	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+//	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 	ptr = data;
 
@@ -130,24 +136,24 @@ void lapb_transmit_buffer(struct lapb_cs *lapb, char * data, int data_size, int 
 		};
 	};
 
-#if LAPB_DEBUG >= 2
-	if (lapb_is_extended(lapb))
-		lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %02X",
-							   lapb_int->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
-	else {
-		if (((_uchar)data[1] & 0x01) == 0)
-			lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %s",
-								   lapb_int->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
-		else {
-			if (data_size == 2)
-				lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X",
-									   lapb_int->state, (_uchar)data[0], (_uchar)data[1]);
-			else if (data_size == 3)
-				lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %02X",
-									   lapb_int->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
-		};
-	};
-#endif
+//#if LAPB_DEBUG >= 2
+//	if (lapb_is_extended(lapb))
+//		lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %02X",
+//							   lapb_int->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
+//	else {
+//		if (((_uchar)data[1] & 0x01) == 0)
+//			lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %s",
+//								   lapb_int->state, (_uchar)data[0], (_uchar)data[1], buf_to_str(&data[2], data_size - 2));
+//		else {
+//			if (data_size == 2)
+//				lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X",
+//									   lapb_int->state, (_uchar)data[0], (_uchar)data[1]);
+//			else if (data_size == 3)
+//				lapb->callbacks->debug(2, "[LAPB] S%d TX %02X %02X %02X",
+//									   lapb_int->state, (_uchar)data[0], (_uchar)data[1], (_uchar)data[2]);
+//		};
+//	};
+//#endif
 	if (lapb->low_order_bits)
 		data[0] = invert_uchar(data[0]);
 

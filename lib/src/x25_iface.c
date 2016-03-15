@@ -258,10 +258,11 @@ int x25_clear_request(struct x25_cs * x25) {
 		case X25_STATE_4:
 			x25_clear_queues(x25);
 			x25->callbacks->debug(1, "[X25] S%d TX CLEAR_REQUEST", x25_int->state);
+			_uchar old_state = x25_int->state;
 			x25_int->state = X25_STATE_2;
 			x25_write_internal(x25, X25_CLEAR_REQUEST);
 			x25_start_timer(x25, &x25_int->T23);
-			x25->callbacks->debug(1, "[X25] S%d -> S2", x25_int->state);
+			x25->callbacks->debug(1, "[X25] S%d -> S2", old_state);
 			break;
 	};
 //	unlock(x25);

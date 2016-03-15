@@ -116,14 +116,6 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 	if (frametype == X25_CALL_REQUEST)
 		return x25_rx_call_request(x25, data, data_size, lci);
 
-//	/* Its not a Call Request, nor is it a control frame. Can we forward it? */
-//	if (x25_forward_data(lci, nb, skb)) {
-//		if (frametype == X25_CLEAR_CONFIRMATION)
-//			x25_clear_forward_by_lci(lci);
-//		//kfree_skb(skb);
-//		return 1;
-//	};
-
 
 	x25_transmit_clear_request(x25, lci, 0x0D);
 	if (frametype != X25_CLEAR_CONFIRMATION)

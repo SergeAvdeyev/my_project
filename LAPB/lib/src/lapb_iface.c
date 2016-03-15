@@ -331,19 +331,19 @@ int lapb_data_request(void *lapb_ptr, char *data, int data_size) {
 
 	if (!lapb)
 		goto out;
-	lapb_lock(lapb);
+	int lock_res = lapb_trylock(lapb);
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 	rc = LAPB_NOTCONNECTED;
 	if (lapb_int->state != LAPB_STATE_3 && lapb_int->state != LAPB_STATE_4)
 	//if (lapb_int->state != LAPB_STATE_3)
-		goto out;
+		goto unlock_out;
 
 
 	rc = LAPB_BUSY;
 	if (lapb_int->condition == LAPB_FRMR_CONDITION)
-		goto out;
+		goto unlock_out;
 	/* check the filling of the window */
 	int actual_window_size;
 	if (lapb_int->vs >= lapb_int->va)
@@ -355,16 +355,16 @@ int lapb_data_request(void *lapb_ptr, char *data, int data_size) {
 			actual_window_size = lapb_int->vs + LAPB_SMODULUS - lapb_int->va;
 	};
 	if (actual_window_size >= lapb->window)
-		goto out;
+		goto unlock_out;
 
 	cb_queue_tail(&lapb_int->write_queue, data, data_size, 0);
-//	if (!cb_queue_tail(&lapb->write_queue, data, data_size))
-//		goto out;
 	lapb_kick(lapb);
 	rc = LAPB_OK;
 
+unlock_out:
+	if (lock_res == 0)
+		lapb_unlock(lapb);
 out:
-	lapb_unlock(lapb);
 	return rc;
 }
 
