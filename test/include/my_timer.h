@@ -18,7 +18,7 @@ struct timer_descr {
 	int interval_tmp;
 	int active;
 	void * lapb_ptr;
-	void (*timer_expiry)(void * lapb_ptr);
+	void (*timer_expiry)(void * lapb_ptr, void * timer_ptr);
 };
 
 

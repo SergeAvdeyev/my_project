@@ -24,6 +24,9 @@ volatile sig_atomic_t exit_flag;
 _ushort error_type; /* 0 - no error; 1 - FCS error; 2 - N(R) error */
 _ushort error_counter;
 
+void main_lock();
+void main_unlock();
+
 /* Called by LAPB to inform X25 that Connect Request is confirmed */
 void lapb_connect_confirmation_cb(struct lapb_cs * lapb, int reason);
 /* Called by LAPB to inform X25 that connection was initiated by the remote system */

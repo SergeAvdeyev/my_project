@@ -14,34 +14,6 @@
 
 _uchar uchar_inv_table[256];
 
-void lapb_lock(struct lapb_cs *lapb) {
-#if !INTERNAL_SYNC
-	(void)lapb;
-#else
-	if (!lapb) return;
-
-	pthread_mutex_lock(&(lapb_get_internal(lapb)->_mutex));
-#endif
-}
-
-int lapb_trylock(struct lapb_cs *lapb) {
-#if !INTERNAL_SYNC
-	(void)lapb;
-#else
-	if (!lapb) return -1;
-
-	return pthread_mutex_trylock(&(lapb_get_internal(lapb)->_mutex));
-#endif
-}
-
-void lapb_unlock(struct lapb_cs *lapb) {
-#if !INTERNAL_SYNC
-	(void)lapb;
-#else
-	if (!lapb) return;
-	pthread_mutex_unlock(&(lapb_get_internal(lapb)->_mutex));
-#endif
-}
 
 void fill_inv_table() {
 	_uchar i = 0;
@@ -70,16 +42,17 @@ _uchar invert_uchar(_uchar value) {
 }
 
 
-/*  */
+/* Check DTE or DCE bit is set */
 int lapb_is_dce(struct lapb_cs *lapb) {
 	return (lapb->mode & LAPB_DCE);
 }
 
-/*   */
+/* Check STANDARD or EXTENDED bit is set */
 int lapb_is_extended(struct lapb_cs *lapb) {
 	return (lapb->mode & LAPB_EXTENDED);
 }
 
+/* Check SINGLE or MULTIPLE link procedure bit is set */
 int lapb_is_slp(struct lapb_cs *lapb) {
 	return !(lapb->mode & LAPB_MLP);
 }
@@ -129,7 +102,7 @@ void lapb_clear_queues(struct lapb_cs *lapb) {
  * acknowledged. This replaces the boxes labelled "V(a) <- N(r)" on the
  * SDL diagram.
  */
-int lapb_frames_acked(struct lapb_cs *lapb, unsigned short nr) {
+int lapb_frames_acked(struct lapb_cs *lapb, _ushort nr) {
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 	int modulus = lapb_is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;
 
@@ -161,9 +134,9 @@ void lapb_requeue_frames(struct lapb_cs *lapb) {
  *	Validate that the value of nr is between va and vs. Return true or
  *	false for testing.
  */
-int lapb_validate_nr(struct lapb_cs *lapb, unsigned short nr) {
+int lapb_validate_nr(struct lapb_cs *lapb, _ushort nr) {
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
-	unsigned short vc = lapb_int->va;
+	_ushort vc = lapb_int->va;
 	int modulus;
 
 	modulus = lapb_is_extended(lapb) ? LAPB_EMODULUS : LAPB_SMODULUS;

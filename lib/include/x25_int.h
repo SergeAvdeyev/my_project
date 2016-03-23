@@ -54,6 +54,7 @@
 #define	X25_COND_ACK_PENDING	0x01
 #define	X25_COND_OWN_RX_BUSY	0x02
 #define	X25_COND_PEER_RX_BUSY	0x04
+#define	X25_COND_RESET			0x08
 
 /* Bitset in x25_cs->flags for misc flags */
 #define X25_Q_BIT_FLAG			0
@@ -120,24 +121,32 @@ enum {
 	X25_LINK_STATE_3
 };
 
+struct x25_frame {
+	_ushort		type;		/* Parsed type	*/
+	_ushort		ns;			/* N(S)			*/
+	_ushort		nr;			/* N(R)			*/
+	_ushort		q_flag;		/* Q flag		*/
+	_ushort		d_flag;
+	_ushort		m_flag;		/* Mode data flag */
+
+};
+
 
 /* Private lapb properties */
 struct x25_cs_internal {
 	_uchar		state;
-	_uchar		condition;
+	_ulong		condition;
 	_ushort		vs;
 	_ushort		vr;
 	_ushort		va;
 	_ushort		vl;
 
-	struct x25_timer	T20;
-//	_ushort				N20;	/* Maximum number of retries for T20 */
-	_ushort				N20_RC;	/* Retry counter for T20 */
-	struct x25_timer	T21;
-	struct x25_timer	T22;
-//	_ushort				N22;	/* Maximum number of retries for T22 */
-	_ushort				N22_RC;	/* Retry counter for T22 */
-	struct x25_timer	T23;
+	struct x25_timer	RestartTimer;		/* Timer for Restart request */
+	struct x25_timer	CallTimer;			/* Timer for Call request */
+	struct x25_timer	ResetTimer;			/* Timer for Reset request */
+	struct x25_timer	ClearTimer;			/* Timer for Clear request */
+	struct x25_timer	AckTimer;			/* Timer for Pending acknowledgement */
+	struct x25_timer	DataTimer;			/* Timer for Data retrasmition */
 
 	struct circular_buffer	ack_queue;
 	struct circular_buffer	write_queue;
@@ -157,10 +166,6 @@ struct x25_cs_internal {
 	struct x25_dte_facilities dte_facilities;
 	struct x25_calluserdata	calluserdata;
 	_ulong 		vc_facil_mask;	/* inc_call facilities mask */
-
-//#if INTERNAL_SYNC
-//	pthread_mutex_t		_mutex;
-//#endif
 };
 
 /* x25_iface.c */
@@ -211,6 +216,8 @@ void clear_bit(long nr, _ulong * addr);
 int test_bit(long nr, _ulong * addr);
 int test_and_set_bit(long nr, _ulong * addr);
 struct x25_cs_internal * x25_get_internal(struct x25_cs *x25);
+int x25_is_dte(struct x25_cs * x25);
+int x25_is_extended(struct x25_cs * x25);
 /* Redefine 'malloc' and 'free' */
 void * x25_mem_get(_ulong size);
 void x25_mem_free(void *ptr);
@@ -220,27 +227,27 @@ int x25_parse_address_block(char * data, int data_size, struct x25_address *call
 int x25_addr_ntoa(_uchar *p, struct x25_address *called_addr, struct x25_address *calling_addr);
 int x25_addr_aton(_uchar *p, struct x25_address *called_addr, struct x25_address *calling_addr);
 void x25_clear_queues(struct x25_cs * x25);
-void x25_frames_acked(struct x25_cs * x25, _ushort nr);
+int x25_frames_acked(struct x25_cs * x25, _ushort nr);
 void x25_requeue_frames(struct x25_cs * x25);
 int x25_validate_nr(struct x25_cs * x25, _ushort nr);
 void x25_write_internal(struct x25_cs *x25, int frametype);
 void x25_disconnect(void * x25_ptr, int reason, _uchar cause, _uchar diagnostic);
-int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr, int *q, int *d, int *m);
+//int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr, int *q, int *d, int *m);
+int x25_decode(struct x25_cs * x25, char * data, int data_size, struct x25_frame * frame);
 int x25_rx_call_request(struct x25_cs * x25, char * data, int data_size, _uint lci);
 
 /* x25_timer.c */
-void x25_start_heartbeat(struct x25_cs *x25);
-void x25_stop_heartbeat(struct x25_cs *x25);
-
-void x25_start_timer(struct x25_cs *x25, struct x25_timer * _timer);
-void x25_stop_timer(struct x25_cs *x25, struct x25_timer * _timer);
-int x25_timer_running(struct x25_timer * _timer);
+void x25_start_timer(struct x25_cs *x25, struct x25_timer * timer);
+void x25_stop_timer(struct x25_cs *x25, struct x25_timer * timer);
+int x25_timer_running(struct x25_timer * timer_ptr);
 void x25_stop_timers(struct x25_cs *x25);
-void x25_t20timer_expiry(void * x25_ptr);
-void x25_t21timer_expiry(void * x25_ptr);
-void x25_t22timer_expiry(void * x25_ptr);
-void x25_t23timer_expiry(void * x25_ptr);
-void x25_t2timer_expiry(void * x25_ptr);
+
+void x25_timer_expiry(void * x25_ptr, void *timer_ptr);
+//void x25_t20timer_expiry(void * x25_ptr);
+//void x25_t21timer_expiry(void * x25_ptr);
+//void x25_t22timer_expiry(void * x25_ptr);
+//void x25_t23timer_expiry(void * x25_ptr);
+//void x25_t2timer_expiry(void * x25_ptr);
 
 #endif // X25_INT_H
 

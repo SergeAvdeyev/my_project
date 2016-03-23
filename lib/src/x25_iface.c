@@ -1,5 +1,5 @@
 /*
- *	LAPB release 001
+ *	X25 release 001
  *
  *  By Serge.V.Avdeyev
  *
@@ -10,8 +10,6 @@
 
 
 #include "x25_int.h"
-
-static struct x25_address null_x25_address = {"               "};
 
 
 void x25_default_debug(int level, const char * format, ...) {
@@ -52,28 +50,31 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 		callbacks->debug = x25_default_debug;
 	(*x25)->callbacks = callbacks;
 
-#if INTERNAL_SYNC
-	/* Init mutex for sinchronization */
-	pthread_mutex_init(&(x25_int->_mutex), NULL);
-#endif
-
 	if (params)
 		x25_set_params(*x25, params);
 	else {
 		/* Set default values */
-		x25_int->T20.interval = X25_DEFAULT_T20;
-		x25_int->T21.interval = X25_DEFAULT_T21;
-		x25_int->T22.interval = X25_DEFAULT_T22;
-		x25_int->T23.interval = X25_DEFAULT_T23;
-		(*x25)->N20 = 2;
-		(*x25)->N22 = 2;
+		x25_int->RestartTimer.interval = X25_DEFAULT_RESTART_TIMER;
+		(*x25)->RestartTimer_NR = 2;
+		x25_int->CallTimer.interval = X25_DEFAULT_CALL_TIMER;
+		(*x25)->CallTimer_NR = 2;
+		x25_int->ResetTimer.interval = X25_DEFAULT_RESET_TIMER;
+		(*x25)->ResetTimer_NR = 2;
+		x25_int->ClearTimer.interval = X25_DEFAULT_CLEAR_TIMER;
+		(*x25)->ClearTimer_NR = 2;
+		x25_int->AckTimer.interval  = X25_DEFAULT_ACK_TIMER;
+		(*x25)->AckTimer_NR = 2;
+		x25_int->DataTimer.interval  = X25_DEFAULT_DATA_TIMER;
+		(*x25)->DataTimer_NR = 2;
 	};
 
-	/* Create timers T201, T202 */
-	x25_int->T20.timer_ptr  = (*x25)->callbacks->add_timer(x25_int->T20.interval,  *x25, x25_t20timer_expiry);
-	x25_int->T21.timer_ptr = (*x25)->callbacks->add_timer(x25_int->T21.interval, *x25, x25_t21timer_expiry);
-	x25_int->T22.timer_ptr = (*x25)->callbacks->add_timer(x25_int->T22.interval, *x25, x25_t22timer_expiry);
-	x25_int->T23.timer_ptr = (*x25)->callbacks->add_timer(x25_int->T23.interval, *x25, x25_t23timer_expiry);
+	/* Create timers */
+	x25_int->RestartTimer.timer_ptr  = (*x25)->callbacks->add_timer(x25_int->RestartTimer.interval,  *x25, x25_timer_expiry);
+	x25_int->CallTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->CallTimer.interval, *x25, x25_timer_expiry);
+	x25_int->ResetTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->ResetTimer.interval, *x25, x25_timer_expiry);
+	x25_int->ClearTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->ClearTimer.interval, *x25, x25_timer_expiry);
+	x25_int->AckTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->AckTimer.interval, *x25, x25_timer_expiry);
+	x25_int->DataTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->DataTimer.interval, *x25, x25_timer_expiry);
 
 	x25_int->state = X25_STATE_0;
 	(*x25)->cudmatchlength = 0;		/* normally no cud on call accept */
@@ -83,8 +84,7 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 	x25_int->facilities.winsize_out = X25_DEFAULT_WINDOW_SIZE;
 	x25_int->facilities.pacsize_in  = X25_DEFAULT_PACKET_SIZE;
 	x25_int->facilities.pacsize_out = X25_DEFAULT_PACKET_SIZE;
-	x25_int->facilities.throughput  = 0;	/* by default don't negotiate
-										throughput */
+	x25_int->facilities.throughput  = 0;	/* by default don't negotiate throughput */
 	x25_int->facilities.reverse     = X25_DEFAULT_REVERSE;
 	x25_int->dte_facilities.calling_len = 0;
 	x25_int->dte_facilities.called_len = 0;
@@ -99,7 +99,6 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 	cb_init(&x25_int->interrupt_in_queue, X25_SMODULUS, x25_pacsize_to_bytes(x25_int->facilities.pacsize_out));
 	cb_init(&x25_int->interrupt_out_queue, X25_SMODULUS, x25_pacsize_to_bytes(x25_int->facilities.pacsize_out));
 
-	(*x25)->link.T2.timer_ptr = NULL;
 
 	rc = X25_OK;
 out:
@@ -114,26 +113,23 @@ int x25_unregister(struct x25_cs * x25) {
 
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
-	x25_stop_timer(x25, &x25_int->T20);
-	x25_stop_timer(x25, &x25_int->T21);
-	x25_stop_timer(x25, &x25_int->T22);
-	x25_stop_timer(x25, &x25_int->T23);
-	x25->callbacks->del_timer(x25_int->T20.timer_ptr);
-	x25->callbacks->del_timer(x25_int->T21.timer_ptr);
-	x25->callbacks->del_timer(x25_int->T22.timer_ptr);
-	x25->callbacks->del_timer(x25_int->T23.timer_ptr);
+	x25_stop_timers(x25);
+	x25->callbacks->del_timer(x25_int->RestartTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->CallTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->ResetTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->ClearTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->AckTimer.timer_ptr);
 
 	cb_free(&x25_int->ack_queue);
 	cb_free(&x25_int->write_queue);
 	cb_free(&x25_int->receive_queue);
-	//cb_free(&x25->fragment_queue);
 	cb_free(&x25_int->interrupt_in_queue);
 	cb_free(&x25_int->interrupt_out_queue);
 
-	if (x25->link.T2.timer_ptr) {
-		x25_stop_timer(x25, &x25->link.T2);
-		x25->callbacks->del_timer(x25->link.T2.timer_ptr);
-	};
+//	if (x25->link.timer.timer_ptr) {
+//		x25_stop_timer(x25, &x25->link.timer);
+//		x25->callbacks->del_timer(x25->link.timer.timer_ptr);
+//	};
 	cb_free(&x25->link.queue);
 
 	x25_mem_free(x25_int);
@@ -160,13 +156,14 @@ int x25_get_state(struct x25_cs *x25) {
 }
 
 
-void x25_add_link(struct x25_cs *x25, void * link, int extended) {
+void x25_add_link(struct x25_cs *x25, void * link) {
 	x25->link.link_ptr = link;
 	x25->link.state    = X25_LINK_STATE_0;
-	x25->link.extended = extended == 0 ? 0 : 1;
+	//x25->link.extended = extended == 0 ? 0 : 1;
 	cb_init(&x25->link.queue, 10, 1024);
-	x25->link.T2.interval = X25_DEFAULT_T2;
-	x25->link.T2.timer_ptr = x25->callbacks->add_timer(x25->link.T2.interval, x25, x25_t2timer_expiry);
+	//x25->link.timer.interval = X25_DEFAULT_T_LINK;
+	//x25->link.T2.timer_ptr = x25->callbacks->add_timer(x25->link.T2.interval, x25, x25_t2timer_expiry);
+	//x25->link.timer.timer_ptr = x25->callbacks->add_timer(x25->link.timer.interval, x25, x25_timer_expiry);
 	x25->link.global_facil_mask =	X25_MASK_REVERSE |
 									X25_MASK_THROUGHPUT |
 									X25_MASK_PACKET_SIZE |
@@ -176,65 +173,35 @@ void x25_add_link(struct x25_cs *x25, void * link, int extended) {
 
 
 
-//int x25_connect_request(struct x25_cs * x25, struct x25_address *uaddr, int addr_len) {
 int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr) {
 	int rc = X25_BADTOKEN;
 
 	if (!x25)
 		goto out;
-//	lock(x25);
 
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	rc = X25_NOTCONNECTED;
 	if (x25_int->state == X25_STATE_1)
-		//goto out_unlock;
 		goto out;
 
 	rc = X25_CONNECTED;
 	if (x25_int->state == X25_STATE_3)
-		//goto out_unlock;
 		goto out;
 
-//	rc = X25_ROOT_UNREACH;
-//	rt = x25_get_route(&addr);
-//	if (!rt)
-//		goto out_unlock;
-
 	x25_limit_facilities(x25);
-
-//	x25->lci = x25_new_lci(x25->neighbour);
-//	if (!x25->lci)
-//		goto out_put_neigh;
-
-
-	if (!strcmp(x25->source_addr.x25_addr, null_x25_address.x25_addr))
-		memset(&x25->source_addr, '\0', X25_ADDR_LEN);
 
 	x25->dest_addr = *dest_addr;
 
 	x25->callbacks->debug(1, "[X25] S%d Make Call to %s", x25_int->state, dest_addr->x25_addr);
-
 	x25->callbacks->debug(1, "[X25] S%d TX CALL_REQUEST", x25_int->state);
 	x25->callbacks->debug(1, "[X25] S%d -> S1", x25_int->state);
 	x25_int->state = X25_STATE_1;
 	x25_write_internal(x25, X25_CALL_REQUEST);
 
-	x25_start_heartbeat(x25);
-	x25_start_timer(x25, x25_int->T21.timer_ptr);
-
-//	/* Now the loop */
-//	rc = -EINPROGRESS;
-//	if (sk->sk_state != TCP_ESTABLISHED && (flags & O_NONBLOCK))
-//		goto out_put_neigh;
-
-//	rc = x25_wait_for_connection_establishment(sk);
-//	if (rc)
-//		goto out_put_neigh;
+	x25_start_timer(x25, &x25_int->CallTimer);
 
 	rc = 0;
-//out_unlock:
-//	unlock(x25);
 out:
 	return rc;
 }
@@ -244,7 +211,7 @@ out:
 int x25_clear_request(struct x25_cs * x25) {
 	if (!x25)
 		return 0;
-//	lock(x25);
+
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	switch (x25_int->state) {
@@ -261,11 +228,10 @@ int x25_clear_request(struct x25_cs * x25) {
 			_uchar old_state = x25_int->state;
 			x25_int->state = X25_STATE_2;
 			x25_write_internal(x25, X25_CLEAR_REQUEST);
-			x25_start_timer(x25, &x25_int->T23);
+			x25_start_timer(x25, &x25_int->ClearTimer);
 			x25->callbacks->debug(1, "[X25] S%d -> S2", old_state);
 			break;
 	};
-//	unlock(x25);
 
 	return 0;
 }
@@ -277,8 +243,6 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 	char * ptr = data;
 	int qbit = 0;
 	int rc = -X25_INVALUE;
-
-//	lock(x25);
 
 	rc = -X25_NOTCONNECTED;
 	if ((x25_int->state != X25_STATE_3) && (x25_int->state != X25_STATE_4))
@@ -303,7 +267,6 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 		qbit = ptr[0];
 		ptr++;
 		data_size_tmp--;
-		//skb_pull(skb, 1);
 	};
 
 	rc = -X25_NOMEM;
@@ -312,7 +275,7 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 		if (!ptr)
 			goto out;
 
-		if (x25->link.extended)
+		if (x25_is_extended(x25))
 			*ptr++ = ((x25->lci >> 8) & 0x0F) | X25_GFI_EXTSEQ;
 		else
 			*ptr++ = ((x25->lci >> 8) & 0x0F) | X25_GFI_STDSEQ;
@@ -325,7 +288,6 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 	x25_kick(x25);
 	//rc = len;
 out:
-//	unlock(x25);
 	return rc;
 }
 
@@ -339,7 +301,7 @@ out:
 //	size_t copied;
 //	int qbit, header_len;
 //	struct sk_buff *skb;
-//	unsigned char *asmptr;
+//	_uchar *asmptr;
 //	int rc = -ENOTCONN;
 
 //	lock_sock(sk);

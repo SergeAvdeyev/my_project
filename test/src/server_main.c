@@ -131,7 +131,9 @@ void new_data_received(char * data, int data_size) {
 						block_size -= 2; /* 2 bytes for FCS */
 						rcv_fcs = *(_ushort *)&in_buffer[block_size];
 						//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+						main_lock();
 						lapb_data_received(lapb_server, in_buffer, block_size, rcv_fcs);
+						main_unlock();
 					} else {
 						/* Open flag */
 						bzero(in_buffer, 1024);
@@ -216,8 +218,8 @@ int main (int argc, char *argv[]) {
 
 	char buffer[2048];
 
-	unsigned char lapb_equipment_type = LAPB_DCE;
-	unsigned char lapb_modulo = LAPB_STANDARD;
+	_uchar lapb_equipment_type = LAPB_DCE;
+	_uchar lapb_modulo = LAPB_STANDARD;
 
 	pthread_t server_thread;
 	struct tcp_server_struct * server_struct = NULL;
@@ -397,9 +399,10 @@ label_2:
 	res = x25_register(&x25_callbacks, NULL, &x25_server);
 	if (res != X25_OK) {
 		printf("x25_register return %d\n", res);
-		exit(EXIT_FAILURE);
+		goto exit;
 	};
-	x25_add_link(x25_server, lapb_server, lapb_modulo == LAPB_EXTENDED);
+	x25_server->mode = (lapb_equipment_type & LAPB_DCE ? X25_DCE : X25_DTE) | (lapb_modulo & LAPB_EXTENDED ? X25_EXTENDED : X25_STANDARD);
+	x25_add_link(x25_server, lapb_server);
 	lapb_server->L3_ptr = x25_server;
 
 	printf("Enter local X25 address[7654321]: ");
@@ -425,6 +428,7 @@ label_2:
 
 	printf("Main loop ended\n");
 
+exit:
 	terminate_tcp_server();
 	while (is_server_started())
 		sleep_ms(200);

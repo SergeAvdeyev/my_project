@@ -73,7 +73,9 @@ void new_data_received(char * data, int data_size) {
 					block_size -= 2; /* 2 bytes for FCS */
 					rcv_fcs = *(_ushort *)&in_buffer[block_size];
 					//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
+					main_lock();
 					lapb_data_received(lapb_client, in_buffer, block_size, rcv_fcs);
+					main_unlock();
 				} else {
 					/* Open flag */
 					bzero(in_buffer, 1024);
@@ -109,7 +111,9 @@ void connection_lost() {
 //	while ((buffer = lapb_dequeue(lapb_client, &buffer_size)) != NULL)
 //		printf("%s\n", buf_to_str(buffer, buffer_size));
 
+	main_lock();
 	lapb_reset(lapb_client, LAPB_STATE_0);
+	main_unlock();
 }
 
 
@@ -315,9 +319,10 @@ label_2:
 	res = x25_register(&x25_callbacks, NULL, &x25_client);
 	if (res != X25_OK) {
 		printf("x25_register return %d\n", res);
-		exit(EXIT_FAILURE);
+		goto exit;
 	};
-	x25_add_link(x25_client, lapb_client, lapb_modulo == LAPB_EXTENDED);
+	x25_client->mode = (lapb_equipment_type & LAPB_DCE ? X25_DCE : X25_DTE) | (lapb_modulo & LAPB_EXTENDED ? X25_EXTENDED : X25_STANDARD);
+	x25_add_link(x25_client, lapb_client);
 	lapb_client->L3_ptr = x25_client;
 
 	printf("Enter local X25 address[1234567]: ");
@@ -344,6 +349,7 @@ label_2:
 
 	printf("Main loop ended\n");
 
+exit:
 	terminate_tcp_client();
 	while (is_client_started())
 		sleep_ms(200);

@@ -12,7 +12,7 @@
 #include "queue.h"
 
 
-void cb_init(struct circular_buffer *cb, unsigned int capacity, unsigned int sz) {
+void cb_init(struct circular_buffer *cb, _uint capacity, _uint sz) {
 	cb->buffer = mem_get(capacity * (sz + 8)); /* 4 bytes for data_size, 4 bytes reserved (for push operations), 2 bytes for FCS */
 
 	cb->buffer_end = cb->buffer + capacity * (sz + 8);
@@ -53,7 +53,7 @@ int cb_queue_head(struct circular_buffer *cb, const char *data, int data_size) {
 	return 1;
 }
 
-char * cb_queue_tail(struct circular_buffer *cb, const char *data, unsigned int data_size, unsigned int offset) {
+char * cb_queue_tail(struct circular_buffer *cb, const char *data, _uint data_size, _uint offset) {
 	if (cb->buffer == NULL) return NULL;
 	if (cb->count == cb->capacity) return NULL;
 	if (cb->sz < (data_size + offset)) return NULL;

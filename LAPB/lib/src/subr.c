@@ -22,7 +22,7 @@ char * buf_to_str(char * data, int data_size) {
 	return str_buf;
 }
 
-void * mem_get(unsigned long size) {
+void * mem_get(_ulong size) {
 #ifdef __GNUC__
 	return malloc(size);
 #else
@@ -39,11 +39,11 @@ void mem_free(void * ptr) {
 #endif
 }
 
-void * mem_copy(void *dest, const void *src, unsigned long n) {
+void * mem_copy(void *dest, const void *src, _ulong n) {
 #ifdef __GNUC__
 	return memcpy(dest, src, n);
 #else
-	unsigned long i = 0;
+	_ulong i = 0;
 	while (i < n) {
 		*(char *)dest = *(char *)src;
 		i++;
@@ -52,11 +52,11 @@ void * mem_copy(void *dest, const void *src, unsigned long n) {
 #endif
 }
 
-void mem_zero(void *src, unsigned long n) {
+void mem_zero(void *src, _ulong n) {
 #ifdef __GNUC__
 	bzero(src, n);
 #else
-	unsigned long i = 0;
+	_ulong i = 0;
 	while (i < n) {
 		*(char *)src = 0;
 		i++;

@@ -24,7 +24,6 @@ SOURCES += \
     ../../lib/src/x25_out.c \
     ../../lib/src/x25_subr.c \
     ../../lib/src/x25_timer.c \
-    ../../lib/src/x25_restart.c \
     ../../lib/src/x25_facilities.c \
     ../../lib/src/x25_link.c \
 #

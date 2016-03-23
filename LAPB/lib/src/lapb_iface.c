@@ -60,11 +60,6 @@ int lapb_register(struct lapb_callbacks *callbacks, struct lapb_params * params,
 		callbacks->debug = lapb_default_debug;
 	(*lapb)->callbacks = callbacks;
 
-#if INTERNAL_SYNC
-	/* Init mutex for sinchronization */
-	pthread_mutex_init(&(lapb_int->_mutex), NULL);
-#endif
-
 	if (params)
 		lapb_set_params(*lapb, params);
 	else {
@@ -203,13 +198,11 @@ char * lapb_dequeue(struct lapb_cs * lapb, int * buffer_size) {
 	char *result = NULL;
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	//lock(lapb);
 	if (cb_peek(&lapb_int->ack_queue))
 		result = cb_dequeue(&lapb_int->ack_queue, buffer_size);
 	else if (cb_peek(&lapb_int->write_queue))
 		result = cb_dequeue(&lapb_int->write_queue, buffer_size);
 
-	//unlock(lapb);
 	return result;
 }
 
@@ -253,18 +246,17 @@ int lapb_connect_request(void *lapb_ptr) {
 
 	if (!lapb)
 		goto out;
-	lapb_lock(lapb);
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 	rc = LAPB_OK;
 	if (lapb_int->state == LAPB_STATE_1)
-		goto unlock_out;
+		goto out;
 
 	rc = LAPB_CONNECTED;
 	//if (lapb->state == LAPB_STATE_3 || lapb->state == LAPB_STATE_4)
 	if (lapb_int->state == LAPB_STATE_3)
-		goto unlock_out;
+		goto out;
 
 	lapb_establish_data_link(lapb);
 	lapb_int->state = LAPB_STATE_1;
@@ -273,8 +265,6 @@ int lapb_connect_request(void *lapb_ptr) {
 	lapb->callbacks->debug(0, "[LAPB] S0 -> S1");
 
 	rc = LAPB_OK;
-unlock_out:
-	lapb_unlock(lapb);
 out:
 	return rc;
 }
@@ -285,8 +275,6 @@ int lapb_disconnect_request(void *lapb_ptr) {
 
 	if (!lapb)
 		goto out;
-
-	lapb_lock(lapb);
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
@@ -321,7 +309,6 @@ int lapb_disconnect_request(void *lapb_ptr) {
 
 	rc = LAPB_OK;
 out:
-	lapb_unlock(lapb);
 	return rc;
 }
 
@@ -331,19 +318,18 @@ int lapb_data_request(void *lapb_ptr, char *data, int data_size) {
 
 	if (!lapb)
 		goto out;
-	int lock_res = lapb_trylock(lapb);
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 	rc = LAPB_NOTCONNECTED;
 	if (lapb_int->state != LAPB_STATE_3 && lapb_int->state != LAPB_STATE_4)
 	//if (lapb_int->state != LAPB_STATE_3)
-		goto unlock_out;
+		goto out;
 
 
 	rc = LAPB_BUSY;
 	if (lapb_int->condition == LAPB_FRMR_CONDITION)
-		goto unlock_out;
+		goto out;
 	/* check the filling of the window */
 	int actual_window_size;
 	if (lapb_int->vs >= lapb_int->va)
@@ -355,15 +341,12 @@ int lapb_data_request(void *lapb_ptr, char *data, int data_size) {
 			actual_window_size = lapb_int->vs + LAPB_SMODULUS - lapb_int->va;
 	};
 	if (actual_window_size >= lapb->window)
-		goto unlock_out;
+		goto out;
 
 	cb_queue_tail(&lapb_int->write_queue, data, data_size, 0);
 	lapb_kick(lapb);
 	rc = LAPB_OK;
 
-unlock_out:
-	if (lock_res == 0)
-		lapb_unlock(lapb);
 out:
 	return rc;
 }
@@ -371,7 +354,6 @@ out:
 int lapb_data_received(struct lapb_cs *lapb, char *data, int data_size, _ushort fcs) {
 	int rc = LAPB_BADFCS;
 
-	lapb_lock(lapb);
 	if (fcs != 0) /* Drop frames with bad summ */
 		goto out;
 
@@ -381,7 +363,6 @@ int lapb_data_received(struct lapb_cs *lapb, char *data, int data_size, _ushort 
 		rc = LAPB_OK;
 	};
 out:
-	lapb_unlock(lapb);
 	return rc;
 }
 

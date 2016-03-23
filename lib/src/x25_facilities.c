@@ -1,22 +1,16 @@
+/*
+ *	X25 release 001
+ *
+ *  By Serge.V.Avdeyev
+ *
+ *  2016-02-01: Start Coding
+ *
+ *
+ */
 
-//#define pr_fmt(fmt) "X25: " fmt
 
 #include "x25_int.h"
 
-/**
- * x25_parse_facilities - Parse facilities from skb into the facilities structs
- *
- * @skb: sk_buff to parse
- * @facilities: Regular facilities, updated as facilities are found
- * @dte_facs: ITU DTE facilities, updated as DTE facilities are found
- * @vc_fac_mask: mask is updated with all facilities found
- *
- * Return codes:
- *  -1 - Parsing error, caller should drop call and clean up
- *   0 - Parse OK, this skb has no facilities
- *  >0 - Parse OK, returns the length of the facilities header
- *
- */
 int x25_parse_facilities(struct x25_cs *x25,
 						 char *data, int data_size,
 						 struct x25_facilities *facilities,
@@ -27,28 +21,20 @@ int x25_parse_facilities(struct x25_cs *x25,
 
 	*vc_fac_mask = 0;
 
-	/*
-	 * The kernel knows which facilities were set on an incoming call but
-	 * currently this information is not available to userspace.  Here we
-	 * give userspace who read incoming call facilities 0 length to indicate
-	 * it wasn't set.
-	 */
 	dte_facs->calling_len = 0;
 	dte_facs->called_len = 0;
 	x25_mem_zero(dte_facs->called_ae, sizeof(dte_facs->called_ae));
 	x25_mem_zero(dte_facs->calling_ae, sizeof(dte_facs->calling_ae));
 
-	//if (!pskb_may_pull(skb, 1))
 	if (data_size == 0)
 		return 0;
 
 	len = *ptr;
 
-	//if (!pskb_may_pull(skb, 1 + len))
 	if (data_size < len + 1)
 		return -1;
 
-	ptr++; // = data + 1;
+	ptr++;
 
 	while (len > 0) {
 		switch (*ptr & X25_FAC_CLASS_MASK) {
@@ -160,12 +146,10 @@ int x25_parse_facilities(struct x25_cs *x25,
 /*
  *	Create a set of facilities.
  */
-int x25_create_facilities(//struct x25_cs * x25,
-						  _uchar *buffer,
+int x25_create_facilities(_uchar *buffer,
 						  struct x25_facilities *facilities,
 						  struct x25_dte_facilities *dte_facs,
 						  _ulong facil_mask) {
-	//(void)x25;
 	_uchar *p = buffer + 1;
 	int len;
 
@@ -234,11 +218,6 @@ int x25_create_facilities(//struct x25_cs * x25,
 	return len;
 }
 
-/*
- *	Try to reach a compromise on a set of facilities.
- *
- *	The only real problem is with reverse charging.
- */
 int x25_negotiate_facilities(struct x25_cs *x25,
 							 char *data, int data_size,
 							 //struct x25_facilities *_new,
@@ -249,7 +228,6 @@ int x25_negotiate_facilities(struct x25_cs *x25,
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	x25_mem_zero(&theirs, sizeof(theirs));
-	//x25_mem_copy(_new, ours, sizeof(*_new));
 
 	len = x25_parse_facilities(x25, data, data_size, &theirs, dte, &x25_int->vc_facil_mask);
 	if (len < 0)
@@ -312,7 +290,16 @@ int x25_negotiate_facilities(struct x25_cs *x25,
 void x25_limit_facilities(struct x25_cs *x25) {
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
-	if (!x25->link.extended) {
+	if (x25_is_extended(x25)) {
+		if (x25_int->facilities.winsize_in  > 127) {
+			x25->callbacks->debug(1, "[X25] incoming winsize limited to 127");
+			x25_int->facilities.winsize_in = 127;
+		};
+		if (x25_int->facilities.winsize_out > 127) {
+			x25_int->facilities.winsize_out = 127;
+			x25->callbacks->debug(1, "[X25] outgoing winsize limited to 127");
+		};
+	} else {
 		if (x25_int->facilities.winsize_in  > 7) {
 			x25->callbacks->debug(1, "[X25] incoming winsize limited to 7");
 			x25_int->facilities.winsize_in = 7;

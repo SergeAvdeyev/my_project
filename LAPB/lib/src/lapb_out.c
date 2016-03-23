@@ -17,11 +17,9 @@
  */
 void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_bit) {
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
-	//lapb->callbacks->debug(1, "[LAPB] S%d Point_5", lapb_int->state);
 	if (!data)
 		return;
 
-	//lapb->callbacks->debug(1, "[LAPB] S%d Point_6", lapb_int->state);
 	char *	frame;
 	int		frame_size = data_size;
 
@@ -55,12 +53,11 @@ void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_
 	lapb->callbacks->debug(1, "[LAPB] S%d TX I(%d) S%d R%d", lapb_int->state, poll_bit, lapb_int->vs, lapb_int->vr);
 
 	lapb_transmit_buffer(lapb, frame, frame_size, LAPB_COMMAND);
-	//lapb_int->last_vr = lapb_int->vr;
 }
 
 void lapb_kick(struct lapb_cs *lapb) {
 
-	unsigned short modulus, start, end;
+	_ushort modulus, start, end;
 	char * buffer;
 	int buffer_size;
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
@@ -69,12 +66,10 @@ void lapb_kick(struct lapb_cs *lapb) {
 	start = !cb_peek(&lapb_int->ack_queue) ? lapb_int->va : lapb_int->vs;
 	end   = (lapb_int->va + lapb->window) % modulus;
 
-	//lapb->callbacks->debug(1, "[LAPB] S%d Point_1", lapb_int->state);
 	if (!(lapb_int->condition & LAPB_PEER_RX_BUSY_CONDITION) &&
 		(start != end) && cb_peek(&lapb_int->write_queue)) {
 		lapb_int->vs = start;
 
-		//lapb->callbacks->debug(1, "[LAPB] S%d Point_2", lapb_int->state);
 		/*
 		 * Dequeue the frame and copy it.
 		 */
@@ -84,7 +79,6 @@ void lapb_kick(struct lapb_cs *lapb) {
 			/*
 			 * Transmit the frame copy.
 			 */
-			//lapb->callbacks->debug(1, "[LAPB] S%d Point_3", lapb_int->state);
 			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLOFF);
 
 			lapb_int->vs = (lapb_int->vs + 1) % modulus;
@@ -98,7 +92,6 @@ void lapb_kick(struct lapb_cs *lapb) {
 
 		lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 
-		//lapb->callbacks->debug(1, "[LAPB] S%d Point_4", lapb_int->state);
 		lapb_start_t201timer(lapb);
 		lapb_stop_t202timer(lapb);
 	};
@@ -193,7 +186,7 @@ void lapb_timeout_response(struct lapb_cs *lapb) {
 	lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 }
 
-void lapb_check_iframes_acked(struct lapb_cs *lapb, unsigned short nr) {
+void lapb_check_iframes_acked(struct lapb_cs *lapb, _ushort nr) {
 	if (lapb_frames_acked(lapb, nr))
 		lapb_stop_t201timer(lapb);
 	else

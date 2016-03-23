@@ -12,18 +12,11 @@
 #define LAPB_IFACE_H
 
 
-//#define USE_GNU_C_Library 0
-
 #ifdef __GNUC__
 #include <string.h>
 #include <stdlib.h>
 #endif
 
-#define INTERNAL_SYNC 1 /* For including pthread.h and make library thread-safe */
-
-#if INTERNAL_SYNC
-#include <pthread.h>
-#endif
 
 #define	LAPB_ACK_PENDING_CONDITION	0x01
 #define	LAPB_REJECT_CONDITION		0x02
@@ -204,7 +197,6 @@ struct lapb_callbacks {
 	void (*start_timer)(void * timer);
 	void (*stop_timer)(void * timer);
 
-	//void (*debug)(struct lapb_cs *lapb, int level, const char * format, ...);
 	void (*debug)(int level, const char * format, ...);
 };
 
@@ -226,7 +218,6 @@ extern int lapb_data_received(struct lapb_cs *lapb, char * data, int data_size, 
 
 
 /* lapb_subr.c */
-//extern void lapb_send_control(struct lapb_cb *lapb, int, int, int);
 char * lapb_error_str(int error);
 int lapb_is_dce(struct lapb_cs *lapb);
 int lapb_is_extended(struct lapb_cs *lapb);

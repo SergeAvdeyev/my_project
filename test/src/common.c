@@ -10,6 +10,10 @@ int break_flag = FALSE;
 int out_counter;
 //int old_state = FALSE;
 
+
+static pthread_mutex_t main_mutex;
+
+
 /* Signals handler */
 void signal_callback_handler(int signum) {
 	printf("Caught signal %d\n", signum);
@@ -110,6 +114,20 @@ void custom_debug(int level, const char * format, ...) {
 	};
 }
 
+/* Mutex functions for synchronization */
+void main_mutex_init() {
+	pthread_mutex_init(&main_mutex, NULL);
+}
+
+void main_lock() {
+	pthread_mutex_lock(&main_mutex);
+}
+
+void main_unlock() {
+	pthread_mutex_unlock(&main_mutex);
+}
+
+
 
 
 /*
@@ -205,12 +223,11 @@ int sleep_ms(int milliseconds) {
 	return result;
 }
 
-int wait_stdin(struct x25_cs * x25, unsigned char break_condition, int run_once) {
+int wait_stdin(struct x25_cs * x25, _uchar break_condition, int run_once) {
 	fd_set			read_set;
 	struct timeval	timeout;
 	int sr = 0;
 
-	//while (lapb->state == break_condition) {
 	while (1) {
 		FD_ZERO(&read_set);
 		FD_SET(fileno(stdin), &read_set);
@@ -228,7 +245,7 @@ int wait_stdin(struct x25_cs * x25, unsigned char break_condition, int run_once)
 
 
 void print_commands_0(struct x25_cs * x25) {
-	if (x25->link.extended)
+	if (x25->mode & X25_EXTENDED)
 		printf("Disconnected state(modulo 128):\n");
 	else
 		printf("Disconnected state(modulo 8):\n");
@@ -239,7 +256,7 @@ void print_commands_0(struct x25_cs * x25) {
 }
 
 void print_commands_1(struct x25_cs * x25) {
-	if (x25->link.extended)
+	if (x25->mode & X25_EXTENDED)
 		printf("Awaiting connection state(modulo 128):\n");
 	else
 		printf("Awaiting connection state(modulo 8):\n");
@@ -250,7 +267,7 @@ void print_commands_1(struct x25_cs * x25) {
 }
 
 void print_commands_2(struct x25_cs * x25) {
-	if (x25->link.extended)
+	if (x25->mode & X25_EXTENDED)
 		printf("Awaiting disconnection state(modulo 128):\n");
 	else
 		printf("Awaiting disconnection state(modulo 8):\n");
@@ -261,7 +278,7 @@ void print_commands_2(struct x25_cs * x25) {
 }
 
 void print_commands_3(struct x25_cs * x25) {
-	if (x25->link.extended)
+	if (x25->mode & X25_EXTENDED)
 		printf("Connected state(modulo 128):\n");
 	else
 		printf("Connected state(modulo 8):\n");
@@ -314,10 +331,13 @@ void x25_state_0(struct x25_cs *x25, struct x25_address * dest_addr) {
 					sprintf(addr.x25_addr, dest_addr->x25_addr);
 				else
 					addr.x25_addr[len - 1] = 0;
+				/* Lock resources */
+				main_lock();
 				res = x25_call_request(x25, &addr);
+				/* Unlock resources */
+				main_unlock();
 				if (res != X25_OK) {
 					printf("ERROR: %s\n\n", x25_error_str(res));
-					//lapb_reset(lapb, LAPB_STATE_0);
 				} else
 					while_flag = FALSE;
 				break;
@@ -353,7 +373,6 @@ void x25_state_1(struct x25_cs *x25) {
 		int action = atoi(buffer);
 		switch (action) {
 			case 1:  /* Cancel */
-				//lapb_reset(lapb, LAPB_STATE_0);
 				while_flag = FALSE;
 				break;
 			case 0:
@@ -387,7 +406,6 @@ void x25_state_2(struct x25_cs *x25) {
 		int action = atoi(buffer);
 		switch (action) {
 			case 1:  /* Cancel */
-//				/lapb_reset(lapb, LAPB_STATE_0);
 				while_flag = FALSE;
 				break;
 			case 0:
@@ -432,19 +450,20 @@ void x25_state_3(struct x25_cs *x25) {
 		switch (action) {
 			case 1: default:  /* Send test buffer (128 byte) or text from console */
 				if (action == 1) {
-					data_size = 10;
+					data_size = 128;
 					n = 0;
 					while (n < data_size) {
-						buffer[n] = 'a' + n;
+						buffer[n] = 'a'; // + n;
 						n++;
 					};
 				} else
 					data_size = strlen(buffer) - 1;
 				buffer[data_size] = 0;
+				main_lock();
 				res = x25_sendmsg(x25, buffer, data_size, FALSE, FALSE);
+				main_unlock();
 				if (res < 0) {
 					printf("ERROR: %s\n\n", x25_error_str(res));
-					//lapb_reset(lapb, LAPB_STATE_0);
 				};
 				//else
 				//	while_flag = FALSE;
@@ -455,7 +474,7 @@ void x25_state_3(struct x25_cs *x25) {
 				while (!break_flag) {
 					bzero(buffer, sizeof(buffer));
 					sprintf(buffer, "abcdefghij_%d", out_counter);
-					//res = lapb_data_request(lapb, buffer, strlen(buffer));
+					res = x25_sendmsg(x25, buffer, data_size, FALSE, FALSE);
 					if (res < 0) {
 						//if (res != X25_BUSY) {
 							printf("ERROR: %s\n", x25_error_str(res));
@@ -472,7 +491,9 @@ void x25_state_3(struct x25_cs *x25) {
 				};
 				break;
 			case 9: /* DISC */
+				main_lock();
 				res = x25_clear_request(x25);
+				main_unlock();
 				if (res != X25_OK) {
 					printf("ERROR: %s\n\n", x25_error_str(res));
 					//lapb_reset(lapb, LAPB_STATE_0);

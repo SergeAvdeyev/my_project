@@ -108,7 +108,6 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
-				//lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
 				lapb_connect_confirmation(lapb, LAPB_OK);
@@ -126,7 +125,6 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
-				//lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
 				lapb_connect_confirmation(lapb, LAPB_OK);
@@ -154,7 +152,6 @@ void lapb_state1_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
-				//lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 
 				lapb->callbacks->debug(0, "[LAPB] S1 -> S3");
@@ -247,7 +244,6 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
-				//lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb_requeue_frames(lapb);
 				lapb_start_t201timer(lapb); /* to kick data */
@@ -263,7 +259,6 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
-				//lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb_requeue_frames(lapb);
 				lapb_start_t201timer(lapb); /* to kick data */
@@ -448,7 +443,6 @@ void lapb_state3_machine(struct lapb_cs * lapb, char * data, int data_size, stru
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
-				//lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb_start_t201timer(lapb); /* to kick data */
 			} else {
@@ -504,7 +498,6 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
-				//lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S4 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);
@@ -522,7 +515,6 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->condition = 0x00;
 				lapb_int->vs        = 0;
 				lapb_int->vr        = 0;
-				//lapb_int->last_vr	= 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S4 -> S3");
 				lapb_connect_indication(lapb, LAPB_OK);

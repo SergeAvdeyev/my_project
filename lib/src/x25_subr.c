@@ -14,23 +14,6 @@
 
 char str_buf[1024];
 
-//void lock(struct x25_cs *x25) {
-//#if !INTERNAL_SYNC
-//	(void)x25;
-//#else
-//	if (!x25) return;
-//	pthread_mutex_lock(&(x25_get_internal(x25)->_mutex));
-//#endif
-//}
-
-//void unlock(struct x25_cs *x25) {
-//#if !INTERNAL_SYNC
-//	(void)x25;
-//#else
-//	if (!x25) return;
-//	pthread_mutex_unlock(&(x25_get_internal(x25)->_mutex));
-//#endif
-//}
 
 char * x25_error_str(int error) {
 	if (error < 0)
@@ -158,6 +141,22 @@ int test_and_set_bit(long nr, _ulong * addr) {
 	return old;
 }
 
+
+/* Check DTE or DCE bit is set */
+int x25_is_dte(struct x25_cs * x25) {
+	if (x25->mode & X25_DCE)
+		return FALSE;
+	else
+		return TRUE;
+}
+
+/* Check STANDARD or EXTENDED bit is set */
+int x25_is_extended(struct x25_cs * x25) {
+	if (x25->mode & X25_EXTENDED)
+		return TRUE;
+	else
+		return FALSE;
+}
 
 
 struct x25_cs_internal * x25_get_internal(struct x25_cs *x25) {
@@ -287,18 +286,18 @@ void x25_clear_queues(struct x25_cs * x25) {
  * acknowledged. This replaces the boxes labelled "V(a) <- N(r)" on the
  * SDL diagram.
 */
-void x25_frames_acked(struct x25_cs * x25, _ushort nr) {
-	int modulus = x25->link.extended ? X25_EMODULUS : X25_SMODULUS;
+int x25_frames_acked(struct x25_cs * x25, _ushort nr) {
+	int modulus = x25_is_extended(x25) ? X25_EMODULUS : X25_SMODULUS;
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	/*
 	 * Remove all the ack-ed frames from the ack queue.
 	 */
-	if (x25_int->va != nr)
-		while (cb_peek(&x25_int->ack_queue) && x25_int->va != nr) {
-			cb_dequeue(&x25_int->ack_queue, NULL);
-			x25_int->va = (x25_int->va + 1) % modulus;
-		};
+	while (cb_peek(&x25_int->ack_queue) && x25_int->va != nr) {
+		cb_dequeue(&x25_int->ack_queue, NULL);
+		x25_int->va = (x25_int->va + 1) % modulus;
+	};
+	return x25_int->va == x25_int->vs;
 }
 
 void x25_requeue_frames(struct x25_cs * x25) {
@@ -323,7 +322,7 @@ void x25_requeue_frames(struct x25_cs * x25) {
 int x25_validate_nr(struct x25_cs * x25, _ushort nr) {
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 	_ushort vc = x25_int->va;
-	int modulus = x25->link.extended ? X25_EMODULUS : X25_SMODULUS;
+	int modulus = x25_is_extended(x25) ? X25_EMODULUS : X25_SMODULUS;
 
 	while (vc != x25_int->vs) {
 		if (nr == vc)
@@ -388,7 +387,7 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 	lci1 = (x25->lci >> 8) & 0x0F;
 	lci2 = (x25->lci >> 0) & 0xFF;
 
-	if (x25->link.extended) {
+	if (x25_is_extended(x25)) {
 		*dptr++ = lci1 | X25_GFI_EXTSEQ;
 		*dptr++ = lci2;
 	} else {
@@ -447,12 +446,13 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 			*dptr++ = frametype;
 			*dptr++ = 0x00;		/* XXX */
 			*dptr++ = 0x00;		/* XXX */
+			set_bit(X25_COND_RESET, &x25_int->condition);
 			break;
 
 		case X25_RR:
 		case X25_RNR:
 		case X25_REJ:
-			if (x25->link.extended) {
+			if (x25_is_extended(x25)) {
 				*dptr++  = frametype;
 				*dptr++  = (x25_int->vr << 1) & 0xFE;
 			} else {
@@ -478,16 +478,17 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 
 
 
-void x25_disconnect(void * x25_ptr, int reason, unsigned char cause, unsigned char diagnostic) {
+void x25_disconnect(void * x25_ptr, int reason, _uchar cause, _uchar diagnostic) {
 	(void)reason;
 	struct x25_cs *x25 = x25_ptr;
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	x25_clear_queues(x25);
-	x25->callbacks->stop_timer(x25_int->T20.timer_ptr);
-	x25->callbacks->stop_timer(x25_int->T21.timer_ptr);
-	x25->callbacks->stop_timer(x25_int->T22.timer_ptr);
-	x25->callbacks->stop_timer(x25_int->T23.timer_ptr);
+	x25_stop_timers(x25);
+//	x25->callbacks->stop_timer(x25_int->RestartTimer.timer_ptr);
+//	x25->callbacks->stop_timer(x25_int->CallTimer.timer_ptr);
+//	x25->callbacks->stop_timer(x25_int->ResetTimer.timer_ptr);
+//	x25->callbacks->stop_timer(x25_int->ClearTimer.timer_ptr);
 
 	x25->peer_lci = 0;
 	x25->callbacks->debug(1, "[X25] S%d -> S0", x25_int->state);
@@ -502,16 +503,16 @@ void x25_disconnect(void * x25_ptr, int reason, unsigned char cause, unsigned ch
 /*
  *	Unpick the contents of the passed X.25 Packet Layer frame.
  */
-int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr, int *q, int *d, int *m) {
-	_uchar *frame;
+int x25_decode(struct x25_cs * x25, char * data, int data_size, struct x25_frame *frame) {
 
 	if (data_size < X25_STD_MIN_LEN)
 		return X25_ILLEGAL;
-	frame = (_uchar *)data;
 
-	*ns = *nr = *q = *d = *m = 0;
+	_uchar * data_ptr = (_uchar *)data;
 
-	switch (frame[2]) {
+	x25_mem_zero(frame, sizeof(struct x25_frame));
+
+	switch (data_ptr[2]) {
 		case X25_CALL_REQUEST:
 		case X25_CALL_ACCEPTED:
 		case X25_CLEAR_REQUEST:
@@ -525,46 +526,45 @@ int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr
 		case X25_REGISTRATION_REQUEST:
 		case X25_REGISTRATION_CONFIRMATION:
 		case X25_DIAGNOSTIC:
-			return frame[2];
+			frame->type = data_ptr[2];
+			return 0;
 	};
 
-	if (x25->link.extended) {
-		if (frame[2] == X25_RR  || frame[2] == X25_RNR || frame[2] == X25_REJ) {
+	if (x25_is_extended(x25)) {
+		if (data_ptr[2] == X25_RR  || data_ptr[2] == X25_RNR || data_ptr[2] == X25_REJ) {
 			if (data_size <  X25_EXT_MIN_LEN)
 				return X25_ILLEGAL;
-			frame = (_uchar *)data;
 
-			*nr = (frame[3] >> 1) & 0x7F;
-			return frame[2];
+			frame->nr = (data_ptr[3] >> 1) & 0x7F;
+			frame->type = data_ptr[2];
+			return 0;
 		};
-	} else {
-		if ((frame[2] & 0x1F) == X25_RR  || (frame[2] & 0x1F) == X25_RNR || (frame[2] & 0x1F) == X25_REJ) {
-			*nr = (frame[2] >> 5) & 0x07;
-			return frame[2] & 0x1F;
-		};
-	};
-
-	if (x25->link.extended) {
-		if ((frame[2] & 0x01) == X25_DATA) {
+		if ((data_ptr[2] & 0x01) == X25_DATA) {
 			if (data_size <  X25_EXT_MIN_LEN)
 				return X25_ILLEGAL;
-			frame = (_uchar *)data;
 
-			*q  = (frame[0] & X25_Q_BIT) == X25_Q_BIT;
-			*d  = (frame[0] & X25_D_BIT) == X25_D_BIT;
-			*m  = (frame[3] & X25_EXT_M_BIT) == X25_EXT_M_BIT;
-			*nr = (frame[3] >> 1) & 0x7F;
-			*ns = (frame[2] >> 1) & 0x7F;
-			return X25_DATA;
+			frame->q_flag  = (data_ptr[0] & X25_Q_BIT) == X25_Q_BIT;
+			frame->d_flag  = (data_ptr[0] & X25_D_BIT) == X25_D_BIT;
+			frame->m_flag  = (data_ptr[3] & X25_EXT_M_BIT) == X25_EXT_M_BIT;
+			frame->nr = (data_ptr[3] >> 1) & 0x7F;
+			frame->ns = (data_ptr[2] >> 1) & 0x7F;
+			frame->type = X25_DATA;
+			return 0;
 		};
 	} else {
-		if ((frame[2] & 0x01) == X25_DATA) {
-			*q  = (frame[0] & X25_Q_BIT) == X25_Q_BIT;
-			*d  = (frame[0] & X25_D_BIT) == X25_D_BIT;
-			*m  = (frame[2] & X25_STD_M_BIT) == X25_STD_M_BIT;
-			*nr = (frame[2] >> 5) & 0x07;
-			*ns = (frame[2] >> 1) & 0x07;
-			return X25_DATA;
+		if ((data_ptr[2] & 0x1F) == X25_RR  || (data_ptr[2] & 0x1F) == X25_RNR || (data_ptr[2] & 0x1F) == X25_REJ) {
+			frame->nr = (data_ptr[2] >> 5) & 0x07;
+			frame->type = data_ptr[2] & 0x1F;
+			return 0;
+		};
+		if ((data_ptr[2] & 0x01) == X25_DATA) {
+			frame->q_flag  = (data_ptr[0] & X25_Q_BIT) == X25_Q_BIT;
+			frame->d_flag  = (data_ptr[0] & X25_D_BIT) == X25_D_BIT;
+			frame->m_flag  = (data_ptr[2] & X25_STD_M_BIT) == X25_STD_M_BIT;
+			frame->nr = (data_ptr[2] >> 5) & 0x07;
+			frame->ns = (data_ptr[2] >> 1) & 0x07;
+			frame->type = X25_DATA;
+			return 0;
 		};
 	};
 
@@ -626,40 +626,8 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 	if (data_size_tmp > X25_MAX_CUD_LEN)
 		goto out_clear_request;
 
-	/*
-	 *	Get all the call user data so it can be used in
-	 *	x25_find_listener and skb_copy_from_linear_data up ahead.
-	 */
-	//if (!pskb_may_pull(skb, skb->len))
-	//	goto out_clear_request;
-
-	/*
-	 *	Find a listener for the particular address/cud pair.
-	 */
-	//sk = x25_find_listener(&source_addr,skb);
 	ptr -= len;
 	data_size_tmp += len;
-
-
-//	if (sk != NULL && sk_acceptq_is_full(sk))
-//		goto out_sock_put;
-
-	/*
-	 *	We dont have any listeners for this incoming call.
-	 *	Try forwarding it.
-	 */
-//	if (sk == NULL) {
-//		skb_push(skb, addr_len + X25_STD_MIN_LEN);
-//		if (sysctl_x25_forward && x25_forward_call(&dest_addr, nb, skb, lci) > 0) {
-//			/* Call was forwarded, dont process it any more */
-//			kfree_skb(skb);
-//			rc = 1;
-//			goto out;
-//		} else {
-//			/* No listeners, can't forward, clear the call */
-//			goto out_clear_request;
-//		};
-//	};
 
 	/*
 	 *	Try to reach a compromise on the requested facilities.
@@ -701,12 +669,10 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 	x25_mem_copy(x25_int->calluserdata.cuddata, ptr, data_size_tmp);
 	x25_int->calluserdata.cudlength = data_size_tmp;
 
-	x25_start_heartbeat(x25);
 	rc = 1;
 	/* Notify Application about new incoming call */
 	x25->callbacks->call_indication(x25);
 
-//out:
 	return rc;
 
 out_clear_request:

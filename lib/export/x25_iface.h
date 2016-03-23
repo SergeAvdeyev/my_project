@@ -58,11 +58,13 @@
 #define X25_MSGSIZE_STR			"Message size is too long"
 
 
-#define X25_DEFAULT_T20		180000	/* Default restart_request_timeout value 180s */
-#define X25_DEFAULT_T21		200000	/* Default call_request_timeout value 200s */
-#define X25_DEFAULT_T22		180000	/* Default reset_request_timeout value 180s */
-#define	X25_DEFAULT_T23		180000	/* Default clear_request_timeout value 180s */
-#define	X25_DEFAULT_T2		1000	/* Default Link timer value 1s */
+#define X25_DEFAULT_RESTART_TIMER	180000	/* Default restart_request_timeout value 180s */
+#define X25_DEFAULT_CALL_TIMER		200000	/* Default call_request_timeout value 200s */
+#define X25_DEFAULT_RESET_TIMER		180000	/* Default reset_request_timeout value 180s */
+#define	X25_DEFAULT_CLEAR_TIMER		180000	/* Default clear_request_timeout value 180s */
+#define	X25_DEFAULT_ACK_TIMER		3000	/* Default ack holdback value 3s */
+#define	X25_DEFAULT_DATA_TIMER		1000	/* Default data retransmition timeout value 1s */
+//#define	X25_DEFAULT_T_LINK	1000	/* Default Link timer value 1s */
 
 /*
  *	X.25 Packet Size values.
@@ -82,8 +84,14 @@
 #define	X25_DEFAULT_THROUGHPUT	0x0A		/* Deafult Throughput */
 #define	X25_DEFAULT_REVERSE		0x00		/* Default Reverse Charging */
 
-#define X25_SMODULUS 		8
-#define	X25_EMODULUS		128
+#define	X25_DTE			0x00
+#define	X25_DCE			0x01
+
+#define	X25_STANDARD	0x00
+#define	X25_EXTENDED	0x02
+
+#define X25_SMODULUS 	8
+#define	X25_EMODULUS	128
 
 /*
  *	X.25 Facilities constants.
@@ -114,17 +122,16 @@
 
 /* values for above global_facil_mask */
 
-#define	X25_MASK_REVERSE	0x01
-#define	X25_MASK_THROUGHPUT	0x02
+#define	X25_MASK_REVERSE		0x01
+#define	X25_MASK_THROUGHPUT		0x02
 #define	X25_MASK_PACKET_SIZE	0x04
 #define	X25_MASK_WINDOW_SIZE	0x08
 
-#define X25_MASK_CALLING_AE 0x10
-#define X25_MASK_CALLED_AE 0x20
+#define X25_MASK_CALLING_AE		0x10
+#define X25_MASK_CALLED_AE		0x20
 
 
 #define	X25_ADDR_LEN			16
-
 
 
 
@@ -178,14 +185,15 @@ struct x25_params {
  * digits and a null terminator.
  */
 struct x25_address {
-	char x25_addr[16];
+	char x25_addr[16];	/* Null-terminated address */
 };
 
 
 struct x25_timer {
-	_ulong		interval;
-	void *		timer_ptr;
-	_uchar		state;
+	void *		timer_ptr;	/* Pointer to timer object */
+	_ulong		interval;	/* Interval for given timer in msec */
+	_uchar		state;		/* Current state for given timer */
+	_uchar		RC;			/* Retry counter for given timer */
 };
 
 
@@ -193,23 +201,26 @@ struct x25_timer {
 struct x25_link {
 	void *		link_ptr;
 	_uint		state;
-	_uint		extended;
 	struct circular_buffer	queue;
-	struct x25_timer		T2;
 	_ulong		global_facil_mask;
 };
 
 /* X.25 Control structure */
 struct x25_cs {
+	_uchar				mode;	/* Bit mask for STANDARD-EXTENDED|DTE-DCE */
 	struct x25_address	source_addr;
 	struct x25_address	dest_addr;
 	struct x25_link		link;
-	_uint		lci;
-	_uint		peer_lci;
-	_uint		cudmatchlength;
+	_uint				lci;
+	_uint				peer_lci;
+	_uint				cudmatchlength;
 
-	_ushort		N20;	/* Maximum number of retries for T20 */
-	_ushort		N22;	/* Maximum number of retries for T22 */
+	_uchar				RestartTimer_NR;	/* Maximum number of retries for Restart timer */
+	_uchar				CallTimer_NR;		/* Maximum number of retries for Call timer */
+	_uchar				ResetTimer_NR;		/* Maximum number of retries for Reset timer */
+	_uchar				ClearTimer_NR;		/* Maximum number of retries for Clear timer */
+	_uchar				AckTimer_NR;		/* Maximum number of retries for Ack timer */
+	_uchar				DataTimer_NR;		/* Maximum number of retries for Data timer */
 
 	const struct x25_callbacks *callbacks;
 	/* Internal control information */
@@ -225,10 +236,12 @@ extern int x25_register(struct x25_callbacks *callbacks, struct x25_params * par
 extern int x25_unregister(struct x25_cs * x25);
 extern int x25_get_params(struct x25_cs * x25, struct x25_params * params);
 extern int x25_set_params(struct x25_cs * x25, struct x25_params * params);
-extern void x25_add_link(struct x25_cs *x25, void * link, int extended);
+extern void x25_add_link(struct x25_cs *x25, void * link);
 extern int x25_get_state(struct x25_cs *x25);
+
 extern int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
 extern int x25_clear_request(struct x25_cs * x25);
+extern int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
 extern int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_band, _uchar q_bit_flag);
 
 
@@ -238,12 +251,15 @@ extern void x25_link_terminated(void *x25_ptr);
 int x25_link_receive_data(void *x25_ptr, char * data, int data_size);
 
 
-/* lapb_subr.c */
+/* x25_subr.c */
 char * x25_error_str(int error);
 
 
+/* x25_out.c */
+void x25_check_iframes_acked(struct x25_cs *x25, _ushort nr);
 
-/* lapb_timer.c */
+
+/* x25_timer.c */
 
 
 

@@ -39,16 +39,15 @@ int x25_queue_rx_frame(struct x25_cs * x25, char * data, int data_size, int more
 /*
  * State machine for state 1, Awaiting Call Accepted State.
  * The handling of the timer(s) is in file x25_timer.c.
- * Handling of state 0 and connection release is in af_x25.c.
  */
-int x25_state1_machine(struct x25_cs * x25, char * data, int data_size, int frametype) {
+int x25_state1_machine(struct x25_cs * x25, char * data, int data_size, struct x25_frame * frame) {
 	struct x25_address source_addr, dest_addr;
 	int len;
 	char * ptr = data;
 	int data_size_tmp = data_size;
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
-	switch (frametype) {
+	switch (frame->type) {
 		case X25_CALL_ACCEPTED: {
 			x25->callbacks->debug(1, "[X25] S1 RX CALL_ACCEPTED");
 			x25_stop_timers(x25);
@@ -61,7 +60,7 @@ int x25_state1_machine(struct x25_cs * x25, char * data, int data_size, int fram
 			/*
 			 *	Parse the data in the frame.
 			 */
-			if(data_size < X25_STD_MIN_LEN)
+			if (data_size < X25_STD_MIN_LEN)
 				goto out_clear;
 			ptr += X25_STD_MIN_LEN;
 			data_size_tmp -= X25_STD_MIN_LEN;
@@ -89,7 +88,6 @@ int x25_state1_machine(struct x25_cs * x25, char * data, int data_size, int fram
 				if (data_size_tmp > X25_MAX_CUD_LEN)
 					goto out_clear;
 
-				//skb_copy_bits(skb, 0, x25->calluserdata.cuddata, skb->len);
 				x25_mem_copy(x25_int->calluserdata.cuddata, ptr, data_size_tmp);
 				x25_int->calluserdata.cudlength = data_size_tmp;
 			};
@@ -117,7 +115,7 @@ out_clear:
 	x25->callbacks->debug(1, "[X25] S1 TX CLEAR_REQUEST");
 	x25_write_internal(x25, X25_CLEAR_REQUEST);
 	x25_int->state = X25_STATE_2;
-	x25_start_timer(x25, x25_int->T23.timer_ptr);
+	x25_start_timer(x25, &x25_int->ClearTimer);
 	x25->callbacks->debug(1, "[X25] S1 -> S2");
 	return 0;
 }
@@ -125,11 +123,11 @@ out_clear:
 /*
  * State machine for state 2, Awaiting Clear Confirmation State.
  * The handling of the timer(s) is in file x25_timer.c
- * Handling of state 0 and connection release is in af_x25.c.
  */
-int x25_state2_machine(struct x25_cs * x25, char * data, int data_size, int frametype) {
+int x25_state2_machine(struct x25_cs * x25, char * data, int data_size, struct x25_frame * frame) {
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
-	switch (frametype) {
+
+	switch (frame->type) {
 		case X25_CLEAR_REQUEST:
 			x25->callbacks->debug(1, "[X25] S2 RX CLEAR_REQUEST");
 			if (data_size < (X25_STD_MIN_LEN + 2))
@@ -154,25 +152,22 @@ int x25_state2_machine(struct x25_cs * x25, char * data, int data_size, int fram
 out_clear:
 	x25->callbacks->debug(1, "[X25] S2 TX CLEAR_REQUEST");
 	x25_write_internal(x25, X25_CLEAR_REQUEST);
-	x25_start_timer(x25, &x25_int->T23);
+	x25_start_timer(x25, &x25_int->ClearTimer);
 	return 0;
 }
 
 /*
  * State machine for state 3, Connected State.
  * The handling of the timer(s) is in file x25_timer.c
- * Handling of state 0 and connection release is in af_x25.c.
  */
-int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int frametype, int ns, int nr, int q, int d, int m) {
-	(void)q;
-	(void)d;
+int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, struct x25_frame * frame) {
 	int queued = 0;
 	int modulus;
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
-	modulus = (x25->link.extended) ? X25_EMODULUS : X25_SMODULUS;
+	modulus = (x25_is_extended(x25)) ? X25_EMODULUS : X25_SMODULUS;
 
-	switch (frametype) {
+	switch (frame->type) {
 		case X25_RESET_REQUEST:
 			x25->callbacks->debug(1, "[X25] S3 RX RESET_REQUEST");
 			x25->callbacks->debug(1, "[X25] S3 TX RESET_CONFIRMATION");
@@ -198,16 +193,15 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int fram
 
 		case X25_RR:
 		case X25_RNR:
-			if (frametype == X25_RR)
-				x25->callbacks->debug(1, "[X25] S3 RX RR");
+			if (frame->type == X25_RR)
+				x25->callbacks->debug(1, "[X25] S3 RX RR R%d", frame->nr);
 			else
-				x25->callbacks->debug(1, "[X25] S3 RX RNR");
-			if (!x25_validate_nr(x25, nr)) {
+				x25->callbacks->debug(1, "[X25] S3 RX RNR R%d", frame->nr);
+			if (!x25_validate_nr(x25, frame->nr)) {
 				x25_clear_queues(x25);
 				x25->callbacks->debug(1, "[X25] S3 TX RESET_REQUEST");
 				x25_write_internal(x25, X25_RESET_REQUEST);
-				x25_start_timer(x25, &x25_int->T22);
-				x25_int->N22_RC = 0;
+				x25_start_timer(x25, &x25_int->ResetTimer);
 				x25_int->condition = 0x00;
 				x25_int->vs        = 0;
 				x25_int->vr        = 0;
@@ -216,23 +210,24 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int fram
 				x25_int->state     = X25_STATE_4;
 				x25->callbacks->debug(1, "[X25] S3 -> S4");
 			} else {
-				x25_frames_acked(x25, nr);
-				if (frametype == X25_RNR)
-					x25_int->condition |= X25_COND_PEER_RX_BUSY;
+				//x25_frames_acked(x25, frame->nr);
+				x25_check_iframes_acked(x25, frame->nr);
+				if (frame->type == X25_RNR)
+					set_bit(X25_COND_PEER_RX_BUSY, &x25_int->condition);
 				else
-					x25_int->condition &= ~X25_COND_PEER_RX_BUSY;
+					clear_bit(X25_COND_PEER_RX_BUSY, &x25_int->condition);
 			};
 			break;
 
 		case X25_DATA:	/* XXX */
-			x25->callbacks->debug(1, "[X25] S3 RX DATA");
-			x25_int->condition &= ~X25_COND_PEER_RX_BUSY;
-			if ((ns != x25_int->vr) || !x25_validate_nr(x25, nr)) {
+			x25->callbacks->debug(1, "[X25] S3 RX DATA S%d R%d", frame->ns, frame->nr);
+			clear_bit(X25_COND_PEER_RX_BUSY, &x25_int->condition);
+			//if ((frame->ns != x25_int->vr) || !x25_validate_nr(x25, frame->nr)) {
+			if (!x25_validate_nr(x25, frame->nr)) {
 				x25_clear_queues(x25);
 				x25->callbacks->debug(1, "[X25] S3 TX RESET_REQUEST");
 				x25_write_internal(x25, X25_RESET_REQUEST);
-				x25_int->N22_RC = 0;
-				x25_start_timer(x25, &x25_int->T22);
+				x25_start_timer(x25, &x25_int->ResetTimer);
 				x25_int->condition = 0x00;
 				x25_int->vs        = 0;
 				x25_int->vr        = 0;
@@ -242,10 +237,10 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int fram
 				x25->callbacks->debug(1, "[X25] S3 -> S4");
 				break;
 			};
-			x25_frames_acked(x25, nr);
-			if (ns == x25_int->vr) {
-				int offset = x25->link.extended ? 4 : 3;
-				if (x25_queue_rx_frame(x25, data + offset, data_size - offset, m) == 0) {
+			x25_frames_acked(x25, frame->nr);
+			if (frame->ns == x25_int->vr) {
+				int offset = x25_is_extended(x25) ? 4 : 3;
+				if (x25_queue_rx_frame(x25, data + offset, data_size - offset, frame->m_flag) == 0) {
 					x25_int->vr = (x25_int->vr + 1) % modulus;
 					queued = 1;
 				} else {
@@ -253,8 +248,7 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int fram
 					x25_clear_queues(x25);
 					x25->callbacks->debug(1, "[X25] S3 TX RESET_REQUEST");
 					x25_write_internal(x25, X25_RESET_REQUEST);
-					x25_int->N22_RC = 0;
-					x25_start_timer(x25, &x25_int->T22);
+					x25_start_timer(x25, &x25_int->ResetTimer);
 					x25_int->condition = 0x00;
 					x25_int->vs        = 0;
 					x25_int->vr        = 0;
@@ -264,20 +258,21 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int fram
 					x25->callbacks->debug(1, "[X25] S3 -> S4");
 					break;
 				};
-//				if (atomic_read(&sk->sk_rmem_alloc) > (sk->sk_rcvbuf >> 1))
-//					x25->condition |= X25_COND_OWN_RX_BUSY;
-			};
-			/*
-			 *	If the window is full Ack it immediately, else
-			 *	start the holdback timer.
-			 */
-			if (((x25_int->vl + x25_int->facilities.winsize_in) % modulus) == x25_int->vr) {
-				clear_bit(X25_COND_ACK_PENDING, (_ulong *)&x25_int->condition);
-				x25_stop_timers(x25);
-				x25_enquiry_response(x25);
+				/*
+				 *	If the window is full Ack it immediately, else
+				 *	start the holdback timer.
+				 */
+				if (((x25_int->vl + x25_int->facilities.winsize_in) % modulus) == x25_int->vr) {
+					clear_bit(X25_COND_ACK_PENDING, &x25_int->condition);
+					x25_stop_timer(x25, &x25_int->AckTimer);
+					x25_enquiry_response(x25);
+				} else {
+					set_bit(X25_COND_ACK_PENDING, &x25_int->condition);
+					x25_start_timer(x25, &x25_int->AckTimer);
+				};
 			} else {
-				set_bit(X25_COND_ACK_PENDING, (_ulong *)&x25_int->condition);
-				//x25_start_timer(x25, &x25->T2);
+				if (!test_bit(X25_COND_RESET, &x25_int->condition))
+					x25_enquiry_response(x25);
 			};
 			break;
 
@@ -295,7 +290,7 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, int fram
 			break;
 
 		default:
-			x25->callbacks->debug(2, "[X25] unknown %02X in state 3", frametype);
+			x25->callbacks->debug(2, "[X25] unknown %02X in state 3", frame->type);
 			break;
 	}
 
@@ -305,7 +300,7 @@ out_clear:
 	x25->callbacks->debug(1, "[X25] S3 TX CLEAR_REQUEST");
 	x25_write_internal(x25, X25_CLEAR_REQUEST);
 	x25_int->state = X25_STATE_2;
-	x25_start_timer(x25, &x25_int->T23);
+	x25_start_timer(x25, &x25_int->ClearTimer);
 	x25->callbacks->debug(1, "[X25] S3 -> S2");
 	return 0;
 }
@@ -313,12 +308,11 @@ out_clear:
 /*
  * State machine for state 4, Awaiting Reset Confirmation State.
  * The handling of the timer(s) is in file x25_timer.c
- * Handling of state 0 and connection release is in af_x25.c.
  */
-static int x25_state4_machine(struct x25_cs * x25, char * data, int data_size, int frametype) {
+static int x25_state4_machine(struct x25_cs * x25, char * data, int data_size, struct x25_frame * frame) {
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
-	switch (frametype) {
+	switch (frame->type) {
 		case X25_RESET_REQUEST:
 			x25->callbacks->debug(1, "[X25] S4 RX RESET_REQUEST");
 			x25->callbacks->debug(1, "[X25] S4 TX RESET_CONFIRMATION");
@@ -356,7 +350,7 @@ out_clear:
 	x25_write_internal(x25, X25_CLEAR_REQUEST);
 	x25_int->state = X25_STATE_2;
 	x25->callbacks->debug(1, "[X25] S4 -> S2");
-	x25_start_timer(x25, &x25_int->T23);
+	x25_start_timer(x25, &x25_int->ClearTimer);
 	return 0;
 }
 
@@ -365,26 +359,28 @@ out_clear:
 
 /* Higher level upcall for a LAPB frame */
 int x25_process_rx_frame(struct x25_cs *x25, char * data, int data_size) {
-	int queued = 0, frametype, ns, nr, q, d, m;
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	if (x25_int->state == X25_STATE_0)
 		return 0;
 
-	frametype = x25_decode(x25, data, data_size, &ns, &nr, &q, &d, &m);
+	int queued = 0;
+	struct x25_frame frame;
+
+	if (x25_decode(x25, data, data_size, &frame) == X25_ILLEGAL) return 0;
 
 	switch (x25_int->state) {
 		case X25_STATE_1:
-			queued = x25_state1_machine(x25, data, data_size, frametype);
+			queued = x25_state1_machine(x25, data, data_size, &frame);
 			break;
 		case X25_STATE_2:
-			queued = x25_state2_machine(x25, data, data_size, frametype);
+			queued = x25_state2_machine(x25, data, data_size, &frame);
 			break;
 		case X25_STATE_3:
-			queued = x25_state3_machine(x25, data, data_size, frametype, ns, nr, q, d, m);
+			queued = x25_state3_machine(x25, data, data_size, &frame);
 			break;
 		case X25_STATE_4:
-			queued = x25_state4_machine(x25, data, data_size, frametype);
+			queued = x25_state4_machine(x25, data, data_size, &frame);
 			break;
 	};
 
