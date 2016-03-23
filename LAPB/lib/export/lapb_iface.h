@@ -190,7 +190,7 @@ struct lapb_callbacks {
 																		   initiation requested by the DL Connect Request message
 																		   has been refused by the remote system. */
 	int  (*data_indication)(struct lapb_cs * lapb, char * data, int data_size);	/* Data from the remote system has been received. */
-	void (*transmit_data)(struct lapb_cs * lapb, char *data, int data_size);
+	void (*transmit_data)(struct lapb_cs * lapb, char *data, int data_size, int extra_before, int extra_after);
 
 	void * (*add_timer)(int interval, void * lapb_ptr, void (*timer_expiry));
 	void (*del_timer)(void * timer);

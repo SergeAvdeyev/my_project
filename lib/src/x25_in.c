@@ -92,7 +92,8 @@ int x25_state1_machine(struct x25_cs * x25, char * data, int data_size, struct x
 				x25_int->calluserdata.cudlength = data_size_tmp;
 			};
 			x25->callbacks->debug(1, "[X25] S1 -> S3");
-			x25->callbacks->call_accepted(x25);
+			if (x25->callbacks->call_accepted)
+				x25->callbacks->call_accepted(x25);
 			break;
 		}
 		case X25_CLEAR_REQUEST:
@@ -103,6 +104,8 @@ int x25_state1_machine(struct x25_cs * x25, char * data, int data_size, struct x
 			x25->callbacks->debug(1, "[X25] S1 TX CLEAR_CONFIRMATION");
 			x25_write_internal(x25, X25_CLEAR_CONFIRMATION);
 			x25_disconnect(x25, X25_REFUSED, data[3], data[4]);
+			if (x25->callbacks->clear_indication)
+				x25->callbacks->clear_indication(x25);
 			break;
 
 		default:
@@ -136,11 +139,15 @@ int x25_state2_machine(struct x25_cs * x25, char * data, int data_size, struct x
 			x25->callbacks->debug(1, "[X25] S2 TX CLEAR_CONFIRMATION");
 			x25_write_internal(x25, X25_CLEAR_CONFIRMATION);
 			x25_disconnect(x25, 0, data[3], data[4]);
+			if (x25->callbacks->clear_indication)
+				x25->callbacks->clear_indication(x25);
 			break;
 
 		case X25_CLEAR_CONFIRMATION:
 			x25->callbacks->debug(1, "[X25] S2 RX CLEAR_CONFIRMATION");
 			x25_disconnect(x25, 0, 0, 0);
+			if (x25->callbacks->clear_accepted)
+				x25->callbacks->clear_accepted(x25);
 			break;
 
 		default:
@@ -189,6 +196,8 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, struct x
 			x25->callbacks->debug(1, "[X25] S3 TX CLEAR_CONFIRMATION");
 			x25_write_internal(x25, X25_CLEAR_CONFIRMATION);
 			x25_disconnect(x25, 0, data[3], data[4]);
+			if (x25->callbacks->clear_indication)
+				x25->callbacks->clear_indication(x25);
 			break;
 
 		case X25_RR:
@@ -337,6 +346,8 @@ static int x25_state4_machine(struct x25_cs * x25, char * data, int data_size, s
 			x25->callbacks->debug(1, "[X25] S4 TX CLEAR_CONFIRMATION");
 			x25_write_internal(x25, X25_CLEAR_CONFIRMATION);
 			x25_disconnect(x25, 0, data[3], data[4]);
+			if (x25->callbacks->clear_indication)
+				x25->callbacks->clear_indication(x25);
 			break;
 
 		default:

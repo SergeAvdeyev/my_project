@@ -258,6 +258,7 @@ int lapb_connect_request(void *lapb_ptr) {
 	if (lapb_int->state == LAPB_STATE_3)
 		goto out;
 
+	lapb_int->extra_before = TRUE;
 	lapb_establish_data_link(lapb);
 	lapb_int->state = LAPB_STATE_1;
 	lapb->auto_connecting = TRUE;
@@ -399,7 +400,10 @@ int lapb_data_transmit(struct lapb_cs *lapb, char *data, int data_size) {
 	int used = 0;
 
 	if (lapb->callbacks->transmit_data) {
-		lapb->callbacks->transmit_data(lapb, data, data_size);
+		struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
+		lapb->callbacks->transmit_data(lapb, data, data_size, lapb_int->extra_before, lapb_int->extra_after);
+		lapb_int->extra_before = 0;
+		lapb_int->extra_after = 0;
 		used = 1;
 	};
 

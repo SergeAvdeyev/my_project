@@ -197,6 +197,18 @@ void x25_call_accepted_cb(struct x25_cs * x25) {
 	custom_debug(0, "[X25_CB] call_accepted event is called");
 }
 
+/* Called by X25 to inform App that Clear request was initiated by the remote system */
+void x25_clear_indication_cb(struct x25_cs * x25) {
+	(void)x25;
+	custom_debug(0, "[X25_CB] clear_indication event is called");
+}
+
+/* Called by X25 to inform App that Clear request is confirmed */
+void x25_clear_accepted_cb(struct x25_cs * x25) {
+	(void)x25;
+	custom_debug(0, "[X25_CB] clear_accepted event is called");
+}
+
 /* Called by X25 to inform App that Call request is confirmed */
 int x25_data_indication_cb(struct x25_cs * x25, char * data, int data_size) {
 	(void)x25;

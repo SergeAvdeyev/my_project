@@ -39,8 +39,15 @@ void lapb_disconnect_indication_cb(struct lapb_cs * lapb, int reason);
 int lapb_data_indication_cb(struct lapb_cs * lapb, char * data, int data_size);
 char * lapb_error_str(int error);
 
+/* Called by X25 to inform App that Call request was initiated by the remote system */
 void x25_call_indication_cb(struct x25_cs * x25);
+/* Called by X25 to inform App that Call request is confirmed */
 void x25_call_accepted_cb(struct x25_cs * x25);
+/* Called by X25 to inform App that Clear request was initiated by the remote system */
+void x25_clear_indication_cb(struct x25_cs * x25);
+/* Called by X25 to inform App that Clear request is confirmed */
+void x25_clear_accepted_cb(struct x25_cs * x25);
+/* Called by X25 to inform App that Call request is confirmed */
 int x25_data_indication_cb(struct x25_cs * x25, char * data, int data_size);
 
 void setup_signals_handler();

@@ -22,8 +22,10 @@ int block_size = 0;
  *
 */
 
-void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
+void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size, int extra_before, int extra_after) {
 	(void)lapb;
+	(void)extra_before;
+	(void)extra_after;
 	if (!is_client_connected()) return;
 	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
@@ -302,6 +304,8 @@ label_2:
 	x25_callbacks.link_send_frame = lapb_data_request;
 	x25_callbacks.call_indication = x25_call_indication_cb;
 	x25_callbacks.call_accepted = x25_call_accepted_cb;
+	x25_callbacks.clear_indication = x25_clear_indication_cb;
+	x25_callbacks.clear_accepted = x25_clear_accepted_cb;
 
 	x25_callbacks.data_indication = x25_data_indication_cb;
 
@@ -313,10 +317,22 @@ label_2:
 	x25_callbacks.debug = custom_debug;
 
 	/* Define X25 values */
-	//struct x25_params x25_params;
+	struct x25_params x25_params;
+	x25_params.RestartTimerInterval = X25_DEFAULT_RESTART_TIMER;
+	x25_params.RestartTimerNR = 2;
+	x25_params.CallTimerInterval = X25_DEFAULT_CALL_TIMER;
+	x25_params.CallTimerNR = 2;
+	x25_params.ResetTimerInterval = X25_DEFAULT_RESET_TIMER;
+	x25_params.ResetTimerNR = 2;
+	x25_params.ClearTimerInterval = X25_DEFAULT_CLEAR_TIMER;
+	x25_params.ClearTimerNR = 2;
+	x25_params.AckTimerInterval = X25_DEFAULT_ACK_TIMER;
+	x25_params.AckTimerNR = 2;
+	x25_params.DataTimerInterval = X25_DEFAULT_DATA_TIMER;
+	x25_params.DataTimerNR = 2;
 
-	//res = x25_register(&x25_callbacks, &x25_params, &x25_client);
-	res = x25_register(&x25_callbacks, NULL, &x25_client);
+	res = x25_register(&x25_callbacks, &x25_params, &x25_client);
+	//res = x25_register(&x25_callbacks, NULL, &x25_client);
 	if (res != X25_OK) {
 		printf("x25_register return %d\n", res);
 		goto exit;

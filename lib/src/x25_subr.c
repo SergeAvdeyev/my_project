@@ -485,10 +485,6 @@ void x25_disconnect(void * x25_ptr, int reason, _uchar cause, _uchar diagnostic)
 
 	x25_clear_queues(x25);
 	x25_stop_timers(x25);
-//	x25->callbacks->stop_timer(x25_int->RestartTimer.timer_ptr);
-//	x25->callbacks->stop_timer(x25_int->CallTimer.timer_ptr);
-//	x25->callbacks->stop_timer(x25_int->ResetTimer.timer_ptr);
-//	x25->callbacks->stop_timer(x25_int->ClearTimer.timer_ptr);
 
 	x25->peer_lci = 0;
 	x25->callbacks->debug(1, "[X25] S%d -> S0", x25_int->state);
@@ -671,7 +667,8 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 
 	rc = 1;
 	/* Notify Application about new incoming call */
-	x25->callbacks->call_indication(x25);
+	if (x25->callbacks->call_indication)
+		x25->callbacks->call_indication(x25);
 
 	return rc;
 

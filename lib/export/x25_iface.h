@@ -162,6 +162,8 @@ struct x25_cs;
 struct x25_callbacks {
 	void (*call_indication)(struct x25_cs * x25);
 	void (*call_accepted)(struct x25_cs * x25);
+	void (*clear_indication)(struct x25_cs * x25);
+	void (*clear_accepted)(struct x25_cs * x25);
 	int  (*data_indication)(struct x25_cs * x25, char * data, int data_size);	/* Data from the remote system has been received. */
 
 	int (*link_connect_request)(void * link_ptr);
@@ -177,6 +179,23 @@ struct x25_callbacks {
 
 
 struct x25_params {
+	int RestartTimerInterval;
+	int RestartTimerNR;
+	int CallTimerInterval;
+	int CallTimerNR;
+	int ResetTimerInterval;
+	int ResetTimerNR;
+	int ClearTimerInterval;
+	int ClearTimerNR;
+	int AckTimerInterval;
+	int AckTimerNR;
+	int DataTimerInterval;
+	int DataTimerNR;
+
+	_uint WinsizeIn;
+	_uint WinsizeOut;
+	_uint PacsizeIn;
+	_uint PacsizeOut;
 };
 
 

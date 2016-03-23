@@ -23,8 +23,10 @@ int block_size = 0;
  *
 */
 
-void transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
+void transmit_data(struct lapb_cs * lapb, char *data, int data_size, int extra_before, int extra_after) {
 	(void)lapb;
+	(void)extra_before;
+	(void)extra_after;
 	if (!is_client_connected()) return;
 	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 

@@ -32,6 +32,9 @@ struct lapb_cs_internal {
 
 	struct circular_buffer	write_queue;
 	struct circular_buffer	ack_queue;
+
+	int extra_before;	/* Flag that need to send sequence of '1' before frame */
+	int extra_after;	/* Flag that need to send sequence of '1' after frame */
 };
 
 /* lapb_iface.c */

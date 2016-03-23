@@ -29,9 +29,7 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 		!callbacks->stop_timer ||
 		!callbacks->link_connect_request ||
 		!callbacks->link_disconnect_request ||
-		!callbacks->link_send_frame ||
-		!callbacks->call_indication ||
-		!callbacks->call_accepted)
+		!callbacks->link_send_frame)
 		goto out;
 
 	*x25 = x25_mem_get(sizeof(struct x25_cs));
@@ -119,6 +117,7 @@ int x25_unregister(struct x25_cs * x25) {
 	x25->callbacks->del_timer(x25_int->ResetTimer.timer_ptr);
 	x25->callbacks->del_timer(x25_int->ClearTimer.timer_ptr);
 	x25->callbacks->del_timer(x25_int->AckTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->DataTimer.timer_ptr);
 
 	cb_free(&x25_int->ack_queue);
 	cb_free(&x25_int->write_queue);
@@ -140,15 +139,129 @@ out:
 }
 
 int x25_get_params(struct x25_cs * x25, struct x25_params * params) {
-	(void)x25;
-	(void)params;
-	return 0;
+	int res = X25_BADTOKEN;
+	if (!x25 || !params)
+		goto out;
+
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
+	/* Timers */
+	params->RestartTimerInterval	= x25_int->RestartTimer.interval;
+	params->RestartTimerNR			= x25->RestartTimer_NR;
+	params->CallTimerInterval		= x25_int->CallTimer.interval;
+	params->CallTimerNR				= x25->CallTimer_NR;
+	params->ResetTimerInterval		= x25_int->ResetTimer.interval;
+	params->ResetTimerNR			= x25->ResetTimer_NR;
+	params->ClearTimerInterval		= x25_int->ClearTimer.interval;
+	params->ClearTimerNR			= x25->ClearTimer_NR;
+	params->AckTimerInterval		= x25_int->AckTimer.interval;
+	params->AckTimerNR				= x25->AckTimer_NR;
+	params->DataTimerInterval		= x25_int->DataTimer.interval;
+	params->DataTimerNR				= x25->DataTimer_NR;
+
+	/* Facilities */
+	params->WinsizeIn  = x25_int->facilities.winsize_in;
+	params->WinsizeOut = x25_int->facilities.winsize_out;
+	params->PacsizeIn  = x25_int->facilities.pacsize_in;
+	params->PacsizeOut = x25_int->facilities.pacsize_out;
+
+out:
+	return res;
 }
 
 int x25_set_params(struct x25_cs * x25, struct x25_params *params) {
-	(void)x25;
-	(void)params;
-	return 0;
+	int res = X25_BADTOKEN;
+	if (!x25 || !params)
+		goto out;
+
+	res = X25_INVALUE;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
+	/* Check and correct timers params */
+	if (params->RestartTimerInterval < 10000)	params->RestartTimerInterval = X25_DEFAULT_RESTART_TIMER;
+	if (params->CallTimerInterval < 10000)		params->CallTimerInterval = X25_DEFAULT_CALL_TIMER;
+	if (params->ResetTimerInterval < 10000)		params->ResetTimerInterval = X25_DEFAULT_RESET_TIMER;
+	if (params->ClearTimerInterval < 10000)		params->ClearTimerInterval = X25_DEFAULT_CLEAR_TIMER;
+	if (params->AckTimerInterval < 10000)		params->AckTimerInterval = X25_DEFAULT_ACK_TIMER;
+	if (params->DataTimerInterval < 10000)		params->DataTimerInterval = X25_DEFAULT_DATA_TIMER;
+
+	if (params->RestartTimerInterval > 300000)	params->RestartTimerInterval = X25_DEFAULT_RESTART_TIMER;
+	if (params->CallTimerInterval > 300000)		params->CallTimerInterval = X25_DEFAULT_CALL_TIMER;
+	if (params->ResetTimerInterval > 300000)	params->ResetTimerInterval = X25_DEFAULT_RESET_TIMER;
+	if (params->ClearTimerInterval > 300000)	params->ClearTimerInterval = X25_DEFAULT_CLEAR_TIMER;
+	if (params->AckTimerInterval > 300000)		params->AckTimerInterval = X25_DEFAULT_ACK_TIMER;
+	if (params->DataTimerInterval > 300000)		params->DataTimerInterval = X25_DEFAULT_DATA_TIMER;
+
+	if ((params->RestartTimerNR < 1) || (params->RestartTimerNR > 10))
+		params->RestartTimerNR = 2;
+	if ((params->CallTimerNR < 1) || (params->CallTimerNR > 10))
+		params->CallTimerNR = 2;
+	if ((params->ResetTimerNR < 1) || (params->ResetTimerNR > 10))
+		params->ResetTimerNR = 2;
+	if ((params->ClearTimerNR < 1) || (params->ClearTimerNR > 10))
+		params->ClearTimerNR = 2;
+	if ((params->AckTimerNR < 1) || (params->AckTimerNR > 10))
+		params->AckTimerNR = 2;
+	if ((params->DataTimerNR < 1) || (params->DataTimerNR > 10))
+		params->DataTimerNR = 2;
+
+	/* Apply new values */
+	x25_int->RestartTimer.interval	= params->RestartTimerInterval;
+	x25_int->CallTimer.interval		= params->CallTimerInterval;
+	x25_int->ResetTimer.interval	= params->ResetTimerInterval;
+	x25_int->ClearTimer.interval	= params->ClearTimerInterval;
+	x25_int->AckTimer.interval		= params->AckTimerInterval;
+	x25_int->DataTimer.interval		= params->DataTimerInterval;
+
+	x25->RestartTimer_NR	= params->RestartTimerNR;
+	x25->CallTimer_NR		= params->CallTimerNR;
+	x25->ResetTimer_NR		= params->ResetTimerNR;
+	x25->ClearTimer_NR		= params->ClearTimerNR;
+	x25->AckTimer_NR		= params->AckTimerNR;
+	x25->DataTimer_NR		= params->DataTimerNR;
+
+	/* Delete all timers */
+	x25_stop_timers(x25);
+	x25->callbacks->del_timer(x25_int->RestartTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->CallTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->ResetTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->ClearTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->AckTimer.timer_ptr);
+	x25->callbacks->del_timer(x25_int->DataTimer.timer_ptr);
+
+	/* Create timers with new params */
+	x25_int->RestartTimer.timer_ptr  = x25->callbacks->add_timer(x25_int->RestartTimer.interval,  x25, x25_timer_expiry);
+	x25_int->CallTimer.timer_ptr = x25->callbacks->add_timer(x25_int->CallTimer.interval, x25, x25_timer_expiry);
+	x25_int->ResetTimer.timer_ptr = x25->callbacks->add_timer(x25_int->ResetTimer.interval, x25, x25_timer_expiry);
+	x25_int->ClearTimer.timer_ptr = x25->callbacks->add_timer(x25_int->ClearTimer.interval, x25, x25_timer_expiry);
+	x25_int->AckTimer.timer_ptr = x25->callbacks->add_timer(x25_int->AckTimer.interval, x25, x25_timer_expiry);
+	x25_int->DataTimer.timer_ptr = x25->callbacks->add_timer(x25_int->DataTimer.interval, x25, x25_timer_expiry);
+
+	/* Check and correct facilities values */
+	if (x25_is_extended(x25)) {
+		if ((params->WinsizeIn < 1) || (params->WinsizeIn > 127))
+			params->WinsizeIn = X25_DEFAULT_WINDOW_SIZE;
+		if ((params->WinsizeOut < 1) || (params->WinsizeOut > 127))
+			params->WinsizeOut = X25_DEFAULT_WINDOW_SIZE;
+	} else {
+		if ((params->WinsizeIn < 1) || (params->WinsizeIn > 7))
+			params->WinsizeIn = X25_DEFAULT_WINDOW_SIZE;
+		if ((params->WinsizeOut < 1) || (params->WinsizeOut > 7))
+			params->WinsizeOut = X25_DEFAULT_WINDOW_SIZE;
+	};
+	if ((params->PacsizeIn < X25_PS16) || (params->PacsizeIn > X25_PS4096))
+		params->PacsizeIn = X25_DEFAULT_PACKET_SIZE;
+	if ((params->PacsizeOut < X25_PS16) || (params->PacsizeOut > X25_PS4096))
+		params->PacsizeOut = X25_DEFAULT_PACKET_SIZE;
+
+	/* Apply new facilites */
+	x25_int->facilities.winsize_in	= params->WinsizeIn;
+	x25_int->facilities.winsize_out	= params->WinsizeOut;
+	x25_int->facilities.pacsize_in	= params->PacsizeIn;
+	x25_int->facilities.pacsize_out	= params->PacsizeOut;
+
+out:
+	return res;
 }
 
 int x25_get_state(struct x25_cs *x25) {
