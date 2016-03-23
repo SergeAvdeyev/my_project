@@ -295,7 +295,7 @@ void print_commands_3(struct x25_cs * x25) {
 	else
 		printf("Connected state(modulo 8):\n");
 	printf("Enter text or select command\n");
-	printf("1 Send test buffer(10 bytes)\n");
+	printf("1 Send test buffer(128 bytes)\n");
 	printf("2 Send sequence of data(500 frames)\n");
 	printf("3 Send sequence of data(500 frames - Bad FCS)\n");
 	printf("4 Send sequence of data(500 frames - Bad N(R))\n");
@@ -486,16 +486,16 @@ void x25_state_3(struct x25_cs *x25) {
 				while (!break_flag) {
 					bzero(buffer, sizeof(buffer));
 					sprintf(buffer, "abcdefghij_%d", out_counter);
-					res = x25_sendmsg(x25, buffer, data_size, FALSE, FALSE);
+					main_lock();
+					res = x25_sendmsg(x25, buffer, strlen(buffer), FALSE, FALSE);
+					main_unlock();
 					if (res < 0) {
-						//if (res != X25_BUSY) {
-							printf("ERROR: %s\n", x25_error_str(res));
-							break;
-						//};
-						sleep_ms(50);
+						printf("ERROR: %s\n", x25_error_str(res));
+						break;
+					} else if (res == 0) {
+						sleep_ms(10);
 						continue;
 					};
-					//sleep_ms(100);
 					out_counter++;
 					if (out_counter % 500 == 0) break;
 					if (error_type != 0)

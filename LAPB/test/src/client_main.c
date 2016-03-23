@@ -22,7 +22,6 @@ int block_size = 0;
  * LAPB callback functions for X.25
  *
 */
-
 void transmit_data(struct lapb_cs * lapb, char *data, int data_size, int extra_before, int extra_after) {
 	(void)lapb;
 	(void)extra_before;
@@ -30,24 +29,30 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size, int extra_b
 	if (!is_client_connected()) return;
 	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
-	char buffer[1024];
+	_uchar buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
 	buffer[1] = 0x7E; /* Open flag */
 	memcpy(&buffer[2], data, data_size);
 	if (error_type == 1) { /* Bad FCS (for I frames) */
-		int i_frame = ~(*(_uchar *)&buffer[3] & 0x01);
-		if (i_frame && (error_counter == 0))
-			*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
-		else
-			*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+		_uchar i_frame = ~(buffer[3] & 0x01);
+		if (i_frame && (error_counter == 0)) {
+			buffer[data_size + 2] = 1; /* Bad FCS */
+			buffer[data_size + 3] = 1; /* Bad FCS */
+		} else {
+			buffer[data_size + 2] = 0; /* Good FCS */
+			buffer[data_size + 3] = 0; /* Good FCS */
+		};
 	} else if (error_type == 2) { /* Bad N(R) (for I or S frames) */
-		int if_nr_present = *(_uchar *)&buffer[3];
+		_uchar if_nr_present = buffer[3];
 		if_nr_present = if_nr_present & 0x03;
 		if ((if_nr_present != 0x03) && (error_counter == 0))
-			*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
-		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
-	} else
-		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+			buffer[3] |= 0xE0; /* Bad N(R) */
+		buffer[data_size + 2] = 0; /* Good FCS */
+		buffer[data_size + 3] = 0; /* Good FCS */
+	} else {
+		buffer[data_size + 2] = 0; /* Good FCS */
+		buffer[data_size + 3] = 0; /* Good FCS */
+	};
 	buffer[data_size + 4] = 0x7E; /* Close flag */
 	buffer[data_size + 5] = 0x7E; /* Close flag */
 
@@ -65,7 +70,7 @@ void transmit_data(struct lapb_cs * lapb, char *data, int data_size, int extra_b
 */
 void new_data_received(char * data, int data_size) {
 	int i = 0;
-	_ushort rcv_fcs;
+	_ushort * rcv_fcs;
 
 	while (i < data_size) {
 		if (data[i] == 0x7E) { /* Flag */
@@ -73,9 +78,9 @@ void new_data_received(char * data, int data_size) {
 				if (data_block) { /* Close flag */
 					data_block = FALSE;
 					block_size -= 2; /* 2 bytes for FCS */
-					rcv_fcs = *(_ushort *)&in_buffer[block_size];
+					rcv_fcs = (_ushort *)&in_buffer[block_size];
 					//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
-					lapb_data_received(lapb_client, in_buffer, block_size, rcv_fcs);
+					lapb_data_received(lapb_client, in_buffer, block_size, *rcv_fcs);
 				} else {
 					/* Open flag */
 					bzero(in_buffer, 1024);

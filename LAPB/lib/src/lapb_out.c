@@ -23,7 +23,6 @@ void lapb_send_iframe(struct lapb_cs *lapb, char *data, int data_size, int poll_
 	char *	frame;
 	int		frame_size = data_size;
 
-
 	if (lapb_is_extended(lapb)) {
 		frame = cb_push(data, 3);
 		frame_size += 3;
@@ -79,7 +78,10 @@ void lapb_kick(struct lapb_cs *lapb) {
 			/*
 			 * Transmit the frame copy.
 			 */
-			lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLOFF);
+			if ((lapb_int->ack_queue.count + 1) == lapb->window)
+				lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLON);
+			else
+				lapb_send_iframe(lapb, buffer, buffer_size, LAPB_POLLOFF);
 
 			lapb_int->vs = (lapb_int->vs + 1) % modulus;
 

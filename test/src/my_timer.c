@@ -52,14 +52,34 @@ void * timer_add(int interval, void * lapb_ptr, void *timer_expiry) {
 	timer_tmp->interval_tmp = 0;
 	timer_tmp->lapb_ptr = lapb_ptr;
 	timer_tmp->timer_expiry = timer_expiry;
-	timers_list[timers_count] = timer_tmp;
+	int array_size = sizeof(timers_list)/sizeof(struct timer_descr *);
+	int i = 0;
+	while (i < array_size) {
+		if (timers_list[i] == NULL) {
+			timers_list[i] = timer_tmp;
+			break;
+		};
+		i++;
+	};
 	timers_count++;
 
 	return timer_tmp;
 }
 
 void timer_del(void *timer) {
-	free(timer);
+	if (timer == NULL) return;
+
+	int array_size = sizeof(timers_list)/sizeof(struct timer_descr *);
+	int i = 0;
+	while (i < array_size) {
+		if (timers_list[i] == timer) {
+			timers_list[i] = NULL;
+			free(timer);
+			timers_count--;
+			break;
+		};
+		i++;
+	};
 }
 
 void timer_start(void * timer) {
@@ -153,24 +173,32 @@ void * timer_thread_function(void *ptr) {
 
 	int * result = calloc(1, sizeof(int));
 
+	i = sizeof(timers_list);
+	bzero(timers_list, i);
+
 	_timer_mutex_init();
 
 	timer_thread_started();
 
 	ts.tv_sec = struct_ptr->interval / 1000;
 	ts.tv_nsec = (struct_ptr->interval % 1000) * 1000000;
+	int array_size = i/sizeof(struct timer_descr *);
 
 	while (!get_timer_thread_exit_flag()) {
 		ts2.tv_sec = 0;
 		ts2.tv_nsec = 0;
 		nanosleep(&ts, &ts2);
-		for (i = 0; i < timers_count; i++) {
+		for (i = 0; i < array_size; i++) {
 			timer = timers_list[i];
+			if (!timer)
+				continue;
 			if (!get_timer_state(timer))
 				continue;
 			if (timer_dec(timer, struct_ptr->interval) > 0)
 				continue;
+			struct_ptr->main_lock();
 			timer->timer_expiry(timer->lapb_ptr, timer);
+			struct_ptr->main_unlock();
 		};
 	};
 

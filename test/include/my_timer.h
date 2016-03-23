@@ -24,6 +24,8 @@ struct timer_descr {
 
 struct timer_thread_struct {
 	int						interval;
+	void (*main_lock)(void);
+	void (*main_unlock)(void);
 //	struct timer_descr **	timers_list;
 //	int						timers_count;
 };

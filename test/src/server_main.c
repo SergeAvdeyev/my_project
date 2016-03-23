@@ -41,29 +41,19 @@ void hex_dump(char * data, int data_size) {
  */
 
 /* Called by LAPB to transmit data via physical connection */
-void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size) {
+void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size, int extra_before, int extra_after) {
 	(void)lapb;
+	(void)extra_before;
+	(void)extra_after;
 	if (!is_server_accepted()) return;
 	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
-	char buffer[1024];
+	_uchar buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
 	buffer[1] = 0x7E; /* Open flag */
 	memcpy(&buffer[2], data, data_size);
-	if (error_type == 1) { /* Bad FCS (for I frames) */
-		int i_frame = ~(*(_uchar *)&buffer[3] & 0x01);
-		if (i_frame && (error_counter == 0))
-			*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
-		else
-			*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
-	} else if (error_type == 2) { /* Bad N(R) (for I or S frames) */
-		int if_nr_present = *(_uchar *)&buffer[3];
-		if_nr_present = if_nr_present & 0x03;
-		if ((if_nr_present != 0x03) && (error_counter == 0))
-			*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
-		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
-	} else
-		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	buffer[data_size + 2] = 0; /* Good FCS */
+	buffer[data_size + 3] = 0; /* Good FCS */
 	buffer[data_size + 4] = 0x7E; /* Close flag */
 	buffer[data_size + 5] = 0x7E; /* Close flag */
 	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
@@ -118,7 +108,7 @@ void manual_received(char * data, int data_size) {
 
 void new_data_received(char * data, int data_size) {
 	int i = 0;
-	_ushort rcv_fcs;
+	_ushort * rcv_fcs;
 
 	//hex_dump(data, data_size);
 
@@ -129,10 +119,10 @@ void new_data_received(char * data, int data_size) {
 					if (data_block) { /* Close flag */
 						data_block = FALSE;
 						block_size -= 2; /* 2 bytes for FCS */
-						rcv_fcs = *(_ushort *)&in_buffer[block_size];
+						rcv_fcs = (_ushort *)&in_buffer[block_size];
 						//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
 						main_lock();
-						lapb_data_received(lapb_server, in_buffer, block_size, rcv_fcs);
+						lapb_data_received(lapb_server, in_buffer, block_size, *rcv_fcs);
 						main_unlock();
 					} else {
 						/* Open flag */
@@ -222,10 +212,10 @@ int main (int argc, char *argv[]) {
 	_uchar lapb_modulo = LAPB_STANDARD;
 
 	pthread_t server_thread;
-	struct tcp_server_struct * server_struct = NULL;
+	struct tcp_server_struct * server_thread_struct = NULL;
 
 	pthread_t timer_thread;
-	struct timer_thread_struct * timer_struct = NULL;
+	struct timer_thread_struct * timer_thread_struct = NULL;
 
 	pthread_t logger_thread;
 
@@ -286,10 +276,10 @@ int main (int argc, char *argv[]) {
 label_1:
 
 	/* Create TCP server */
-	server_struct = malloc(sizeof(struct tcp_server_struct));
+	server_thread_struct = malloc(sizeof(struct tcp_server_struct));
 
 	if (dbg) {
-		server_struct->port = 1234;
+		server_thread_struct->port = 1234;
 		goto label_2;
 	};
 
@@ -297,19 +287,19 @@ label_1:
 	fgets(buffer, sizeof(buffer) - 1, stdin);
 	int tmp_len = strlen(buffer);
 	if (tmp_len == 1)
-		server_struct->port = 1234;
+		server_thread_struct->port = 1234;
 	else {
 		buffer[strlen(buffer) - 1] = 0;
-		server_struct->port = atoi(buffer);
+		server_thread_struct->port = atoi(buffer);
 	};
 
 label_2:
 
 	/* TCP server callbacks */
-	server_struct->new_data_received = new_data_received;
-	server_struct->no_active_connection = no_active_connection;
+	server_thread_struct->new_data_received = new_data_received;
+	server_thread_struct->no_active_connection = no_active_connection;
 
-	ret = pthread_create(&server_thread, NULL, server_function, (void*)server_struct);
+	ret = pthread_create(&server_thread, NULL, server_function, (void*)server_thread_struct);
 	if (ret) {
 		fprintf(stderr, "Error - pthread_create() return code: %d\n", ret);
 		exit(EXIT_FAILURE);
@@ -323,10 +313,11 @@ label_2:
 //		return manual_process();
 
 	/* Create timer */
-	timer_struct = malloc(sizeof(struct timer_thread_struct));
-	timer_struct->interval = 10; /* milliseconds */
-	//bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
-	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
+	timer_thread_struct = malloc(sizeof(struct timer_thread_struct));
+	timer_thread_struct->interval = 10; /* milliseconds */
+	timer_thread_struct->main_lock = main_lock;
+	timer_thread_struct->main_unlock = main_unlock;
+	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_thread_struct);
 	if (ret) {
 		custom_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
@@ -437,8 +428,8 @@ exit:
 	pthread_join(server_thread, (void **)&thread_result);
 	printf("TCP server thread exit(code %d)\n", *thread_result);
 	free(thread_result);
-	if (server_struct != NULL)
-		free(server_struct);
+	if (server_thread_struct != NULL)
+		free(server_thread_struct);
 
 	terminate_timer_thread();
 	while (is_timer_thread_started())
@@ -447,8 +438,8 @@ exit:
 	pthread_join(timer_thread, (void **)&thread_result);
 	printf("Timer thread exit(code %d)\n", *thread_result);
 	free(thread_result);
-	if (timer_struct != NULL)
-		free(timer_struct);
+	if (timer_thread_struct != NULL)
+		free(timer_thread_struct);
 
 	lapb_unregister(lapb_server);
 

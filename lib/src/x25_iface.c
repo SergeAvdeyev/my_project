@@ -64,15 +64,15 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 		(*x25)->AckTimer_NR = 2;
 		x25_int->DataTimer.interval  = X25_DEFAULT_DATA_TIMER;
 		(*x25)->DataTimer_NR = 2;
+		/* Create timers */
+		x25_int->RestartTimer.timer_ptr  = (*x25)->callbacks->add_timer(x25_int->RestartTimer.interval,  *x25, x25_timer_expiry);
+		x25_int->CallTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->CallTimer.interval, *x25, x25_timer_expiry);
+		x25_int->ResetTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->ResetTimer.interval, *x25, x25_timer_expiry);
+		x25_int->ClearTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->ClearTimer.interval, *x25, x25_timer_expiry);
+		x25_int->AckTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->AckTimer.interval, *x25, x25_timer_expiry);
+		x25_int->DataTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->DataTimer.interval, *x25, x25_timer_expiry);
 	};
 
-	/* Create timers */
-	x25_int->RestartTimer.timer_ptr  = (*x25)->callbacks->add_timer(x25_int->RestartTimer.interval,  *x25, x25_timer_expiry);
-	x25_int->CallTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->CallTimer.interval, *x25, x25_timer_expiry);
-	x25_int->ResetTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->ResetTimer.interval, *x25, x25_timer_expiry);
-	x25_int->ClearTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->ClearTimer.interval, *x25, x25_timer_expiry);
-	x25_int->AckTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->AckTimer.interval, *x25, x25_timer_expiry);
-	x25_int->DataTimer.timer_ptr = (*x25)->callbacks->add_timer(x25_int->DataTimer.interval, *x25, x25_timer_expiry);
 
 	x25_int->state = X25_STATE_0;
 	(*x25)->cudmatchlength = 0;		/* normally no cud on call accept */
@@ -206,36 +206,57 @@ int x25_set_params(struct x25_cs * x25, struct x25_params *params) {
 		params->DataTimerNR = 2;
 
 	/* Apply new values */
-	x25_int->RestartTimer.interval	= params->RestartTimerInterval;
-	x25_int->CallTimer.interval		= params->CallTimerInterval;
-	x25_int->ResetTimer.interval	= params->ResetTimerInterval;
-	x25_int->ClearTimer.interval	= params->ClearTimerInterval;
-	x25_int->AckTimer.interval		= params->AckTimerInterval;
-	x25_int->DataTimer.interval		= params->DataTimerInterval;
+	if (x25_int->RestartTimer.interval != params->RestartTimerInterval) {
+		x25_stop_timer(x25, &x25_int->RestartTimer);
+		x25->callbacks->del_timer(x25_int->RestartTimer.timer_ptr);
+		x25_int->RestartTimer.interval = params->RestartTimerInterval;
+		x25_int->RestartTimer.timer_ptr  = x25->callbacks->add_timer(x25_int->RestartTimer.interval, x25, x25_timer_expiry);
+	};
+	x25->RestartTimer_NR = params->RestartTimerNR;
 
-	x25->RestartTimer_NR	= params->RestartTimerNR;
-	x25->CallTimer_NR		= params->CallTimerNR;
-	x25->ResetTimer_NR		= params->ResetTimerNR;
-	x25->ClearTimer_NR		= params->ClearTimerNR;
-	x25->AckTimer_NR		= params->AckTimerNR;
-	x25->DataTimer_NR		= params->DataTimerNR;
+	if (x25_int->CallTimer.interval	!= params->CallTimerInterval) {
+		x25_stop_timer(x25, &x25_int->CallTimer);
+		x25->callbacks->del_timer(x25_int->CallTimer.timer_ptr);
+		x25_int->CallTimer.interval = params->CallTimerInterval;
+		x25_int->CallTimer.timer_ptr = x25->callbacks->add_timer(x25_int->CallTimer.interval, x25, x25_timer_expiry);
+	};
+	x25->CallTimer_NR = params->CallTimerNR;
+
+	if (x25_int->ResetTimer.interval != params->ResetTimerInterval) {
+		x25_stop_timer(x25, &x25_int->ResetTimer);
+		x25->callbacks->del_timer(x25_int->ResetTimer.timer_ptr);
+		x25_int->ResetTimer.interval = params->ResetTimerInterval;
+		x25_int->ResetTimer.timer_ptr = x25->callbacks->add_timer(x25_int->ResetTimer.interval, x25, x25_timer_expiry);
+	};
+	x25->ResetTimer_NR = params->ResetTimerNR;
+
+	if (x25_int->ClearTimer.interval != params->ClearTimerInterval) {
+		x25_stop_timer(x25, &x25_int->ClearTimer);
+		x25->callbacks->del_timer(x25_int->ClearTimer.timer_ptr);
+		x25_int->ClearTimer.interval = params->ClearTimerInterval;
+		x25_int->ClearTimer.timer_ptr = x25->callbacks->add_timer(x25_int->ClearTimer.interval, x25, x25_timer_expiry);
+	};
+	x25->ClearTimer_NR = params->ClearTimerNR;
+
+	if (x25_int->AckTimer.interval != params->AckTimerInterval) {
+		x25_stop_timer(x25, &x25_int->AckTimer);
+		x25->callbacks->del_timer(x25_int->AckTimer.timer_ptr);
+		x25_int->AckTimer.interval = params->AckTimerInterval;
+		x25_int->AckTimer.timer_ptr = x25->callbacks->add_timer(x25_int->AckTimer.interval, x25, x25_timer_expiry);
+	};
+	x25->AckTimer_NR = params->AckTimerNR;
+
+	if (x25_int->DataTimer.interval != params->DataTimerInterval) {
+		x25_stop_timer(x25, &x25_int->AckTimer);
+		x25->callbacks->del_timer(x25_int->DataTimer.timer_ptr);
+		x25_int->DataTimer.interval = params->DataTimerInterval;
+		x25_int->DataTimer.timer_ptr = x25->callbacks->add_timer(x25_int->DataTimer.interval, x25, x25_timer_expiry);
+	};
+	x25->DataTimer_NR = params->DataTimerNR;
 
 	/* Delete all timers */
-	x25_stop_timers(x25);
-	x25->callbacks->del_timer(x25_int->RestartTimer.timer_ptr);
-	x25->callbacks->del_timer(x25_int->CallTimer.timer_ptr);
-	x25->callbacks->del_timer(x25_int->ResetTimer.timer_ptr);
-	x25->callbacks->del_timer(x25_int->ClearTimer.timer_ptr);
-	x25->callbacks->del_timer(x25_int->AckTimer.timer_ptr);
-	x25->callbacks->del_timer(x25_int->DataTimer.timer_ptr);
 
 	/* Create timers with new params */
-	x25_int->RestartTimer.timer_ptr  = x25->callbacks->add_timer(x25_int->RestartTimer.interval,  x25, x25_timer_expiry);
-	x25_int->CallTimer.timer_ptr = x25->callbacks->add_timer(x25_int->CallTimer.interval, x25, x25_timer_expiry);
-	x25_int->ResetTimer.timer_ptr = x25->callbacks->add_timer(x25_int->ResetTimer.interval, x25, x25_timer_expiry);
-	x25_int->ClearTimer.timer_ptr = x25->callbacks->add_timer(x25_int->ClearTimer.interval, x25, x25_timer_expiry);
-	x25_int->AckTimer.timer_ptr = x25->callbacks->add_timer(x25_int->AckTimer.interval, x25, x25_timer_expiry);
-	x25_int->DataTimer.timer_ptr = x25->callbacks->add_timer(x25_int->DataTimer.interval, x25, x25_timer_expiry);
 
 	/* Check and correct facilities values */
 	if (x25_is_extended(x25)) {
@@ -395,8 +416,24 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 		*ptr++ = (x25->lci >> 0) & 0xFF;
 		*ptr++ = X25_INTERRUPT;
 		rc = data_size_tmp + X25_STD_MIN_LEN;
-	} else
+	} else {
+		/* check the filling of the window */
+		_uint actual_window_size;
+		if (x25_int->vs >= x25_int->va)
+			actual_window_size = x25_int->vs - x25_int->va;
+		else {
+			if (x25_is_extended(x25))
+				actual_window_size = x25_int->vs + X25_EMODULUS - x25_int->va;
+			else
+				actual_window_size = x25_int->vs + X25_SMODULUS - x25_int->va;
+		};
+		if (actual_window_size >= x25_int->facilities.winsize_out) {
+			rc = 0;
+			goto out;
+		};
+
 		rc = x25_output(x25, ptr, data_size_tmp, qbit);
+	};
 
 	x25_kick(x25);
 	//rc = len;

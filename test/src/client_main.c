@@ -29,24 +29,12 @@ void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size, int ex
 	if (!is_client_connected()) return;
 	//lapb_debug(lapb, 0, "[LAPB] data_transmit is called");
 
-	char buffer[1024];
+	_uchar buffer[1024];
 	buffer[0] = 0x7E; /* Open flag */
 	buffer[1] = 0x7E; /* Open flag */
 	memcpy(&buffer[2], data, data_size);
-	if (error_type == 1) { /* Bad FCS (for I frames) */
-		int i_frame = ~(*(_uchar *)&buffer[3] & 0x01);
-		if (i_frame && (error_counter == 0))
-			*(_ushort *)&buffer[data_size + 2] = 1; /* Bad FCS */
-		else
-			*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
-	} else if (error_type == 2) { /* Bad N(R) (for I or S frames) */
-		int if_nr_present = *(_uchar *)&buffer[3];
-		if_nr_present = if_nr_present & 0x03;
-		if ((if_nr_present != 0x03) && (error_counter == 0))
-			*(_uchar *)&buffer[3] |= 0xE0; /* Bad N(R) */
-		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
-	} else
-		*(_ushort *)&buffer[data_size + 2] = 0; /* Good FCS */
+	buffer[data_size + 2] = 0; /* Good FCS */
+	buffer[data_size + 3] = 0; /* Good FCS */
 	buffer[data_size + 4] = 0x7E; /* Close flag */
 	buffer[data_size + 5] = 0x7E; /* Close flag */
 
@@ -65,7 +53,7 @@ void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size, int ex
 */
 void new_data_received(char * data, int data_size) {
 	int i = 0;
-	_ushort rcv_fcs;
+	_ushort * rcv_fcs;
 
 	while (i < data_size) {
 		if (data[i] == 0x7E) { /* Flag */
@@ -73,10 +61,10 @@ void new_data_received(char * data, int data_size) {
 				if (data_block) { /* Close flag */
 					data_block = FALSE;
 					block_size -= 2; /* 2 bytes for FCS */
-					rcv_fcs = *(_ushort *)&in_buffer[block_size];
+					rcv_fcs = (_ushort *)&in_buffer[block_size];
 					//lapb_debug(NULL, 0, "[PHYS_CB] data_received is called(%d bytes)", block_size);
 					main_lock();
-					lapb_data_received(lapb_client, in_buffer, block_size, rcv_fcs);
+					lapb_data_received(lapb_client, in_buffer, block_size, *rcv_fcs);
 					main_unlock();
 				} else {
 					/* Open flag */
@@ -133,10 +121,10 @@ int main(int argc, char *argv[]) {
 	unsigned char lapb_modulo = LAPB_STANDARD;
 
 	pthread_t client_thread;
-	struct tcp_client_struct * client_struct = NULL;
+	struct tcp_client_struct * client_thread_struct = NULL;
 
 	pthread_t timer_thread;
-	struct timer_thread_struct * timer_struct = NULL;
+	struct timer_thread_struct * timer_thread_struct = NULL;
 
 	pthread_t logger_thread;
 
@@ -197,40 +185,40 @@ int main(int argc, char *argv[]) {
 label_1:
 
 	/* Create TCP client */
-	client_struct = malloc(sizeof(struct tcp_client_struct));
-	client_struct->server_address = calloc(16, 1);
+	client_thread_struct = malloc(sizeof(struct tcp_client_struct));
+	client_thread_struct->server_address = calloc(16, 1);
 
 	if (dbg) {
-		sprintf(client_struct->server_address, "127.0.0.1");
-		client_struct->server_port = 1234;
+		sprintf(client_thread_struct->server_address, "127.0.0.1");
+		client_thread_struct->server_port = 1234;
 		goto label_2;
 	};
 
 	printf("\nEnter remote server address[127.0.0.1]: ");
-	fgets(client_struct->server_address, 16, stdin);
-	int tmp_len = strlen(client_struct->server_address);
+	fgets(client_thread_struct->server_address, 16, stdin);
+	int tmp_len = strlen(client_thread_struct->server_address);
 	if (tmp_len == 1)
-		sprintf(client_struct->server_address, "127.0.0.1");
+		sprintf(client_thread_struct->server_address, "127.0.0.1");
 	else
-		client_struct->server_address[tmp_len - 1] = 0;
+		client_thread_struct->server_address[tmp_len - 1] = 0;
 
 	printf("\nEnter remote server port[1234]: ");
 	fgets(buffer, sizeof(buffer) - 1, stdin);
 	tmp_len = strlen(buffer);
 	if (tmp_len == 1)
-		client_struct->server_port = 1234;
+		client_thread_struct->server_port = 1234;
 	else {
 		buffer[strlen(buffer) - 1] = 0;
-		client_struct->server_port = atoi(buffer);
+		client_thread_struct->server_port = atoi(buffer);
 	};
 
 label_2:
 
 	/* TCP client callbacks */
-	client_struct->new_data_received = new_data_received;
-	client_struct->connection_lost = connection_lost;
+	client_thread_struct->new_data_received = new_data_received;
+	client_thread_struct->connection_lost = connection_lost;
 
-	ret = pthread_create(&client_thread, NULL, client_function, (void*)client_struct);
+	ret = pthread_create(&client_thread, NULL, client_function, (void*)client_thread_struct);
 	if (ret) {
 		custom_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
@@ -242,11 +230,11 @@ label_2:
 	printf("TCP client started\n");
 
 	/* Create timer */
-	timer_struct = malloc(sizeof(struct timer_thread_struct));
-	timer_struct->interval = 10; /* milliseconds */
-	//timer_struct->lapb_addr = (unsigned long int)lapb_client;
-	//bzero(timer_struct->timers_list, sizeof(timer_struct->timers_list));
-	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_struct);
+	timer_thread_struct = malloc(sizeof(struct timer_thread_struct));
+	timer_thread_struct->interval = 10; /* milliseconds */
+	timer_thread_struct->main_lock = main_lock;
+	timer_thread_struct->main_unlock = main_unlock;
+	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_thread_struct);
 	if (ret) {
 		custom_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
@@ -374,9 +362,9 @@ exit:
 	pthread_join(client_thread, (void **)&thread_result);
 	printf("TCP client thread exit(code %d)\n", *thread_result);
 	free(thread_result);
-	if (client_struct != NULL) {
-		free(client_struct->server_address);
-		free(client_struct);
+	if (client_thread_struct != NULL) {
+		free(client_thread_struct->server_address);
+		free(client_thread_struct);
 	};
 
 	terminate_timer_thread();
@@ -386,8 +374,8 @@ exit:
 	pthread_join(timer_thread, (void **)&thread_result);
 	printf("Timer thread exit(code %d)\n", *thread_result);
 	free(thread_result);
-	if (timer_struct != NULL)
-		free(timer_struct);
+	if (timer_thread_struct != NULL)
+		free(timer_thread_struct);
 
 	x25_unregister(x25_client);
 	lapb_unregister(lapb_client);

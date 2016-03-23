@@ -179,17 +179,17 @@ struct x25_callbacks {
 
 
 struct x25_params {
-	int RestartTimerInterval;
+	_ulong RestartTimerInterval;
 	int RestartTimerNR;
-	int CallTimerInterval;
+	_ulong CallTimerInterval;
 	int CallTimerNR;
-	int ResetTimerInterval;
+	_ulong ResetTimerInterval;
 	int ResetTimerNR;
-	int ClearTimerInterval;
+	_ulong ClearTimerInterval;
 	int ClearTimerNR;
-	int AckTimerInterval;
+	_ulong AckTimerInterval;
 	int AckTimerNR;
-	int DataTimerInterval;
+	_ulong DataTimerInterval;
 	int DataTimerNR;
 
 	_uint WinsizeIn;

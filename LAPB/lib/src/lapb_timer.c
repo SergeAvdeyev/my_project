@@ -94,8 +94,8 @@ void lapb_t202timer_expiry(void * lapb_ptr) {
 	if (lapb_int->condition & LAPB_ACK_PENDING_CONDITION) {
 		lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 		lapb_timeout_response(lapb);
-		lapb_stop_t202timer(lapb);
 	};
+	lapb_stop_t202timer(lapb);
 }
 
 void lapb_t201timer_expiry(void * lapb_ptr) {

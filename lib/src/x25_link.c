@@ -116,8 +116,8 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 	if (frametype == X25_CALL_REQUEST)
 		return x25_rx_call_request(x25, data, data_size, lci);
 
-
-	x25_transmit_clear_request(x25, lci, 0x0D);
+	if (frametype != X25_CLEAR_REQUEST)
+		x25_transmit_clear_request(x25, lci, 0x0D);
 	if (frametype != X25_CLEAR_CONFIRMATION)
 		x25->callbacks->debug(2, "[X25_LINK] S%d x25_link_receive_data(): unknown frame type %2x", x25->link.state, frametype);
 

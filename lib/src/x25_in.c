@@ -230,11 +230,11 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, struct x
 
 		case X25_DATA:	/* XXX */
 			x25->callbacks->debug(1, "[X25] S3 RX DATA S%d R%d", frame->ns, frame->nr);
-			clear_bit(X25_COND_PEER_RX_BUSY, &x25_int->condition);
+			//clear_bit(X25_COND_PEER_RX_BUSY, &x25_int->condition);
 			//if ((frame->ns != x25_int->vr) || !x25_validate_nr(x25, frame->nr)) {
 			if (!x25_validate_nr(x25, frame->nr)) {
 				x25_clear_queues(x25);
-				x25->callbacks->debug(1, "[X25] S3 TX RESET_REQUEST");
+				x25->callbacks->debug(1, "[X25] S3 TX RESET_REQUEST(Wrong NR)");
 				x25_write_internal(x25, X25_RESET_REQUEST);
 				x25_start_timer(x25, &x25_int->ResetTimer);
 				x25_int->condition = 0x00;
@@ -246,7 +246,10 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, struct x
 				x25->callbacks->debug(1, "[X25] S3 -> S4");
 				break;
 			};
-			x25_frames_acked(x25, frame->nr);
+			if (test_bit(X25_COND_PEER_RX_BUSY, &x25_int->condition))
+				x25_frames_acked(x25, frame->nr);
+			else
+				x25_check_iframes_acked(x25, frame->nr);
 			if (frame->ns == x25_int->vr) {
 				int offset = x25_is_extended(x25) ? 4 : 3;
 				if (x25_queue_rx_frame(x25, data + offset, data_size - offset, frame->m_flag) == 0) {
@@ -255,7 +258,7 @@ int x25_state3_machine(struct x25_cs * x25, char * data, int data_size, struct x
 				} else {
 					/* Should never happen */
 					x25_clear_queues(x25);
-					x25->callbacks->debug(1, "[X25] S3 TX RESET_REQUEST");
+					x25->callbacks->debug(1, "[X25] S3 TX RESET_REQUEST(Not queued)");
 					x25_write_internal(x25, X25_RESET_REQUEST);
 					x25_start_timer(x25, &x25_int->ResetTimer);
 					x25_int->condition = 0x00;

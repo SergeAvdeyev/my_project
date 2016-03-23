@@ -59,7 +59,7 @@ void * timer_add(int interval, void * owner, void *timer_expiry_sub) {
 }
 
 void timer_del(void *timer) {
-	(void)timer;
+	free(timer);
 }
 
 void timer_start(void * timer) {

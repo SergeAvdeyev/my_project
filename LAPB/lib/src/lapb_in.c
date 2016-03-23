@@ -500,7 +500,7 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S4 -> S3");
-				lapb_connect_indication(lapb, LAPB_OK);
+				//lapb_connect_indication(lapb, LAPB_OK);
 			};
 			break;
 
@@ -517,7 +517,7 @@ void lapb_state4_machine(struct lapb_cs * lapb, struct lapb_frame * frame) {
 				lapb_int->vr        = 0;
 				lapb_int->va        = 0;
 				lapb->callbacks->debug(0, "[LAPB] S4 -> S3");
-				lapb_connect_indication(lapb, LAPB_OK);
+				//lapb_connect_indication(lapb, LAPB_OK);
 			} else {
 				lapb->callbacks->debug(1,  "[LAPB] S4 TX DM(%d)", frame->pf);
 				lapb_send_control(lapb, LAPB_DM, frame->pf, LAPB_RESPONSE);

@@ -61,6 +61,8 @@ int x25_output(struct x25_cs *x25, char *data, int data_size, int q_bit_flag) {
 		while (data_size > 0) {
 			len = max_len > data_size ? data_size : max_len;
 			tmp_buf = cb_queue_tail(&x25_int->write_queue, ptr, len, header_len);
+			if (!tmp_buf)
+				return 0;
 			if (x25_is_extended(x25)) {
 				/* Duplicate the Header */
 				tmp_buf[0] = header[0];

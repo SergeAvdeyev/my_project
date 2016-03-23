@@ -126,6 +126,14 @@ void x25_ClearTimer_expiry(void * x25_ptr) {
 void x25_AckTimer_expiry(void * x25_ptr) {
 	struct x25_cs *x25 = x25_ptr;
 	if (!x25) return;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
+	x25->callbacks->debug(1, "[X25] S%d ack_timer expired", x25_int->state);
+	if (test_bit(X25_COND_ACK_PENDING, &x25_int->condition)) {
+		clear_bit(X25_COND_ACK_PENDING, &x25_int->condition);
+		x25_enquiry_response(x25);
+	};
+	x25_stop_timer(x25, &x25_int->AckTimer);
 }
 
 void x25_DataTimer_expiry(void * x25_ptr) {

@@ -330,7 +330,8 @@ int x25_validate_nr(struct x25_cs * x25, _ushort nr) {
 		vc = (vc + 1) % modulus;
 	};
 
-	return nr == x25_int->vs ? 1 : 0;
+	//return nr == x25_int->vs ? 1 : 0;
+	return nr == x25_int->vs;
 }
 
 
@@ -657,6 +658,12 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 		x25_write_internal(x25, X25_CALL_ACCEPTED);
 		x25->callbacks->debug(1, "[X25] S%d -> S3", x25_int->state);
 		x25_int->state = X25_STATE_3;
+		x25_stop_timers(x25);
+		x25_int->condition = 0x00;
+		x25_int->vs        = 0;
+		x25_int->va        = 0;
+		x25_int->vr        = 0;
+		x25_int->vl        = 0;
 	};
 
 	/*
