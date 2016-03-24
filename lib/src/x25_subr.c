@@ -274,7 +274,7 @@ void x25_clear_queues(struct x25_cs * x25) {
 
 	cb_clear(&x25_int->ack_queue);
 	cb_clear(&x25_int->write_queue);
-	cb_clear(&x25_int->receive_queue);
+//	/cb_clear(&x25_int->receive_queue);
 	cb_clear(&x25_int->interrupt_in_queue);
 	cb_clear(&x25_int->interrupt_out_queue);
 	x25_int->fragment_len = 0;

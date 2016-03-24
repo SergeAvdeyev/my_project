@@ -28,10 +28,11 @@ int x25_queue_rx_frame(struct x25_cs * x25, char * data, int data_size, int more
 	if (more)
 		return 0;
 
-	cb_queue_tail(&x25_int->receive_queue, x25_int->fragment_buffer, x25_int->fragment_len, 0);
-	x25_int->fragment_len = 0;
+	////cb_queue_tail(&x25_int->receive_queue, x25_int->fragment_buffer, x25_int->fragment_len, 0);
 	/* Inform Application about new received data */
-	x25->callbacks->data_indication(x25, data, data_size);
+	//x25->callbacks->data_indication(x25, data, data_size);
+	x25->callbacks->data_indication(x25, x25_int->fragment_buffer, x25_int->fragment_len);
+	x25_int->fragment_len = 0;
 
 	return 0;
 }

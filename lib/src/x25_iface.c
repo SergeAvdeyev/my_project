@@ -92,7 +92,7 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 	/* Create queues */
 	cb_init(&x25_int->ack_queue, X25_SMODULUS, x25_pacsize_to_bytes(X25_DEFAULT_PACKET_SIZE)*X25_DEFAULT_WINDOW_SIZE);
 	cb_init(&x25_int->write_queue, X25_SMODULUS, x25_pacsize_to_bytes(X25_DEFAULT_PACKET_SIZE)*X25_DEFAULT_WINDOW_SIZE);
-	cb_init(&x25_int->receive_queue, X25_SMODULUS, x25_pacsize_to_bytes(X25_DEFAULT_PACKET_SIZE)*X25_DEFAULT_WINDOW_SIZE);
+	//cb_init(&x25_int->receive_queue, X25_SMODULUS, x25_pacsize_to_bytes(X25_DEFAULT_PACKET_SIZE)*X25_DEFAULT_WINDOW_SIZE);
 	//cb_init(&(*x25)->fragment_queue, X25_SMODULUS, x25_pacsize_to_bytes((*x25)->facilities.pacsize_out));
 	cb_init(&x25_int->interrupt_in_queue, X25_SMODULUS, x25_pacsize_to_bytes(x25_int->facilities.pacsize_out));
 	cb_init(&x25_int->interrupt_out_queue, X25_SMODULUS, x25_pacsize_to_bytes(x25_int->facilities.pacsize_out));
@@ -121,7 +121,7 @@ int x25_unregister(struct x25_cs * x25) {
 
 	cb_free(&x25_int->ack_queue);
 	cb_free(&x25_int->write_queue);
-	cb_free(&x25_int->receive_queue);
+//	/cb_free(&x25_int->receive_queue);
 	cb_free(&x25_int->interrupt_in_queue);
 	cb_free(&x25_int->interrupt_out_queue);
 

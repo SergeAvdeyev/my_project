@@ -150,7 +150,7 @@ struct x25_cs_internal {
 
 	struct circular_buffer	ack_queue;
 	struct circular_buffer	write_queue;
-	struct circular_buffer	receive_queue;
+	//struct circular_buffer	receive_queue;
 
 	char		fragment_buffer[65536];
 	_ushort		fragment_len;
