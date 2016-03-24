@@ -17,7 +17,7 @@
 #define TRUE	1
 #define FALSE	0
 
-#define	LIB_DEBUG	3
+//#define	LIB_DEBUG	3
 
 volatile sig_atomic_t exit_flag;
 
@@ -53,7 +53,8 @@ int x25_data_indication_cb(struct x25_cs * x25, char * data, int data_size);
 void setup_signals_handler();
 int sleep_ms(int milliseconds);
 char * buf_to_str(char * data, int data_size);
-void custom_debug(int level, const char * format, ...);
+void lapb_debug(int level, const char * format, ...);
+void x25_debug(int level, const char * format, ...);
 void main_loop(struct x25_cs *x25, struct x25_address *dest_addr);
 
 

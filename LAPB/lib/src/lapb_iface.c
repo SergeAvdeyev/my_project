@@ -228,7 +228,7 @@ int lapb_reset(struct lapb_cs * lapb, _uchar init_state) {
 	if ((lapb_is_dce(lapb)) && (init_state == LAPB_STATE_0))
 		lapb_start_t201timer(lapb);
 
-	lapb->callbacks->debug(0, "[LAPB] S%d -> S%d", old_state, init_state);
+	lapb->callbacks->debug(1, "[LAPB] S%d -> S%d", old_state, init_state);
 	if (((old_state == LAPB_STATE_3) || (old_state == LAPB_STATE_4)) && (init_state == LAPB_STATE_0))
 		lapb->callbacks->disconnect_indication(lapb, LAPB_REFUSED);
 
@@ -263,7 +263,7 @@ int lapb_connect_request(void *lapb_ptr) {
 	lapb_int->state = LAPB_STATE_1;
 	lapb->auto_connecting = TRUE;
 
-	lapb->callbacks->debug(0, "[LAPB] S0 -> S1");
+	lapb->callbacks->debug(1, "[LAPB] S0 -> S1");
 
 	rc = LAPB_OK;
 out:
@@ -285,8 +285,8 @@ int lapb_disconnect_request(void *lapb_ptr) {
 			goto out;
 
 		case LAPB_STATE_1:
-			lapb->callbacks->debug(1, "[LAPB] S1 TX DISC(1)");
-			lapb->callbacks->debug(0, "[LAPB] S1 -> S2");
+			lapb->callbacks->debug(2, "[LAPB] S1 TX DISC(1)");
+			lapb->callbacks->debug(1, "[LAPB] S1 -> S2");
 			lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			lapb_int->state = LAPB_STATE_2;
 			lapb_start_t201timer(lapb);
@@ -306,7 +306,7 @@ int lapb_disconnect_request(void *lapb_ptr) {
 	lapb_stop_t202timer(lapb);
 	lapb->auto_connecting = FALSE;
 
-	lapb->callbacks->debug(0, "[LAPB] S3 -> S2");
+	lapb->callbacks->debug(1, "[LAPB] S3 -> S2");
 
 	rc = LAPB_OK;
 out:

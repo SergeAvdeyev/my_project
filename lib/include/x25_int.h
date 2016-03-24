@@ -14,8 +14,6 @@
 #include <stdio.h>
 
 #include "x25_iface.h"
-//#include "queue.h"
-
 
 
 
@@ -150,7 +148,6 @@ struct x25_cs_internal {
 
 	struct circular_buffer	ack_queue;
 	struct circular_buffer	write_queue;
-	//struct circular_buffer	receive_queue;
 
 	char		fragment_buffer[65536];
 	_ushort		fragment_len;
@@ -178,7 +175,7 @@ int x25_process_rx_frame(struct x25_cs *x25, char * data, int data_size);
 
 /* x25_out.c */
 int x25_pacsize_to_bytes(_uint pacsize);
-int x25_output(struct x25_cs * x25, char * data, int data_size, int q_bit_flag);
+int x25_output(struct x25_cs * x25, char * data, int data_size, int q_bit_flag, _uint actual_win_size);
 void x25_send_iframe(struct x25_cs * x25, char * data, int data_size);
 void x25_kick(struct x25_cs * x25);
 void x25_enquiry_response(struct x25_cs * x25);
@@ -232,7 +229,6 @@ void x25_requeue_frames(struct x25_cs * x25);
 int x25_validate_nr(struct x25_cs * x25, _ushort nr);
 void x25_write_internal(struct x25_cs *x25, int frametype);
 void x25_disconnect(void * x25_ptr, int reason, _uchar cause, _uchar diagnostic);
-//int x25_decode(struct x25_cs * x25, char * data, int data_size, int *ns, int *nr, int *q, int *d, int *m);
 int x25_decode(struct x25_cs * x25, char * data, int data_size, struct x25_frame * frame);
 int x25_rx_call_request(struct x25_cs * x25, char * data, int data_size, _uint lci);
 
@@ -243,11 +239,6 @@ int x25_timer_running(struct x25_timer * timer_ptr);
 void x25_stop_timers(struct x25_cs *x25);
 
 void x25_timer_expiry(void * x25_ptr, void *timer_ptr);
-//void x25_t20timer_expiry(void * x25_ptr);
-//void x25_t21timer_expiry(void * x25_ptr);
-//void x25_t22timer_expiry(void * x25_ptr);
-//void x25_t23timer_expiry(void * x25_ptr);
-//void x25_t2timer_expiry(void * x25_ptr);
 
 #endif // X25_INT_H
 

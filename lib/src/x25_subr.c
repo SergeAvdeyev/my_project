@@ -48,15 +48,6 @@ char * x25_error_str(int error) {
 }
 
 
-char * x25_buf_to_str(char * data, int data_size) {
-	str_buf[0] = '\0';
-	if (data_size < 1024) {/* 1 byte for null-terminating */
-		x25_mem_copy(str_buf, data, data_size);
-		str_buf[data_size] = '\0';
-	};
-	return str_buf;
-}
-
 void x25_hex_debug(char * data, int data_size, char * out_buffer, int out_buffer_size) {
 #ifdef __GNUC__
 	if (out_buffer_size < (data_size*3 + 1)) return;
@@ -274,7 +265,6 @@ void x25_clear_queues(struct x25_cs * x25) {
 
 	cb_clear(&x25_int->ack_queue);
 	cb_clear(&x25_int->write_queue);
-//	/cb_clear(&x25_int->receive_queue);
 	cb_clear(&x25_int->interrupt_in_queue);
 	cb_clear(&x25_int->interrupt_out_queue);
 	x25_int->fragment_len = 0;
@@ -330,7 +320,6 @@ int x25_validate_nr(struct x25_cs * x25, _ushort nr) {
 		vc = (vc + 1) % modulus;
 	};
 
-	//return nr == x25_int->vs ? 1 : 0;
 	return nr == x25_int->vs;
 }
 
@@ -378,7 +367,7 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 		case X25_RESET_CONFIRMATION:
 			break;
 		default:
-			x25->callbacks->debug(0, "invalid frame type %02X\n", frametype);
+			x25->callbacks->debug(1, "invalid frame type %02X\n", frametype);
 			return;
 	};
 
@@ -469,11 +458,15 @@ void x25_write_internal(struct x25_cs *x25, int frametype) {
 			break;
 	};
 
+
 	int n = (_ulong)(dptr) - (_ulong)data;
 
+#if X25_DEBUG >= 3
 	char debug_buf[2048];
 	x25_hex_debug((char *)data, n, debug_buf, 2048);
-	x25->callbacks->debug(1, "[X25] S%d TX '%s'", x25_int->state, debug_buf);
+	x25->callbacks->debug(3, "[X25] S%d TX '%s'", x25_int->state, debug_buf);
+#endif
+
 	x25_transmit_link(x25, (char *)data, n);
 }
 
@@ -565,7 +558,7 @@ int x25_decode(struct x25_cs * x25, char * data, int data_size, struct x25_frame
 		};
 	};
 
-	x25->callbacks->debug(2, "[X25] Invalid PLP frame %02X %02X %02X", frame[0], frame[1], frame[2]);
+	x25->callbacks->debug(1, "[X25] Invalid PLP frame %02X %02X %02X", frame[0], frame[1], frame[2]);
 
 	return X25_ILLEGAL;
 }
@@ -583,7 +576,7 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 	char * ptr;
 	int data_size_tmp = data_size;
 
-	x25->callbacks->debug(1, "[X25] S%d RX CALL_REQUEST", x25_int->state);
+	x25->callbacks->debug(2, "[X25] S%d RX CALL_REQUEST", x25_int->state);
 	/*
 	 *	Remove the LCI and frame type.
 	 */
@@ -654,7 +647,7 @@ int x25_rx_call_request(struct x25_cs *x25, char *data, int data_size, _uint lci
 
 	/* Normally all calls are accepted immediately */
 	if (x25_int->flags & X25_ACCPT_APPRV_FLAG) {
-		x25->callbacks->debug(1, "[X25] S%d TX CALL_ACCEPTED", x25_int->state);
+		x25->callbacks->debug(2, "[X25] S%d TX CALL_ACCEPTED", x25_int->state);
 		x25_write_internal(x25, X25_CALL_ACCEPTED);
 		x25->callbacks->debug(1, "[X25] S%d -> S3", x25_int->state);
 		x25_int->state = X25_STATE_3;

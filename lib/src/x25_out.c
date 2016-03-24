@@ -31,7 +31,7 @@ int x25_pacsize_to_bytes(_uint pacsize) {
  *      Returns the amount of user data bytes sent on success
  *      or a negative error code on failure.
  */
-int x25_output(struct x25_cs *x25, char *data, int data_size, int q_bit_flag) {
+int x25_output(struct x25_cs *x25, char *data, int data_size, int q_bit_flag, _uint actual_win_size) {
 	_uchar header[X25_EXT_MIN_LEN];
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 	int len;
@@ -57,38 +57,36 @@ int x25_output(struct x25_cs *x25, char *data, int data_size, int q_bit_flag) {
 	if (q_bit_flag)
 		header[0] |= X25_Q_BIT;
 
-//	if (data_size > max_len) {
-		while (data_size > 0) {
-			len = max_len > data_size ? data_size : max_len;
-			tmp_buf = cb_queue_tail(&x25_int->write_queue, ptr, len, header_len);
-			if (!tmp_buf)
-				return 0;
-			if (x25_is_extended(x25)) {
-				/* Duplicate the Header */
-				tmp_buf[0] = header[0];
-				tmp_buf[1] = header[1];
-				tmp_buf[2] = header[2];
-				tmp_buf[3] = header[3];
-			} else {
-				/* Duplicate the Header */
-				tmp_buf[0] = header[0];
-				tmp_buf[1] = header[1];
-				tmp_buf[2] = header[2];
-			};
-			data_size -= len;
-			ptr += len;
-			if (data_size > 0) {
-				if (x25_is_extended(x25))
-					tmp_buf[3] |= X25_EXT_M_BIT;
-				else
-					tmp_buf[2] |= X25_STD_M_BIT;
-			};
-			sent += len;
+	while (data_size > 0) {
+		len = max_len > data_size ? data_size : max_len;
+		tmp_buf = cb_queue_tail(&x25_int->write_queue, ptr, len, header_len);
+		if (!tmp_buf)
+			return 0;
+		if (x25_is_extended(x25)) {
+			/* Duplicate the Header */
+			tmp_buf[0] = header[0];
+			tmp_buf[1] = header[1];
+			tmp_buf[2] = header[2];
+			tmp_buf[3] = header[3];
+		} else {
+			/* Duplicate the Header */
+			tmp_buf[0] = header[0];
+			tmp_buf[1] = header[1];
+			tmp_buf[2] = header[2];
 		};
-//	} else {
-//		tmp_buf = cb_queue_tail(&x25_int->write_queue, data, data_size, 0);
-//		sent = data_size;
-//	};
+		data_size -= len;
+		ptr += len;
+		if (data_size > 0) {
+			if (x25_is_extended(x25))
+				tmp_buf[3] |= X25_EXT_M_BIT;
+			else
+				tmp_buf[2] |= X25_STD_M_BIT;
+		};
+		sent += len;
+		actual_win_size++;
+		if (actual_win_size == x25_int->facilities.winsize_out)
+			break;
+	};
 	return sent;
 }
 
@@ -112,7 +110,7 @@ void x25_send_iframe(struct x25_cs *x25, char *data, int data_size) {
 		data[2] |= (x25_int->vr << 5) & 0xE0;
 	}
 
-	x25->callbacks->debug(1, "[X25] S%d TX DATA S%d R%d", x25_int->state, x25_int->vs, x25_int->vr);
+	x25->callbacks->debug(2, "[X25] S%d TX DATA S%d R%d", x25_int->state, x25_int->vs, x25_int->vr);
 	x25_transmit_link(x25, data, data_size);
 }
 
@@ -180,10 +178,10 @@ void x25_enquiry_response(struct x25_cs *x25) {
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	if (test_bit(X25_COND_OWN_RX_BUSY, &x25_int->condition)) {
-		x25->callbacks->debug(1, "[X25] S%d TX RNR S%d R%d", x25_int->state, x25_int->vs, x25_int->vr);
+		x25->callbacks->debug(2, "[X25] S%d TX RNR S%d R%d", x25_int->state, x25_int->vs, x25_int->vr);
 		x25_write_internal(x25, X25_RNR);
 	} else {
-		x25->callbacks->debug(1, "[X25] S%d TX RR S%d R%d", x25_int->state, x25_int->vs, x25_int->vr);
+		x25->callbacks->debug(2, "[X25] S%d TX RR S%d R%d", x25_int->state, x25_int->vs, x25_int->vr);
 		x25_write_internal(x25, X25_RR);
 	};
 

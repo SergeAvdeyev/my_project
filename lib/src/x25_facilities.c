@@ -74,7 +74,7 @@ int x25_parse_facilities(struct x25_cs *x25,
 					case X25_MARKER:
 						break;
 					default:
-						x25->callbacks->debug(0, "[X25] unknown facility %02X, value %02X", ptr[0], ptr[1]);
+						x25->callbacks->debug(1, "[X25] unknown facility %02X, value %02X", ptr[0], ptr[1]);
 						break;
 				};
 				ptr += 2;
@@ -95,7 +95,7 @@ int x25_parse_facilities(struct x25_cs *x25,
 						*vc_fac_mask |= X25_MASK_WINDOW_SIZE;
 						break;
 					default:
-						x25->callbacks->debug(0, "[X25] unknown facility %02X, values %02X, %02X", ptr[0], ptr[1], ptr[2]);
+						x25->callbacks->debug(1, "[X25] unknown facility %02X, values %02X, %02X", ptr[0], ptr[1], ptr[2]);
 						break;
 				};
 				ptr += 3;
@@ -104,7 +104,7 @@ int x25_parse_facilities(struct x25_cs *x25,
 			case X25_FAC_CLASS_C:
 				if (len < 4)
 					return -1;
-				x25->callbacks->debug(0, "[X25] unknown facility %02X, values %02X, %02X, %02X", ptr[0], ptr[1], ptr[2], ptr[3]);
+				x25->callbacks->debug(1, "[X25] unknown facility %02X, values %02X, %02X, %02X", ptr[0], ptr[1], ptr[2], ptr[3]);
 				ptr += 4;
 				len -= 4;
 				break;
@@ -131,7 +131,7 @@ int x25_parse_facilities(struct x25_cs *x25,
 						*vc_fac_mask |= X25_MASK_CALLED_AE;
 						break;
 					default:
-						x25->callbacks->debug(0, "[X25] unknown facility %02X, length %d", ptr[0], ptr[1]);
+						x25->callbacks->debug(1, "[X25] unknown facility %02X, length %d", ptr[0], ptr[1]);
 						break;
 				};
 				len -= ptr[1] + 2;

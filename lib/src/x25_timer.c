@@ -21,17 +21,17 @@ void x25_start_timer(struct x25_cs *x25, struct x25_timer * timer) {
 #if X25_DEBUG >= 3
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 	if (timer == &x25_int->RestartTimer)
-		x25->callbacks->debug(0, "[X25_LINK] start restart_timer");
+		x25->callbacks->debug(3, "[X25_LINK] start restart_timer");
 	else if (timer == &x25_int->CallTimer)
-		x25->callbacks->debug(0, "[X25] start call_timer");
+		x25->callbacks->debug(3, "[X25] start call_timer");
 	else if (timer == &x25_int->ResetTimer)
-		x25->callbacks->debug(0, "[X25] start reset_timer");
+		x25->callbacks->debug(3, "[X25] start reset_timer");
 	else if (timer == &x25_int->ClearTimer)
-		x25->callbacks->debug(0, "[X25] start clear_timer");
+		x25->callbacks->debug(3, "[X25] start clear_timer");
 	else if (timer == &x25_int->AckTimer)
-		x25->callbacks->debug(0, "[X25] start ack_timer");
+		x25->callbacks->debug(3, "[X25] start ack_timer");
 	else if (timer == &x25_int->DataTimer)
-		x25->callbacks->debug(0, "[X25] start data_timer");
+		x25->callbacks->debug(3, "[X25] start data_timer");
 #endif
 }
 
@@ -44,17 +44,17 @@ void x25_stop_timer(struct x25_cs *x25, struct x25_timer * timer) {
 #if X25_DEBUG >= 3
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 	if (timer == &x25_int->RestartTimer)
-		x25->callbacks->debug(0, "[X25_LINK] stop restart_timer");
+		x25->callbacks->debug(3, "[X25_LINK] stop restart_timer");
 	else if (timer == &x25_int->CallTimer)
-		x25->callbacks->debug(0, "[X25] stop call_timer");
+		x25->callbacks->debug(3, "[X25] stop call_timer");
 	else if (timer == &x25_int->ResetTimer)
-		x25->callbacks->debug(0, "[X25] stop reset_timer");
+		x25->callbacks->debug(3, "[X25] stop reset_timer");
 	else if (timer == &x25_int->ClearTimer)
-		x25->callbacks->debug(0, "[X25] stop clear_timer");
+		x25->callbacks->debug(3, "[X25] stop clear_timer");
 	else if (timer == &x25_int->AckTimer)
-		x25->callbacks->debug(0, "[X25] stop ack_timer");
+		x25->callbacks->debug(3, "[X25] stop ack_timer");
 	else if (timer == &x25_int->DataTimer)
-		x25->callbacks->debug(0, "[X25] stop data_timer");
+		x25->callbacks->debug(3, "[X25] stop data_timer");
 #endif
 }
 
@@ -98,7 +98,7 @@ void x25_CallTimer_expiry(void * x25_ptr) {
 
 	x25_stop_timer(x25, &x25_int->CallTimer);
 	/* Transmit clear_request */
-	x25->callbacks->debug(1, "[X25] S%d TX CLEAR_REQUEST", x25_int->state);
+	x25->callbacks->debug(2, "[X25] S%d TX CLEAR_REQUEST", x25_int->state);
 	x25_write_internal(x25, X25_CLEAR_REQUEST);
 }
 
@@ -112,7 +112,7 @@ void x25_ResetTimer_expiry(void * x25_ptr) {
 		x25_stop_timer(x25, &x25_int->ResetTimer);
 		x25_disconnect(x25, X25_TIMEDOUT, 0, 0);
 	} else {
-		x25->callbacks->debug(1, "[X25] S%d TX RESET_REQUEST", x25_int->state);
+		x25->callbacks->debug(2, "[X25] S%d TX RESET_REQUEST", x25_int->state);
 		x25_write_internal(x25, X25_RESET_REQUEST);
 	};
 }
@@ -128,7 +128,7 @@ void x25_AckTimer_expiry(void * x25_ptr) {
 	if (!x25) return;
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
-	x25->callbacks->debug(1, "[X25] S%d ack_timer expired", x25_int->state);
+	x25->callbacks->debug(3, "[X25] S%d ack_timer expired", x25_int->state);
 	if (test_bit(X25_COND_ACK_PENDING, &x25_int->condition)) {
 		clear_bit(X25_COND_ACK_PENDING, &x25_int->condition);
 		x25_enquiry_response(x25);
@@ -142,7 +142,7 @@ void x25_DataTimer_expiry(void * x25_ptr) {
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
 	x25_int->DataTimer.RC++;
-	x25->callbacks->debug(1, "[X25] S%d data_timer expired(%d of %d)",
+	x25->callbacks->debug(3, "[X25] S%d data_timer expired(%d of %d)",
 						   x25_int->state, x25_int->DataTimer.RC, x25->DataTimer_NR);
 	if (x25_int->DataTimer.RC >= x25->DataTimer_NR) {
 		x25_stop_timer(x25, &x25_int->DataTimer);

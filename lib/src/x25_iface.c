@@ -92,8 +92,6 @@ int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, st
 	/* Create queues */
 	cb_init(&x25_int->ack_queue, X25_SMODULUS, x25_pacsize_to_bytes(X25_DEFAULT_PACKET_SIZE)*X25_DEFAULT_WINDOW_SIZE);
 	cb_init(&x25_int->write_queue, X25_SMODULUS, x25_pacsize_to_bytes(X25_DEFAULT_PACKET_SIZE)*X25_DEFAULT_WINDOW_SIZE);
-	//cb_init(&x25_int->receive_queue, X25_SMODULUS, x25_pacsize_to_bytes(X25_DEFAULT_PACKET_SIZE)*X25_DEFAULT_WINDOW_SIZE);
-	//cb_init(&(*x25)->fragment_queue, X25_SMODULUS, x25_pacsize_to_bytes((*x25)->facilities.pacsize_out));
 	cb_init(&x25_int->interrupt_in_queue, X25_SMODULUS, x25_pacsize_to_bytes(x25_int->facilities.pacsize_out));
 	cb_init(&x25_int->interrupt_out_queue, X25_SMODULUS, x25_pacsize_to_bytes(x25_int->facilities.pacsize_out));
 
@@ -121,14 +119,9 @@ int x25_unregister(struct x25_cs * x25) {
 
 	cb_free(&x25_int->ack_queue);
 	cb_free(&x25_int->write_queue);
-//	/cb_free(&x25_int->receive_queue);
 	cb_free(&x25_int->interrupt_in_queue);
 	cb_free(&x25_int->interrupt_out_queue);
 
-//	if (x25->link.timer.timer_ptr) {
-//		x25_stop_timer(x25, &x25->link.timer);
-//		x25->callbacks->del_timer(x25->link.timer.timer_ptr);
-//	};
 	cb_free(&x25->link.queue);
 
 	x25_mem_free(x25_int);
@@ -254,9 +247,6 @@ int x25_set_params(struct x25_cs * x25, struct x25_params *params) {
 	};
 	x25->DataTimer_NR = params->DataTimerNR;
 
-	/* Delete all timers */
-
-	/* Create timers with new params */
 
 	/* Check and correct facilities values */
 	if (x25_is_extended(x25)) {
@@ -293,7 +283,6 @@ int x25_get_state(struct x25_cs *x25) {
 void x25_add_link(struct x25_cs *x25, void * link) {
 	x25->link.link_ptr = link;
 	x25->link.state    = X25_LINK_STATE_0;
-	//x25->link.extended = extended == 0 ? 0 : 1;
 	cb_init(&x25->link.queue, 10, 1024);
 	//x25->link.timer.interval = X25_DEFAULT_T_LINK;
 	//x25->link.T2.timer_ptr = x25->callbacks->add_timer(x25->link.T2.interval, x25, x25_t2timer_expiry);
@@ -328,7 +317,7 @@ int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr) {
 	x25->dest_addr = *dest_addr;
 
 	x25->callbacks->debug(1, "[X25] S%d Make Call to %s", x25_int->state, dest_addr->x25_addr);
-	x25->callbacks->debug(1, "[X25] S%d TX CALL_REQUEST", x25_int->state);
+	x25->callbacks->debug(2, "[X25] S%d TX CALL_REQUEST", x25_int->state);
 	x25->callbacks->debug(1, "[X25] S%d -> S1", x25_int->state);
 	x25_int->state = X25_STATE_1;
 	x25_write_internal(x25, X25_CALL_REQUEST);
@@ -358,7 +347,7 @@ int x25_clear_request(struct x25_cs * x25) {
 		case X25_STATE_3:
 		case X25_STATE_4:
 			x25_clear_queues(x25);
-			x25->callbacks->debug(1, "[X25] S%d TX CLEAR_REQUEST", x25_int->state);
+			x25->callbacks->debug(2, "[X25] S%d TX CLEAR_REQUEST", x25_int->state);
 			_uchar old_state = x25_int->state;
 			x25_int->state = X25_STATE_2;
 			x25_write_internal(x25, X25_CLEAR_REQUEST);
@@ -390,8 +379,6 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 
 	if ((out_of_band) && data_size_tmp > 32)
 		data_size_tmp = 32;
-
-//	size = len + X25_EXT_MIN_LEN;
 
 	/*
 	 *	If the Q BIT Include socket option is in force, the first
@@ -432,116 +419,13 @@ int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_b
 			goto out;
 		};
 
-		rc = x25_output(x25, ptr, data_size_tmp, qbit);
+		rc = x25_output(x25, ptr, data_size_tmp, qbit, actual_window_size);
 	};
 
 	x25_kick(x25);
-	//rc = len;
 out:
 	return rc;
 }
-
-
-//static int x25_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
-//		       int flags)
-//{
-//	struct sock *sk = sock->sk;
-//	struct x25_sock *x25 = x25_sk(sk);
-//	DECLARE_SOCKADDR(struct sockaddr_x25 *, sx25, msg->msg_name);
-//	size_t copied;
-//	int qbit, header_len;
-//	struct sk_buff *skb;
-//	_uchar *asmptr;
-//	int rc = -ENOTCONN;
-
-//	lock_sock(sk);
-
-//	if (x25->neighbour == NULL)
-//		goto out;
-
-//	header_len = x25->neighbour->extended ?
-//		X25_EXT_MIN_LEN : X25_STD_MIN_LEN;
-
-//	/*
-//	 * This works for seqpacket too. The receiver has ordered the queue for
-//	 * us! We do one quick check first though
-//	 */
-//	if (sk->sk_state != TCP_ESTABLISHED)
-//		goto out;
-
-//	if (flags & MSG_OOB) {
-//		rc = -EINVAL;
-//		if (sock_flag(sk, SOCK_URGINLINE) ||
-//		    !skb_peek(&x25->interrupt_in_queue))
-//			goto out;
-
-//		skb = skb_dequeue(&x25->interrupt_in_queue);
-
-//		if (!pskb_may_pull(skb, X25_STD_MIN_LEN))
-//			goto out_free_dgram;
-
-//		skb_pull(skb, X25_STD_MIN_LEN);
-
-//		/*
-//		 *	No Q bit information on Interrupt data.
-//		 */
-//		if (test_bit(X25_Q_BIT_FLAG, &x25->flags)) {
-//			asmptr  = skb_push(skb, 1);
-//			*asmptr = 0x00;
-//		}
-
-//		msg->msg_flags |= MSG_OOB;
-//	} else {
-//		/* Now we can treat all alike */
-//		release_sock(sk);
-//		skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
-//					flags & MSG_DONTWAIT, &rc);
-//		lock_sock(sk);
-//		if (!skb)
-//			goto out;
-
-//		if (!pskb_may_pull(skb, header_len))
-//			goto out_free_dgram;
-
-//		qbit = (skb->data[0] & X25_Q_BIT) == X25_Q_BIT;
-
-//		skb_pull(skb, header_len);
-
-//		if (test_bit(X25_Q_BIT_FLAG, &x25->flags)) {
-//			asmptr  = skb_push(skb, 1);
-//			*asmptr = qbit;
-//		}
-//	}
-
-//	skb_reset_transport_header(skb);
-//	copied = skb->len;
-
-//	if (copied > size) {
-//		copied = size;
-//		msg->msg_flags |= MSG_TRUNC;
-//	}
-
-//	/* Currently, each datagram always contains a complete record */
-//	msg->msg_flags |= MSG_EOR;
-
-//	rc = skb_copy_datagram_msg(skb, 0, msg, copied);
-//	if (rc)
-//		goto out_free_dgram;
-
-//	if (sx25) {
-//		sx25->sx25_family = AF_X25;
-//		sx25->sx25_addr   = x25->dest_addr;
-//		msg->msg_namelen = sizeof(*sx25);
-//	}
-
-//	x25_check_rbuf(sk);
-//	rc = copied;
-//out_free_dgram:
-//	skb_free_datagram(sk, skb);
-//out:
-//	release_sock(sk);
-//	return rc;
-//}
 
 
 

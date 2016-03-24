@@ -251,22 +251,22 @@ struct x25_cs {
 
 
 /* x25_iface.c */
-extern int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, struct x25_cs ** x25);
-extern int x25_unregister(struct x25_cs * x25);
-extern int x25_get_params(struct x25_cs * x25, struct x25_params * params);
-extern int x25_set_params(struct x25_cs * x25, struct x25_params * params);
-extern void x25_add_link(struct x25_cs *x25, void * link);
-extern int x25_get_state(struct x25_cs *x25);
+int x25_register(struct x25_callbacks *callbacks, struct x25_params * params, struct x25_cs ** x25);
+int x25_unregister(struct x25_cs * x25);
+int x25_get_params(struct x25_cs * x25, struct x25_params * params);
+int x25_set_params(struct x25_cs * x25, struct x25_params * params);
+void x25_add_link(struct x25_cs *x25, void * link);
+int x25_get_state(struct x25_cs *x25);
 
-extern int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
-extern int x25_clear_request(struct x25_cs * x25);
-extern int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
-extern int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_band, _uchar q_bit_flag);
+int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
+int x25_clear_request(struct x25_cs * x25);
+int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
+int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_band, _uchar q_bit_flag);
 
 
 /* x25_link.c */
-extern void x25_link_established(void *x25_ptr);
-extern void x25_link_terminated(void *x25_ptr);
+void x25_link_established(void *x25_ptr);
+void x25_link_terminated(void *x25_ptr);
 int x25_link_receive_data(void *x25_ptr, char * data, int data_size);
 
 
@@ -277,8 +277,6 @@ char * x25_error_str(int error);
 /* x25_out.c */
 void x25_check_iframes_acked(struct x25_cs *x25, _ushort nr);
 
-
-/* x25_timer.c */
 
 
 
@@ -291,6 +289,6 @@ void x25_check_iframes_acked(struct x25_cs *x25, _ushort nr);
  *	2 = Packets I/O and State Changes
  *	3 = Hex dumps, Packets I/O and State Changes.
  */
-#define	X25_DEBUG	3
+#define	X25_DEBUG	1
 
 #endif

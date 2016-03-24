@@ -335,7 +335,7 @@ void lapb_transmit_frmr(struct lapb_cs *lapb) {
 			frame[5] |= 0x01;
 		frame[6] = lapb_int->frmr_type;
 
-		lapb->callbacks->debug(1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X",
+		lapb->callbacks->debug(2, "[LAPB] S%d TX FRMR %02X %02X %02X %02X %02X",
 							   lapb_int->state, (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4], (_uchar)frame[5], (_uchar)frame[6]);
 
 		if (lapb->low_order_bits) {
@@ -357,7 +357,7 @@ void lapb_transmit_frmr(struct lapb_cs *lapb) {
 			frame[3] |= 0x10;
 		frame[4] = lapb_int->frmr_type;
 
-		lapb->callbacks->debug(1, "[LAPB] S%d TX FRMR %02X %02X %02X %02X",
+		lapb->callbacks->debug(2, "[LAPB] S%d TX FRMR %02X %02X %02X %02X",
 							   lapb_int->state, (_uchar)frame[1], (_uchar)frame[2], (_uchar)frame[3], (_uchar)frame[4]);
 
 		if (lapb->low_order_bits) {

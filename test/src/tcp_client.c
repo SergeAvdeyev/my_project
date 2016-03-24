@@ -120,13 +120,13 @@ int create_client_socket() {
 
 	rc = ioctl(result, FIONBIO, (char *)&on);
 	if (rc < 0) {
-		custom_debug(0, "ioctl() failed, %s", strerror(errno));
+		lapb_debug(0, "ioctl() failed, %s", strerror(errno));
 		close(result);
 		return result;
 	};
 
 	if (result < 0) {
-		custom_debug(0, "ERROR opening socket, %s", strerror(errno));
+		lapb_debug(0, "ERROR opening socket, %s", strerror(errno));
 		return -1;
 	};
 
@@ -152,7 +152,7 @@ void * client_function(void *ptr) {
 
 	server = gethostbyname(((struct tcp_client_struct *)ptr)->server_address);
 	if (server == NULL) {
-		custom_debug(0, "ERROR, no such host %s", ((struct tcp_client_struct *)ptr)->server_address);
+		lapb_debug(0, "ERROR, no such host %s", ((struct tcp_client_struct *)ptr)->server_address);
 		*result = 0;
 		return result;
 	};
@@ -178,7 +178,7 @@ void * client_function(void *ptr) {
 		if (connect(client_socket, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
 			k--;
 			if (k <= 0) {
-				custom_debug(0, "ERROR connecting, %s", strerror(errno));
+				lapb_debug(0, "ERROR connecting, %s", strerror(errno));
 				k = 50;
 			};
 			sleep_ms(100);
@@ -201,8 +201,8 @@ void * client_function(void *ptr) {
 			if (get_client_exit_flag()) break;
 			/* Check to see if the select call failed.				*/
 			if (rc < 0) {
-				custom_debug(0, "select() failed, %s", strerror(errno));
-				custom_debug(0, "Connection will be closed");
+				lapb_debug(0, "select() failed, %s", strerror(errno));
+				lapb_debug(0, "Connection will be closed");
 				//close(client_socket);
 				break;
 			};
@@ -216,8 +216,8 @@ void * client_function(void *ptr) {
 				rc = recv(client_socket, buffer, sizeof(buffer), 0);
 				if (rc < 0) {
 					if (errno != EWOULDBLOCK) {
-						custom_debug(0, "recv() failed, %s", strerror(errno));
-						custom_debug(0, "Connection will be closed");
+						lapb_debug(0, "recv() failed, %s", strerror(errno));
+						lapb_debug(0, "Connection will be closed");
 						close(client_socket);
 						client_socket = -1;
 						if (((struct tcp_client_struct *)ptr)->connection_lost)
@@ -227,7 +227,7 @@ void * client_function(void *ptr) {
 					};
 				} else if (rc == 0) {
 					/* Connection has been closed by the client  */
-					custom_debug(0, "Connection closed by server");
+					lapb_debug(0, "Connection closed by server");
 					close(client_socket);
 					client_socket = -1;
 					client_disconnected();

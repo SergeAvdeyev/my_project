@@ -102,8 +102,20 @@ void setup_signals_handler() {
 }
 
 
-void custom_debug(int level, const char * format, ...) {
-	if (level < LIB_DEBUG) {
+void lapb_debug(int level, const char * format, ...) {
+	if (level <= LAPB_DEBUG) {
+		char buf[256];
+		va_list argList;
+
+		va_start(argList, format);
+		vsnprintf(buf, 256, format, argList);
+		va_end(argList);
+		logger_enqueue(buf, strlen(buf) + 1);
+	};
+}
+
+void x25_debug(int level, const char * format, ...) {
+	if (level <= X25_DEBUG) {
 		char buf[256];
 		va_list argList;
 
@@ -137,7 +149,7 @@ void main_unlock() {
 /* Called by LAPB to inform X25 that Connect Request is confirmed */
 void lapb_connect_confirmation_cb(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
-	custom_debug(0, "[LAPB_CB] connect_confirmation event is called(%s)", lapb_error_str(reason));
+	lapb_debug(0, "[LAPB_CB] connect_confirmation event is called(%s)", lapb_error_str(reason));
 	x25_link_established(lapb->L3_ptr);
 	out_counter = 0;
 }
@@ -145,7 +157,7 @@ void lapb_connect_confirmation_cb(struct lapb_cs * lapb, int reason) {
 /* Called by LAPB to inform X25 that connection was initiated by the remote system */
 void lapb_connect_indication_cb(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
-	custom_debug(0, "[LAPB_CB] connect_indication event is called(%s)", lapb_error_str(reason));
+	lapb_debug(0, "[LAPB_CB] connect_indication event is called(%s)", lapb_error_str(reason));
 	x25_link_established(lapb->L3_ptr);
 	out_counter = 0;
 }
@@ -153,7 +165,7 @@ void lapb_connect_indication_cb(struct lapb_cs * lapb, int reason) {
 /* Called by LAPB to inform X25 that Disconnect Request is confirmed */
 void lapb_disconnect_confirmation_cb(struct lapb_cs * lapb, int reason) {
 	(void)lapb;
-	custom_debug(0, "[LAPB_CB] disconnect_confirmation event is called(%s)", lapb_error_str(reason));
+	lapb_debug(0, "[LAPB_CB] disconnect_confirmation event is called(%s)", lapb_error_str(reason));
 	x25_link_terminated(lapb->L3_ptr);
 }
 
@@ -162,7 +174,7 @@ void lapb_disconnect_indication_cb(struct lapb_cs * lapb, int reason) {
 	//char * buffer;
 	//int buffer_size;
 
-	custom_debug(0, "[LAPB_CB] disconnect_indication event is called(%s)", lapb_error_str(reason));
+	lapb_debug(0, "[LAPB_CB] disconnect_indication event is called(%s)", lapb_error_str(reason));
 	x25_link_terminated(lapb->L3_ptr);
 //	buffer = lapb_dequeue(lapb, &buffer_size);
 //	if (buffer) {
@@ -175,7 +187,7 @@ void lapb_disconnect_indication_cb(struct lapb_cs * lapb, int reason) {
 
 /* Called by LAPB to inform X25 about new data */
 int lapb_data_indication_cb(struct lapb_cs * lapb, char * data, int data_size) {
-	custom_debug(0, "[LAPB_CB] received new data");
+	lapb_debug(0, "[LAPB_CB] received new data");
 	x25_link_receive_data(lapb->L3_ptr, data, data_size);
 	//printf("%s\n", buf_to_str(data, data_size));
 	return 0;
@@ -188,32 +200,34 @@ int lapb_data_indication_cb(struct lapb_cs * lapb, char * data, int data_size) {
 /* Called by X25 to inform App that Call request was initiated by the remote system */
 void x25_call_indication_cb(struct x25_cs * x25) {
 	(void)x25;
-	custom_debug(0, "[X25_CB] call_indication event is called");
+	x25_debug(0, "[X25_CB] call_indication event is called");
 }
 
 /* Called by X25 to inform App that Call request is confirmed */
 void x25_call_accepted_cb(struct x25_cs * x25) {
 	(void)x25;
-	custom_debug(0, "[X25_CB] call_accepted event is called");
+	x25_debug(0, "[X25_CB] call_accepted event is called");
 }
 
 /* Called by X25 to inform App that Clear request was initiated by the remote system */
 void x25_clear_indication_cb(struct x25_cs * x25) {
 	(void)x25;
-	custom_debug(0, "[X25_CB] clear_indication event is called");
+	x25_debug(0, "[X25_CB] clear_indication event is called");
 }
 
 /* Called by X25 to inform App that Clear request is confirmed */
 void x25_clear_accepted_cb(struct x25_cs * x25) {
 	(void)x25;
-	custom_debug(0, "[X25_CB] clear_accepted event is called");
+	x25_debug(0, "[X25_CB] clear_accepted event is called");
 }
 
 /* Called by X25 to inform App that Call request is confirmed */
 int x25_data_indication_cb(struct x25_cs * x25, char * data, int data_size) {
 	(void)x25;
-	custom_debug(0, "[X25_CB] data_indication event is called");
-	printf("%s\n", buf_to_str(data, data_size));
+	x25_debug(0, "[X25_CB] data_indication event is called");
+	//printf("%s\n", buf_to_str(data, data_size));
+	write(0, data, data_size);
+	printf("\n");
 	return 0;
 }
 
@@ -295,10 +309,12 @@ void print_commands_3(struct x25_cs * x25) {
 	else
 		printf("Connected state(modulo 8):\n");
 	printf("Enter text or select command\n");
-	printf("1 Send test buffer(128 bytes)\n");
-	printf("2 Send sequence of data(500 frames)\n");
-	printf("3 Send sequence of data(500 frames - Bad FCS)\n");
-	printf("4 Send sequence of data(500 frames - Bad N(R))\n");
+	printf("1 Send test buffer 'F000...000F'(128 bytes)\n");
+	printf("2 Send test buffer 'F000...000F'(156 bytes)\n");
+	printf("3 Send test buffer 'F000...000F'(2048 bytes)\n");
+	printf("4 Send sequence of data(500 frames)\n");
+	//printf("3 Send sequence of data(500 frames - Bad FCS)\n");
+	//printf("4 Send sequence of data(500 frames - Bad N(R))\n");
 	printf("9 Send DISC\n");
 	printf("--\n");
 	printf("0 Exit application\n");
@@ -435,7 +451,7 @@ void x25_state_2(struct x25_cs *x25) {
 void x25_state_3(struct x25_cs *x25) {
 	int while_flag;
 	int wait_stdin_result;
-	char buffer[256];
+	char buffer[65536];
 	int n;
 	int res = X25_OK;
 
@@ -460,29 +476,52 @@ void x25_state_3(struct x25_cs *x25) {
 		if (buffer == pEnd)
 			action = 99;
 		switch (action) {
-			case 1: default:  /* Send test buffer (128 byte) or text from console */
-				if (action == 1) {
-					data_size = 128;
-					n = 0;
-					while (n < data_size) {
-						buffer[n] = 'a'; // + n;
+			case 1: case 2: case 3: default:  /* Send test buffer (128 or 156 bytes) or text from console */
+				if ((action == 1) || (action == 2) || (action == 3)) {
+					if (action == 1)
+						data_size = 128;
+					else if (action == 2)
+						data_size = 156;
+					else
+						data_size = 2048;
+					n = 1;
+					while (n < data_size - 2) {
+						buffer[n] = '0';
 						n++;
 					};
-				} else
+					buffer[0] = 'F';
+					buffer[data_size - 1] = 'F';
+				} else {
 					data_size = strlen(buffer) - 1;
-				buffer[data_size] = 0;
-				main_lock();
-				res = x25_sendmsg(x25, buffer, data_size, FALSE, FALSE);
-				main_unlock();
-				if (res < 0) {
-					printf("ERROR: %s\n\n", x25_error_str(res));
+					buffer[data_size] = 0;
+				};
+				int sended = 0;
+				char * ptr = buffer;
+				int data_size_tmp = data_size;
+				while (1) {
+					main_lock();
+					res = x25_sendmsg(x25, ptr, data_size_tmp, FALSE, FALSE);
+					main_unlock();
+					if (res < 0) {
+						printf("ERROR: %s\n\n", x25_error_str(res));
+						break;
+					};
+					if (res == 0) {
+						sleep_ms(10);
+						continue;
+					};
+					sended += res;
+					data_size_tmp -= res;
+					ptr += res;
+					if (sended == data_size)
+						break;
 				};
 				//else
 				//	while_flag = FALSE;
 				break;
-			case 2: case 3: case 4: /* Send sequence of data */
-				error_type = action - 2;
-				error_counter = 1;
+			case 4: /* Send sequence of data */
+				//error_type = action - 2;
+				//error_counter = 1;
 				while (!break_flag) {
 					bzero(buffer, sizeof(buffer));
 					sprintf(buffer, "abcdefghij_%d", out_counter);
@@ -498,8 +537,8 @@ void x25_state_3(struct x25_cs *x25) {
 					};
 					out_counter++;
 					if (out_counter % 500 == 0) break;
-					if (error_type != 0)
-						error_counter = (error_counter + 1) % 13;
+					//if (error_type != 0)
+					//	error_counter = (error_counter + 1) % 13;
 				};
 				break;
 			case 9: /* DISC */

@@ -21,7 +21,7 @@ void lapb_start_t201timer(struct lapb_cs *lapb) {
 
 	lapb->callbacks->start_timer(lapb_int->T201_timer_ptr);
 	lapb_int->T201_state = TRUE;
-	lapb->callbacks->debug(0, "[LAPB] start_t201timer is called");
+	lapb->callbacks->debug(3, "[LAPB] start_t201timer is called");
 }
 
 void lapb_stop_t201timer(struct lapb_cs *lapb) {
@@ -34,7 +34,7 @@ void lapb_stop_t201timer(struct lapb_cs *lapb) {
 	lapb->callbacks->stop_timer(lapb_int->T201_timer_ptr);
 	lapb_int->T201_state = FALSE;
 	lapb_int->RC = 0;
-	lapb->callbacks->debug(0, "[LAPB] stop_t201timer is called");
+	lapb->callbacks->debug(3, "[LAPB] stop_t201timer is called");
 }
 
 void lapb_restart_t201timer(struct lapb_cs *lapb) {
@@ -65,7 +65,7 @@ void lapb_start_t202timer(struct lapb_cs *lapb) {
 	if (!lapb->callbacks->start_timer) return;
 	lapb->callbacks->start_timer(lapb_get_internal(lapb)->T202_timer_ptr);
 	lapb_int->T202_state = TRUE;
-	lapb->callbacks->debug(0, "[LAPB] start_t202timer is called");
+	lapb->callbacks->debug(3, "[LAPB] start_t202timer is called");
 }
 
 void lapb_stop_t202timer(struct lapb_cs *lapb) {
@@ -76,7 +76,7 @@ void lapb_stop_t202timer(struct lapb_cs *lapb) {
 	if (!lapb->callbacks->stop_timer) return;
 	lapb->callbacks->stop_timer(lapb_get_internal(lapb)->T202_timer_ptr);
 	lapb_int->T202_state = FALSE;
-	lapb->callbacks->debug(0, "[LAPB] stop_t202timer is called");
+	lapb->callbacks->debug(3, "[LAPB] stop_t202timer is called");
 }
 
 int lapb_t202timer_running(struct lapb_cs *lapb) {
@@ -90,7 +90,7 @@ void lapb_t202timer_expiry(void * lapb_ptr) {
 
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
-	lapb->callbacks->debug(1, "[LAPB] S%d Timer_202 expired", lapb_int->state);
+	lapb->callbacks->debug(3, "[LAPB] S%d Timer_202 expired", lapb_int->state);
 	if (lapb_int->condition & LAPB_ACK_PENDING_CONDITION) {
 		lapb_int->condition &= ~LAPB_ACK_PENDING_CONDITION;
 		lapb_timeout_response(lapb);
@@ -105,7 +105,7 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 	struct lapb_cs_internal * lapb_int = lapb_get_internal(lapb);
 
 	lapb_int->RC++;
-	lapb->callbacks->debug(1, "[LAPB] S%d Timer_201 expired(%d of %d)",
+	lapb->callbacks->debug(3, "[LAPB] S%d Timer_201 expired(%d of %d)",
 						   lapb_int->state, lapb_int->RC, lapb->N201);
 	switch (lapb_int->state) {
 		/*
@@ -114,7 +114,7 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 		case LAPB_STATE_0:
 			if (lapb_is_dce(lapb)) {
 				lapb_int->RC = 0;
-				lapb->callbacks->debug(1, "[LAPB] S0 TX DM(0)");
+				lapb->callbacks->debug(2, "[LAPB] S0 TX DM(0)");
 				lapb_send_control(lapb, LAPB_DM, LAPB_POLLOFF, LAPB_RESPONSE);
 			};
 			break;
@@ -129,10 +129,10 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 				lapb_reset(lapb, LAPB_STATE_0);
 			} else {
 				if (lapb_is_extended(lapb)) {
-					lapb->callbacks->debug(1, "[LAPB] S1 TX SABME(1)");
+					lapb->callbacks->debug(2, "[LAPB] S1 TX SABME(1)");
 					lapb_send_control(lapb, LAPB_SABME, LAPB_POLLON, LAPB_COMMAND);
 				} else {
-					lapb->callbacks->debug(1, "[LAPB] S1 TX SABM(1)");
+					lapb->callbacks->debug(2, "[LAPB] S1 TX SABM(1)");
 					lapb_send_control(lapb, LAPB_SABM, LAPB_POLLON, LAPB_COMMAND);
 				};
 			};
@@ -148,7 +148,7 @@ void lapb_t201timer_expiry(void * lapb_ptr) {
 				lapb_disconnect_indication(lapb, LAPB_TIMEDOUT);
 				lapb_reset(lapb, LAPB_STATE_0);
 			} else {
-				lapb->callbacks->debug(1, "[LAPB] S2 TX DISC(1)");
+				lapb->callbacks->debug(2, "[LAPB] S2 TX DISC(1)");
 				lapb_send_control(lapb, LAPB_DISC, LAPB_POLLON, LAPB_COMMAND);
 			};
 			break;

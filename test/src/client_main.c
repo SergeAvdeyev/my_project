@@ -40,7 +40,7 @@ void lapb_transmit_data(struct lapb_cs * lapb, char *data, int data_size, int ex
 
 	int n = send(tcp_client_socket(), buffer, data_size + 6, MSG_NOSIGNAL);
 	if (n < 0)
-		custom_debug(0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
+		lapb_debug(0, "[LAPB] ERROR writing to socket, %s", strerror(errno));
 }
 
 
@@ -79,7 +79,7 @@ void new_data_received(char * data, int data_size) {
 					in_buffer[block_size] = data[i];
 					block_size++;
 				} else {
-					custom_debug(0, "[PHYS_CB] data error");
+					lapb_debug(0, "[PHYS_CB] data error");
 					break;
 				};
 			}
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 		sleep_ms(200);
 	printf("Logger started\n\n");
 
-	custom_debug(0, "Program started by User %d", getuid ());
+	lapb_debug(0, "Program started by User %d", getuid ());
 
 	/* Setup signal handler */
 	setup_signals_handler();
@@ -220,7 +220,7 @@ label_2:
 
 	ret = pthread_create(&client_thread, NULL, client_function, (void*)client_thread_struct);
 	if (ret) {
-		custom_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		lapb_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -236,7 +236,7 @@ label_2:
 	timer_thread_struct->main_unlock = main_unlock;
 	ret = pthread_create(&timer_thread, NULL, timer_thread_function, (void*)timer_thread_struct);
 	if (ret) {
-		custom_debug(0, "Error - pthread_create() return code: %d\n", ret);
+		lapb_debug(0, "Error - pthread_create() return code: %d\n", ret);
 		closelog();
 		exit(EXIT_FAILURE);
 	};
@@ -262,7 +262,7 @@ label_2:
 	lapb_callbacks.start_timer = timer_start;
 	lapb_callbacks.stop_timer = timer_stop;
 
-	lapb_callbacks.debug = custom_debug;
+	lapb_callbacks.debug = lapb_debug;
 
 	/* Define LAPB values */
 	struct lapb_params lapb_params;
@@ -302,7 +302,7 @@ label_2:
 	x25_callbacks.start_timer = timer_start;
 	x25_callbacks.stop_timer = timer_stop;
 
-	x25_callbacks.debug = custom_debug;
+	x25_callbacks.debug = x25_debug;
 
 	/* Define X25 values */
 	struct x25_params x25_params;
@@ -342,9 +342,9 @@ label_2:
 	//x25_client->lci = 1 << 8 | 1;
 	x25_client->lci = 1;
 
-	custom_debug(0, "[X25]");
-	custom_debug(0, "[X25]");
-	custom_debug(0, "[X25]");
+	lapb_debug(0, "[X25]");
+	lapb_debug(0, "[X25]");
+	lapb_debug(0, "[X25]");
 
 
 	/* Start endless loop */

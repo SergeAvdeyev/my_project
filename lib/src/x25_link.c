@@ -24,7 +24,6 @@ void x25_transmit_link(struct x25_cs *x25, char * data, int data_size) {
 			break;
 		case X25_LINK_STATE_1:
 			cb_queue_tail(&x25->link.queue, data, data_size, 0);
-			//x25_int->RestartTimer_RC = 0;
 			x25_transmit_restart_request(x25);
 			x25->link.state = X25_LINK_STATE_2;
 			x25->callbacks->debug(1, "[X25_LINK] S1 -> S2");
@@ -57,7 +56,6 @@ void x25_link_established(void *x25_ptr) {
 			x25->callbacks->debug(1, "[X25_LINK] S0 -> S1");
 			break;
 		case X25_LINK_STATE_1:
-			//x25_int->RestartTimer_RC = 0;
 			x25_transmit_restart_request(x25);
 			x25->link.state = X25_LINK_STATE_2;
 			x25->callbacks->debug(1, "[X25_LINK] S1 -> S2");
@@ -80,7 +78,6 @@ void x25_link_terminated(void *x25_ptr) {
 	x25->callbacks->debug(1, "[X25_LINK] S%d -> S0", x25->link.state);
 	/* Out of order: clear existing virtual calls (X.25 03/93 4.6.3) */
 	x25_disconnect(x25, X25_REFUSED, 0, 0);
-	//x25->link.state = X25_LINK_STATE_0;
 }
 
 int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
@@ -133,7 +130,7 @@ void x25_link_control(struct x25_cs *x25, char * data, int data_size, _uchar fra
 
 	switch (frametype) {
 		case X25_RESTART_REQUEST:
-			x25->callbacks->debug(1, "[X25_LINK] S%d RX RESTART_REQUEST", x25->link.state);
+			x25->callbacks->debug(2, "[X25_LINK] S%d RX RESTART_REQUEST", x25->link.state);
 			confirm = !x25_int->RestartTimer.state;
 			x25->callbacks->stop_timer(x25_int->RestartTimer.timer_ptr);
 			if (confirm)
@@ -143,14 +140,14 @@ void x25_link_control(struct x25_cs *x25, char * data, int data_size, _uchar fra
 			break;
 
 		case X25_RESTART_CONFIRMATION:
-			x25->callbacks->debug(1, "[X25_LINK] S%d RX RESTART_CONFIRMATION", x25->link.state);
+			x25->callbacks->debug(2, "[X25_LINK] S%d RX RESTART_CONFIRMATION", x25->link.state);
 			x25->callbacks->stop_timer(x25_int->RestartTimer.timer_ptr);
 			x25->callbacks->debug(1, "[X25_LINK] S%d -> S3", x25->link.state);
 			x25->link.state = X25_LINK_STATE_3;
 			break;
 
 		case X25_DIAGNOSTIC:
-			x25->callbacks->debug(1, "[X25_LINK] S%d RX DIAGNOSTIC", x25->link.state);
+			x25->callbacks->debug(2, "[X25_LINK] S%d RX DIAGNOSTIC", x25->link.state);
 			if (data_size < 7)
 				break;
 
