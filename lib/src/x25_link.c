@@ -100,10 +100,11 @@ int x25_link_receive_data(void *x25_ptr, char * data, int data_size) {
 		return 0;
 	};
 
-	if ((x25->peer_lci == lci) || (frametype == X25_CALL_ACCEPTED)) {
+	if ((x25->peer_lci == lci) ||
+		((x25->peer_lci == 0) && ((frametype == X25_CALL_ACCEPTED) || (frametype == X25_RESET_REQUEST) || (frametype == X25_RESET_CONFIRMATION)))) {
 		int queued = 1;
 
-		if (frametype == X25_CALL_ACCEPTED)
+		if ((frametype == X25_CALL_ACCEPTED) || (frametype == X25_RESET_REQUEST) || (frametype == X25_RESET_CONFIRMATION))
 			x25->peer_lci = lci;
 		queued = x25_process_rx_frame(x25, data, data_size);
 		return queued;

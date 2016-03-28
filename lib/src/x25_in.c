@@ -39,6 +39,37 @@ int x25_queue_rx_frame(struct x25_cs * x25, char * data, int data_size, int more
  * State machine for state 1, Awaiting Call Accepted State.
  * The handling of the timer(s) is in file x25_timer.c.
  */
+int x25_state0_machine(struct x25_cs * x25, char * data, int data_size, struct x25_frame * frame) {
+	(void)data;
+	(void)data_size;
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
+	switch (frame->type) {
+		case X25_RESET_REQUEST:
+			x25->callbacks->debug(2, "[X25] S0 RX RESET_REQUEST");
+			x25->callbacks->debug(2, "[X25] S0 TX RESET_CONFIRMATION");
+			x25_write_internal(x25, X25_RESET_CONFIRMATION);
+			x25_stop_timers(x25);
+			x25_int->condition = 0x00;
+			x25_int->vs        = 0;
+			x25_int->vr        = 0;
+			x25_int->va        = 0;
+			x25_int->vl        = 0;
+			x25_int->state     = X25_STATE_3;
+			x25->callbacks->debug(1, "[X25] S0 -> S3");
+			break;
+
+		default:
+			break;
+	};
+
+	return 0;
+}
+
+/*
+ * State machine for state 1, Awaiting Call Accepted State.
+ * The handling of the timer(s) is in file x25_timer.c.
+ */
 int x25_state1_machine(struct x25_cs * x25, char * data, int data_size, struct x25_frame * frame) {
 	struct x25_address source_addr, dest_addr;
 	int len;
@@ -371,8 +402,8 @@ out_clear:
 int x25_process_rx_frame(struct x25_cs *x25, char * data, int data_size) {
 	struct x25_cs_internal * x25_int = x25_get_internal(x25);
 
-	if (x25_int->state == X25_STATE_0)
-		return 0;
+//	if (x25_int->state == X25_STATE_0)
+//		return 0;
 
 	int queued = 0;
 	struct x25_frame frame;
@@ -380,6 +411,9 @@ int x25_process_rx_frame(struct x25_cs *x25, char * data, int data_size) {
 	if (x25_decode(x25, data, data_size, &frame) == X25_ILLEGAL) return 0;
 
 	switch (x25_int->state) {
+		case X25_STATE_0:
+			queued = x25_state0_machine(x25, data, data_size, &frame);
+			break;
 		case X25_STATE_1:
 			queued = x25_state1_machine(x25, data, data_size, &frame);
 			break;

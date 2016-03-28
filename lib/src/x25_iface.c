@@ -330,6 +330,31 @@ out:
 }
 
 
+int x25_pvc_setup(struct x25_cs * x25) {
+	int rc = X25_BADTOKEN;
+
+	if (!x25)
+		goto out;
+
+	struct x25_cs_internal * x25_int = x25_get_internal(x25);
+
+
+	x25_limit_facilities(x25);
+
+
+	x25->callbacks->debug(1, "[X25] S%d PVC setup", x25_int->state);
+	x25->callbacks->debug(2, "[X25] S%d TX RESET_REQUEST", x25_int->state);
+	x25->callbacks->debug(1, "[X25] S%d -> S4", x25_int->state);
+	x25_int->state = X25_STATE_4;
+	x25_write_internal(x25, X25_RESET_REQUEST);
+
+	x25_start_timer(x25, &x25_int->ResetTimer);
+
+	rc = 0;
+out:
+	return rc;
+}
+
 
 int x25_clear_request(struct x25_cs * x25) {
 	if (!x25)

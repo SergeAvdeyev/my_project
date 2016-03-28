@@ -271,21 +271,18 @@ int wait_stdin(struct x25_cs * x25, _uchar break_condition, int run_once) {
 
 
 void print_commands_0(struct x25_cs * x25) {
-	if (x25->mode & X25_EXTENDED)
-		printf("Disconnected state(modulo 128):\n");
-	else
-		printf("Disconnected state(modulo 8):\n");
+	(void)x25;
+	printf("Disconnected state:\n");
 	printf("1 Make Call to...\n");
+	printf("2 PVC Setup\n");
 	printf("--\n");
 	printf("0 Exit application\n");
 	fprintf(stderr, ">");
 }
 
 void print_commands_1(struct x25_cs * x25) {
-	if (x25->mode & X25_EXTENDED)
-		printf("Awaiting connection state(modulo 128):\n");
-	else
-		printf("Awaiting connection state(modulo 8):\n");
+	(void)x25;
+	printf("Awaiting connection state:\n");
 	printf("1 Cancel\n");
 	printf("--\n");
 	printf("0 Exit application\n");
@@ -293,10 +290,8 @@ void print_commands_1(struct x25_cs * x25) {
 }
 
 void print_commands_2(struct x25_cs * x25) {
-	if (x25->mode & X25_EXTENDED)
-		printf("Awaiting disconnection state(modulo 128):\n");
-	else
-		printf("Awaiting disconnection state(modulo 8):\n");
+	(void)x25;
+	printf("Awaiting disconnection state:\n");
 	printf("1 Cancel\n");
 	printf("--\n");
 	printf("0 Exit application\n");
@@ -304,10 +299,8 @@ void print_commands_2(struct x25_cs * x25) {
 }
 
 void print_commands_3(struct x25_cs * x25) {
-	if (x25->mode & X25_EXTENDED)
-		printf("Connected state(modulo 128):\n");
-	else
-		printf("Connected state(modulo 8):\n");
+	(void)x25;
+	printf("Connected state:\n");
 	printf("Enter text or select command\n");
 	printf("1 Send test buffer 'F000...000F'(128 bytes)\n");
 	printf("2 Send test buffer 'F000...000F'(156 bytes)\n");
@@ -318,6 +311,15 @@ void print_commands_3(struct x25_cs * x25) {
 	printf("9 Send DISC\n");
 	printf("--\n");
 	printf("0 Exit application\n");
+}
+
+void print_commands_4(struct x25_cs * x25) {
+	(void)x25;
+	printf("Awaiting reset confirm:\n");
+	printf("1 Cancel\n");
+	printf("--\n");
+	printf("0 Exit application\n");
+	fprintf(stderr, ">");
 }
 
 
@@ -362,6 +364,25 @@ void x25_state_0(struct x25_cs *x25, struct x25_address * dest_addr) {
 				/* Lock resources */
 				main_lock();
 				res = x25_call_request(x25, &addr);
+				/* Unlock resources */
+				main_unlock();
+				if (res != X25_OK) {
+					printf("ERROR: %s\n\n", x25_error_str(res));
+				} else
+					while_flag = FALSE;
+				break;
+			case 2:  /* PVC Setup */
+//				printf("Enter local X25 address[%s]: ", dest_addr->x25_addr);
+//				struct x25_address addr;
+//				fgets(addr.x25_addr, 16, stdin);
+//				int len = strlen(addr.x25_addr);
+//				if (len == 1)
+//					sprintf(addr.x25_addr, dest_addr->x25_addr);
+//				else
+//					addr.x25_addr[len - 1] = 0;
+				/* Lock resources */
+				main_lock();
+				res = x25_pvc_setup(x25);
 				/* Unlock resources */
 				main_unlock();
 				if (res != X25_OK) {
@@ -559,6 +580,39 @@ void x25_state_3(struct x25_cs *x25) {
 	};
 }
 
+void x25_state_4(struct x25_cs *x25) {
+	int while_flag;
+	int wait_stdin_result;
+	char buffer[256];
+
+	while_flag = TRUE;
+	while (while_flag) {
+		print_commands_4(x25);
+		wait_stdin_result = wait_stdin(x25, X25_STATE_4, FALSE);
+		if (wait_stdin_result <= 0) {
+			printf("\n\n");
+			break;
+		};
+		bzero(buffer, sizeof(buffer));
+		while (read(0, buffer, sizeof(buffer)) <= 1)
+			fprintf(stderr, ">");
+		printf("\n");
+		int action = atoi(buffer);
+		switch (action) {
+			case 1:  /* Cancel */
+				while_flag = FALSE;
+				break;
+			case 0:
+				exit_flag = TRUE;
+				while_flag = FALSE;
+				break;
+			default:
+				printf("Command is not supported\n\n");
+				break;
+		};
+	};
+}
+
 
 void main_loop(struct x25_cs * x25, struct x25_address *dest_addr) {
 	error_type = 0; /* No errors */
@@ -576,6 +630,9 @@ void main_loop(struct x25_cs * x25, struct x25_address *dest_addr) {
 				break;
 			case X25_STATE_3:
 				x25_state_3(x25);
+				break;
+			case X25_STATE_4:
+				x25_state_4(x25);
 				break;
 			default:
 				sleep_ms(1000);

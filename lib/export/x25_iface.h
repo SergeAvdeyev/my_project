@@ -260,7 +260,7 @@ int x25_get_state(struct x25_cs *x25);
 
 int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
 int x25_clear_request(struct x25_cs * x25);
-int x25_call_request(struct x25_cs * x25, struct x25_address *dest_addr);
+int x25_pvc_setup(struct x25_cs * x25);
 int x25_sendmsg(struct x25_cs * x25, char * data, int data_size, _uchar out_of_band, _uchar q_bit_flag);
 
 
@@ -289,6 +289,6 @@ void x25_check_iframes_acked(struct x25_cs *x25, _ushort nr);
  *	2 = Packets I/O and State Changes
  *	3 = Hex dumps, Packets I/O and State Changes.
  */
-#define	X25_DEBUG	1
+#define	X25_DEBUG	3
 
 #endif
