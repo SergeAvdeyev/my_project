@@ -2,3 +2,4 @@ build
 Отладка
 Debug
 /CMakeLists.txt.user
+/debug/
